@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>VisaDriver - instro</title><link rel="shortcut icon" href="../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" />
+      <link rel="canonical" href="https://instro.nominal.io/library/transports/visa/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/library/transports/visa/"/>
+  <meta property="og:title" content="VisaDriver"/>
+    <meta name="description" content="VISA transport driver for building custom SCPI instrument drivers"/>
+    <meta property="og:description" content="VISA transport driver for building custom SCPI instrument drivers"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../">
+      <img class="light-logo" src="../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../instruments/">Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../scope/">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview/">Transports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../config-files/">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#quickstart">Quickstart</a></li>
+<li><a class="reference internal" href="#key-concepts">Key concepts</a><ul>
+<li><a class="reference internal" href="#lifecycle">Lifecycle</a></li>
+<li><a class="reference internal" href="#terminators">Terminators</a></li>
+<li><a class="reference internal" href="#timeouts">Timeouts</a></li>
+<li><a class="reference internal" href="#serial-settings">Serial settings</a></li>
+<li><a class="reference internal" href="#text-vs-raw-i-o">Text vs. raw I/O</a></li>
+<li><a class="reference internal" href="#backends">Backends</a></li>
+<li><a class="reference internal" href="#raw-tcp-sockets-and-nagle-s-algorithm">Raw TCP sockets and Nagle&#8217;s algorithm</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#configuration">Configuration</a><ul>
+<li><a class="reference internal" href="#visaconfig"><code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code></a></li>
+<li><a class="reference internal" href="#terminatorconfig"><code class="docutils literal notranslate"><span class="pre">TerminatorConfig</span></code></a></li>
+<li><a class="reference internal" href="#timeoutconfig"><code class="docutils literal notranslate"><span class="pre">TimeoutConfig</span></code></a></li>
+<li><a class="reference internal" href="#serialconfig"><code class="docutils literal notranslate"><span class="pre">SerialConfig</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#visa-resource-strings">VISA resource strings</a></li>
+<li><a class="reference internal" href="#method-reference">Method reference</a></li>
+<li><a class="reference internal" href="#error-handling">Error handling</a></li>
+</ul>
+</div><div class="edit-this-page">
+  <a href="https://github.com/nominal-io/instro/edit/main/docs/library/transports/visa.md">Edit this page</a>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">VisaDriver</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/transports/visa.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/transports/visa.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/transports/visa.md" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/transports/visa.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/transports/visa.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="visadriver">
+<h1>VisaDriver<a class="headerlink" href="#visadriver" title="Link to this heading">#</a></h1>
+<p class="lead">VISA transport driver for building custom SCPI instrument drivers</p>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> is the VISA transport that Nominal’s built-in SCPI instrument drivers sit on top of. It is available as a public part of the library so customers can build their own drivers for VISA-attached instruments without having to wrap <a class="reference external" href="https://pyvisa.readthedocs.io/" rel="noreferer noopener" target="_blank">pyvisa</a> themselves.</p>
+<p>It is intentionally narrow: it opens, closes, and locks a VISA resource and exposes text and raw byte I/O. The caller chooses the command strings.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><a class="reference external" href="https://www.ivifoundation.org/specifications/" rel="noreferer noopener" target="_blank">VISA (Virtual Instrument Software Architecture)</a> is the IVI Foundation standard for talking to instruments over GPIB, USB-TMC, TCP/IP (SOCKET, VXI-11, HiSLIP), and RS-232/RS-485. <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> uses pyvisa under the hood.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> addresses GPIB, USB-TMC, TCPIP (SOCKET, VXI-11, HiSLIP), and ASRL (serial) resources. For a comparison against the other transports, see <a class="reference internal" href="../overview/"><span class="std std-doc">Transports</span></a>.</p>
+<p>To author an instrument driver that composes <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code>, see the driver-development section for that category on <a class="reference internal" href="../../custom-instruments/"><span class="std std-doc">Custom Instruments</span></a>: <a class="reference internal" href="../../custom-instruments/#power-supply-psu"><span class="std std-ref">power supplies</span></a>, <a class="reference internal" href="../../custom-instruments/#electronic-load-eload"><span class="std std-ref">electronic loads</span></a>, <a class="reference internal" href="../../custom-instruments/#digital-multimeter-dmm"><span class="std std-ref">multimeters</span></a>, <a class="reference internal" href="../../custom-instruments/#arbitrary-waveform-generator-awg"><span class="std std-ref">waveform generators</span></a>, or <a class="reference internal" href="../../custom-instruments/#data-acquisition-daq"><span class="std std-ref">DAQ</span></a>. This page is the transport reference those sections link back to.</p>
+<section id="quickstart">
+<h2>Quickstart<a class="headerlink" href="#quickstart" title="Link to this heading">#</a></h2>
+<p>The most common use of <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> is as a transport inside an instrument driver. Here it is on its own, talking to a VISA instrument directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.transports</span><span class="w"> </span><span class="kn">import</span> <span class="n">VisaDriver</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">visa</span> <span class="o">=</span> <span class="n">VisaDriver</span><span class="p">(</span><span class="s2">&quot;USB0::0x2A8D::0x0101::MY12345::INSTR&quot;</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">visa</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+</span><span data-line="5"><span class="k">try</span><span class="p">:</span>
+</span><span data-line="6">    <span class="n">identity</span> <span class="o">=</span> <span class="n">visa</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="s2">&quot;*IDN?&quot;</span><span class="p">)</span>
+</span><span data-line="7">    <span class="nb">print</span><span class="p">(</span><span class="n">identity</span><span class="p">)</span>
+</span><span data-line="8"><span class="k">finally</span><span class="p">:</span>
+</span><span data-line="9">    <span class="n">visa</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p>A <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> is configured with either a plain VISA resource string (defaults applied) or a full <a class="reference internal" href="#visaconfig"><code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code></a> when you need to override the backend, terminators, timeouts, or serial settings.</p>
+</section>
+<section id="key-concepts">
+<h2>Key concepts<a class="headerlink" href="#key-concepts" title="Link to this heading">#</a></h2>
+<section id="lifecycle">
+<h3>Lifecycle<a class="headerlink" href="#lifecycle" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> follows the <a class="reference internal" href="../overview/#lifecycle"><span class="std std-ref">standard transport lifecycle</span></a>: construct, <code class="docutils literal notranslate"><span class="pre">open()</span></code>, I/O, <code class="docutils literal notranslate"><span class="pre">close()</span></code>, with both <code class="docutils literal notranslate"><span class="pre">open()</span></code> and <code class="docutils literal notranslate"><span class="pre">close()</span></code> idempotent. Two behaviors are specific to VISA:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">open()</span></code> applies the resource configuration.</strong> It opens the pyvisa <code class="docutils literal notranslate"><span class="pre">ResourceManager</span></code> and the resource, then applies terminators, timeouts, and (for ASRL resources) serial settings.</p></li>
+<li><p><strong>The <code class="docutils literal notranslate"><span class="pre">ResourceManager</span></code> is shared process-wide.</strong> pyvisa caches one per backend across every driver in the process, so <code class="docutils literal notranslate"><span class="pre">close()</span></code> closes this driver’s resource and leaves the manager open for other drivers. pyvisa closes it through its own <code class="docutils literal notranslate"><span class="pre">atexit</span></code> handler.</p></li>
+</ul>
+<p><a class="reference internal" href="../overview/#atomic-multi-step-sequences"><span class="std std-ref">Locking</span></a> and <a class="reference internal" href="../overview/#shared-ownership"><span class="std std-ref">shared ownership</span></a> work the same for <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> as for any transport.</p>
+</section>
+<section id="terminators">
+<h3>Terminators<a class="headerlink" href="#terminators" title="Link to this heading">#</a></h3>
+<p>VISA instruments are line-terminated. <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> applies a configurable read terminator (stripped from incoming text) and write terminator (appended to outgoing text) when the resource is opened.</p>
+<p>The defaults are <code class="docutils literal notranslate"><span class="pre">read=&quot;\n&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">write=&quot;\r\n&quot;</span></code>, which works for most SCPI instruments. Override them through <a class="reference internal" href="#terminatorconfig"><code class="docutils literal notranslate"><span class="pre">TerminatorConfig</span></code></a> when an instrument’s programming manual specifies otherwise, as with USB-TMC devices that use <code class="docutils literal notranslate"><span class="pre">&quot;\n&quot;</span></code> for both directions, or older instruments that expect bare <code class="docutils literal notranslate"><span class="pre">&quot;\r&quot;</span></code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>If your first <code class="docutils literal notranslate"><span class="pre">query</span></code> to a new instrument hangs until the timeout fires, the most likely cause is a terminator mismatch. Check the device’s programming manual for the expected read/write terminators and pass them through <code class="docutils literal notranslate"><span class="pre">VisaConfig(terminator=TerminatorConfig(read=...,</span> <span class="pre">write=...))</span></code>.</p>
+</div>
+</section>
+<section id="timeouts">
+<h3>Timeouts<a class="headerlink" href="#timeouts" title="Link to this heading">#</a></h3>
+<p>The <code class="docutils literal notranslate"><span class="pre">recv</span></code> timeout in <a class="reference internal" href="#timeoutconfig"><code class="docutils literal notranslate"><span class="pre">TimeoutConfig</span></code></a> is specified in seconds and is forwarded to pyvisa as the session timeout (converted to milliseconds internally). It controls how long a <code class="docutils literal notranslate"><span class="pre">read</span></code> or <code class="docutils literal notranslate"><span class="pre">query</span></code> waits for the instrument to respond before raising. The default is 15 seconds.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">connect</span></code> and <code class="docutils literal notranslate"><span class="pre">send</span></code> fields are accepted by <code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code> for forward compatibility but are not yet wired into per-operation overrides. Leave them at the defaults unless you have a reason to set them.</p>
+</section>
+<section id="serial-settings">
+<h3>Serial settings<a class="headerlink" href="#serial-settings" title="Link to this heading">#</a></h3>
+<p>When the VISA resource is an ASRL (RS-232 / RS-485) interface, <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> applies <a class="reference internal" href="#serialconfig"><code class="docutils literal notranslate"><span class="pre">SerialConfig</span></code></a> (baud rate, data bits, stop bits, parity, and flow control) on <code class="docutils literal notranslate"><span class="pre">open()</span></code>. For any other interface type (USB-TMC, GPIB, TCPIP, …) the serial config is silently ignored, so you can leave it at the defaults.</p>
+</section>
+<section id="text-vs-raw-i-o">
+<h3>Text vs. raw I/O<a class="headerlink" href="#text-vs-raw-i-o" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> exposes both a text path and a raw byte path:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Path</p></th>
+<th class="head"><p>Methods</p></th>
+<th class="head"><p>Behavior</p></th>
+<th class="head"><p>Use for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Text</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">write</span></code>, <code class="docutils literal notranslate"><span class="pre">read</span></code>, <code class="docutils literal notranslate"><span class="pre">query</span></code></p></td>
+<td><p>pyvisa applies write/read terminators and decodes responses as strings</p></td>
+<td><p>SCPI commands and queries</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Raw bytes</strong></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">write_raw</span></code>, <code class="docutils literal notranslate"><span class="pre">read_raw</span></code>, <code class="docutils literal notranslate"><span class="pre">query_raw</span></code></p></td>
+<td><p>Bytes pass through unchanged on write; reads return <code class="docutils literal notranslate"><span class="pre">bytes</span></code> and are not terminator-stripped</p></td>
+<td><p>Binary payloads, like waveform downloads from oscilloscopes, image transfers, and vendor-specific binary blobs</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">query_raw</span></code> is a convenience: it writes a text command (so the write terminator is still applied) and then reads the response as raw bytes. This matches the common SCPI pattern of asking for binary data with a text command like <code class="docutils literal notranslate"><span class="pre">:WAV:DATA?</span></code>.</p>
+</section>
+<section id="backends">
+<h3>Backends<a class="headerlink" href="#backends" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">VisaConfig.visa_backend</span></code> selects which pyvisa backend handles the resource. Most callers should leave it unset. When unset (<code class="docutils literal notranslate"><span class="pre">None</span></code>), <code class="docutils literal notranslate"><span class="pre">instro</span></code> uses the system IVI VISA implementation (<code class="docutils literal notranslate"><span class="pre">&quot;&#64;ivi&quot;</span></code>, e.g. NI-VISA or Keysight IO Libraries) and automatically falls back to the pure-Python <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code> backend when no IVI implementation is installed. Setting <code class="docutils literal notranslate"><span class="pre">visa_backend</span></code> to any explicit value (such as <code class="docutils literal notranslate"><span class="pre">&quot;&#64;ivi&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code>, or <code class="docutils literal notranslate"><span class="pre">&quot;&#64;sim&quot;</span></code>) uses that backend as-is, with no fallback.</p>
+</section>
+<section id="raw-tcp-sockets-and-nagle-s-algorithm">
+<h3>Raw TCP sockets and Nagle’s algorithm<a class="headerlink" href="#raw-tcp-sockets-and-nagle-s-algorithm" title="Link to this heading">#</a></h3>
+<p>For raw <code class="docutils literal notranslate"><span class="pre">TCPIP...::SOCKET</span></code> resources, <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> disables Nagle’s algorithm (<code class="docutils literal notranslate"><span class="pre">TCP_NODELAY</span></code>) on <code class="docutils literal notranslate"><span class="pre">open()</span></code>. IVI backends already do this by default, but the pure-Python <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code> backend does not, so on <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code> it would otherwise leave Nagle enabled. With Nagle on, several small back-to-back SCPI writes can be coalesced into one TCP segment, and some instruments’ lightweight LAN firmware resets the connection when that happens. Disabling it makes the <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code> SOCKET path behave like IVI. Set <code class="docutils literal notranslate"><span class="pre">VisaConfig(tcp_nodelay=False)</span></code> to opt out; it has no effect on non-socket transports.</p>
+</section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<p>For terminators, timeouts, or serial settings, pass a <code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code> instead of a plain resource string:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.transports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">ControlFlow</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">Parity</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">SerialConfig</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">StopBits</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">TerminatorConfig</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">TimeoutConfig</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">VisaConfig</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">VisaDriver</span><span class="p">,</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">config</span> <span class="o">=</span> <span class="n">VisaConfig</span><span class="p">(</span>
+</span><span data-line="13">    <span class="n">visa_resource</span><span class="o">=</span><span class="s2">&quot;ASRL/dev/ttyUSB0::INSTR&quot;</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">serial_config</span><span class="o">=</span><span class="n">SerialConfig</span><span class="p">(</span>
+</span><span data-line="15">        <span class="n">baud_rate</span><span class="o">=</span><span class="mi">19200</span><span class="p">,</span>
+</span><span data-line="16">        <span class="n">data_bits</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+</span><span data-line="17">        <span class="n">stop_bits</span><span class="o">=</span><span class="n">StopBits</span><span class="o">.</span><span class="n">ONE</span><span class="p">,</span>
+</span><span data-line="18">        <span class="n">parity</span><span class="o">=</span><span class="n">Parity</span><span class="o">.</span><span class="n">NONE</span><span class="p">,</span>
+</span><span data-line="19">        <span class="n">flow_control</span><span class="o">=</span><span class="n">ControlFlow</span><span class="o">.</span><span class="n">NONE</span><span class="p">,</span>
+</span><span data-line="20">    <span class="p">),</span>
+</span><span data-line="21">    <span class="n">terminator</span><span class="o">=</span><span class="n">TerminatorConfig</span><span class="p">(</span><span class="n">read</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">write</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\r</span><span class="s2">&quot;</span><span class="p">),</span>
+</span><span data-line="22">    <span class="n">timeout</span><span class="o">=</span><span class="n">TimeoutConfig</span><span class="p">(</span><span class="n">recv</span><span class="o">=</span><span class="mi">30</span><span class="p">),</span>
+</span><span data-line="23"><span class="p">)</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="n">visa</span> <span class="o">=</span> <span class="n">VisaDriver</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<section id="visaconfig">
+<h3><code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code><a class="headerlink" href="#visaconfig" title="Link to this heading">#</a></h3>
+<p>Top-level connection parameters.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">visa_resource</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p></p></td>
+<td><p>VISA resource string, e.g. <code class="docutils literal notranslate"><span class="pre">TCPIP0::host::5025::SOCKET</span></code> or <code class="docutils literal notranslate"><span class="pre">USB0::0x2A8D::0x0101::MY12345::INSTR</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">visa_backend</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>pyvisa backend specifier; unset uses <code class="docutils literal notranslate"><span class="pre">&quot;&#64;ivi&quot;</span></code> and falls back to <code class="docutils literal notranslate"><span class="pre">&quot;&#64;py&quot;</span></code> when no IVI implementation is installed. An explicit value is used as-is, with no fallback</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">serial_config</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SerialConfig()</span></code></p></td>
+<td><p>Serial settings, applied only when the resource is an ASRL interface</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">terminator</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TerminatorConfig()</span></code></p></td>
+<td><p>Read and write terminators</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">timeout</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TimeoutConfig()</span></code></p></td>
+<td><p>Operation timeouts</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">tcp_nodelay</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Disable Nagle’s algorithm on raw TCP SOCKET connections. No effect on non-socket transports</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="terminatorconfig">
+<h3><code class="docutils literal notranslate"><span class="pre">TerminatorConfig</span></code><a class="headerlink" href="#terminatorconfig" title="Link to this heading">#</a></h3>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;\n&quot;</span></code></p></td>
+<td><p>Terminator stripped from incoming text reads</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">write</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;\r\n&quot;</span></code></p></td>
+<td><p>Terminator appended to outgoing text writes</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="timeoutconfig">
+<h3><code class="docutils literal notranslate"><span class="pre">TimeoutConfig</span></code><a class="headerlink" href="#timeoutconfig" title="Link to this heading">#</a></h3>
+<p>Operation timeouts in seconds.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">recv</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15</span></code></p></td>
+<td><p>Applied as the pyvisa session timeout. Controls how long <code class="docutils literal notranslate"><span class="pre">read</span></code>/<code class="docutils literal notranslate"><span class="pre">query</span></code> wait for a response</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">connect</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">30</span></code></p></td>
+<td><p>Reserved for future per-operation overrides, currently not applied</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">send</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15</span></code></p></td>
+<td><p>Reserved for future per-operation overrides, currently not applied</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="serialconfig">
+<h3><code class="docutils literal notranslate"><span class="pre">SerialConfig</span></code><a class="headerlink" href="#serialconfig" title="Link to this heading">#</a></h3>
+<p>Serial-line settings, applied when the VISA resource is an ASRL (RS-232/RS-485) interface. Ignored for all other interface types.</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Required</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">baud_rate</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">9600</span></code></p></td>
+<td><p>Serial baud rate</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">data_bits</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">8</span></code></p></td>
+<td><p>Data bits (5 to 8)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">stop_bits</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">StopBits.ONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">StopBits.ONE</span></code>, <code class="docutils literal notranslate"><span class="pre">StopBits.ONE_POINT_FIVE</span></code>, or <code class="docutils literal notranslate"><span class="pre">StopBits.TWO</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">parity</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Parity.NONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Parity.NONE</span></code>, <code class="docutils literal notranslate"><span class="pre">Parity.ODD</span></code>, <code class="docutils literal notranslate"><span class="pre">Parity.EVEN</span></code>, <code class="docutils literal notranslate"><span class="pre">Parity.MARK</span></code>, or <code class="docutils literal notranslate"><span class="pre">Parity.SPACE</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">flow_control</span></code></p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ControlFlow.NONE</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ControlFlow.NONE</span></code>, <code class="docutils literal notranslate"><span class="pre">ControlFlow.XON_XOFF</span></code>, <code class="docutils literal notranslate"><span class="pre">ControlFlow.RTS_CTS</span></code>, or <code class="docutils literal notranslate"><span class="pre">ControlFlow.DTR_DSR</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</section>
+<section id="visa-resource-strings">
+<h2>VISA resource strings<a class="headerlink" href="#visa-resource-strings" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> does not invent its own addressing scheme. The <code class="docutils literal notranslate"><span class="pre">visa_resource</span></code> string is passed straight through to pyvisa’s <code class="docutils literal notranslate"><span class="pre">ResourceManager.open_resource()</span></code>. Some commonly used forms:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Interface</p></th>
+<th class="head"><p>Example resource string</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>USB-TMC</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">USB0::0x2A8D::0x0101::MY12345::INSTR</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>GPIB</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">GPIB0::5::INSTR</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>TCP/IP (VXI-11)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TCPIP0::192.168.1.50::inst0::INSTR</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>TCP/IP (HiSLIP)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TCPIP0::192.168.1.50::hislip0::INSTR</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>TCP/IP (raw SOCKET)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">TCPIP0::192.168.1.50::5025::SOCKET</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>Serial (Windows)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ASRL3::INSTR</span></code> (COM3)</p></td>
+</tr>
+<tr class="row-even"><td><p>Serial (Linux/macOS)</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ASRL/dev/ttyUSB0::INSTR</span></code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>To discover what’s attached, you can use pyvisa’s resource manager directly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">pyvisa</span>
+</span><span data-line="2"><span class="n">rm</span> <span class="o">=</span> <span class="n">pyvisa</span><span class="o">.</span><span class="n">ResourceManager</span><span class="p">()</span>
+</span><span data-line="3"><span class="nb">print</span><span class="p">(</span><span class="n">rm</span><span class="o">.</span><span class="n">list_resources</span><span class="p">())</span>
+</span></pre></div>
+</div>
+</div>
+</section>
+<section id="method-reference">
+<h2>Method reference<a class="headerlink" href="#method-reference" title="Link to this heading">#</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">VisaDriver(visa_resource)</span></code></p></td>
+<td><p>Construct a driver from a VISA resource string or a <code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code>. No I/O yet.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">is_open</span></code></p></td>
+<td><p>Property: <code class="docutils literal notranslate"><span class="pre">True</span></code> if the underlying VISA resource is open.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">open(holder=None)</span></code></p></td>
+<td><p>Open the resource manager and resource; apply terminator/timeout/serial config. Idempotent. Pass a holder to register shared ownership: returns <code class="docutils literal notranslate"><span class="pre">True</span></code> if <code class="docutils literal notranslate"><span class="pre">holder</span></code> is the first owner. See <a class="reference internal" href="../overview/#shared-ownership"><span class="std std-ref">Shared ownership</span></a>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">close(holder=None)</span></code></p></td>
+<td><p>Close the resource and resource manager. Idempotent. Bare <code class="docutils literal notranslate"><span class="pre">close()</span></code> declines and logs a warning if another driver still holds the connection. With a holder, removes that owner; the close that empties the owner list tears the connection down. Raises <code class="docutils literal notranslate"><span class="pre">UnknownHolderError</span></code> if an unrecognized holder closes while others still own the connection. See <a class="reference internal" href="../overview/#shared-ownership"><span class="std std-ref">Shared ownership</span></a>.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">write(command)</span></code></p></td>
+<td><p>Write a text command; the configured write terminator is appended.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">read()</span></code></p></td>
+<td><p>Read a single response string up to (and stripping) the read terminator.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">query(command)</span></code></p></td>
+<td><p>Write a command and read the response as text.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">write_raw(data)</span></code></p></td>
+<td><p>Write raw bytes exactly as provided.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">read_raw()</span></code></p></td>
+<td><p>Read raw bytes from the instrument; no terminator stripping.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">query_raw(command)</span></code></p></td>
+<td><p>Write a text command, then read the response as raw bytes.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">lock()</span></code></p></td>
+<td><p>Return the reentrant resource lock for use as a context manager when multiple operations must execute atomically.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="error-handling">
+<h2>Error handling<a class="headerlink" href="#error-handling" title="Link to this heading">#</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Error</p></th>
+<th class="head"><p>Cause</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">RuntimeError:</span> <span class="pre">VisaDriver</span> <span class="pre">is</span> <span class="pre">not</span> <span class="pre">open.</span> <span class="pre">Call</span> <span class="pre">open()</span> <span class="pre">first.</span></code></p></td>
+<td><p>A <code class="docutils literal notranslate"><span class="pre">write</span></code>/<code class="docutils literal notranslate"><span class="pre">read</span></code>/<code class="docutils literal notranslate"><span class="pre">query</span></code>/<code class="docutils literal notranslate"><span class="pre">*_raw</span></code> call was made before <code class="docutils literal notranslate"><span class="pre">open()</span></code>, or after <code class="docutils literal notranslate"><span class="pre">close()</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">pyvisa.errors.VisaIOError</span></code></p></td>
+<td><p>The underlying VISA call failed: timeout, resource not found, bus error, instrument disconnected, etc. The <code class="docutils literal notranslate"><span class="pre">error_code</span></code> attribute identifies the cause (e.g. <code class="docutils literal notranslate"><span class="pre">VI_ERROR_TMO</span></code> for timeout).</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pyvisa.errors.LibraryError</span></code></p></td>
+<td><p>The selected VISA backend could not be loaded. Because <code class="docutils literal notranslate"><span class="pre">instro</span></code> installs the default backend, this most often means an explicitly selected alternate backend is unavailable. Use the default backend or install the required vendor runtime.</p></td>
+</tr>
+<tr class="row-odd"><td><p>Opening a <code class="docutils literal notranslate"><span class="pre">GPIB...::INSTR</span></code> resource fails</p></td>
+<td><p>The native GPIB driver is missing. <code class="docutils literal notranslate"><span class="pre">instro</span></code> ships the <code class="docutils literal notranslate"><span class="pre">gpib-ctypes</span></code> binding, but GPIB hardware also needs NI-488.2 (NI interfaces) or linux-gpib (Linux). Install the driver your interface requires.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p><code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> deliberately does not retry, reconnect, or wrap pyvisa errors. Higher-level recovery (retry policies, reconnection on transient failures, escalation to operators) belongs in the instrument driver or application code on top.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong><code class="docutils literal notranslate"><span class="pre">SYST:ERR?</span></code> is a SCPI convention, not a <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> feature.</strong> <code class="docutils literal notranslate"><span class="pre">VisaDriver</span></code> does not poll the instrument’s error queue for you. Whether and how to do so is a per-instrument decision. Most SCPI instruments implement <code class="docutils literal notranslate"><span class="pre">SYST:ERR?</span></code> and respond with <code class="docutils literal notranslate"><span class="pre">0,&quot;No</span> <span class="pre">error&quot;</span></code> when nothing is wrong, but some use <code class="docutils literal notranslate"><span class="pre">SYSTEM:ERROR?</span></code> (TDK Lambda) or a different status mechanism entirely. Consult the programming manual.</p>
+</div>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>DAQ (Data Acquisition) - instro</title><link rel="shortcut icon" href="../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" /><link rel="next" title="InstroDAQ" href="../instro.daq.InstroDAQ/" /><link rel="prev" title="Overview" href="../" />
+      <link rel="canonical" href="https://instro.nominal.io/sdk/instruments/daq/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/sdk/instruments/daq/"/>
+  <meta property="og:title" content="DAQ (Data Acquisition)"/>
+    <meta name="description" content="DAQVendor ChannelType Logic Direction TerminalConfig CJCSource HWTimingConfig DAQChannel AnalogChannel AnalogVoltageChannel AnalogCurrentChannel…"/>
+    <meta property="og:description" content="DAQVendor ChannelType Logic Direction TerminalConfig CJCSource HWTimingConfig DAQChannel AnalogChannel AnalogVoltageChannel AnalogCurrentChannel…"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../">
+      <img class="light-logo" src="../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../"><span>Guides</span></a></li><li class="link"><a href="../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../" class="current" aria-current="page"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">SDK</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../">Overview</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../">Overview</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">DAQ (Data Acquisition)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dmm/">DMM (Digital Multimeter)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psu/">PSU (Power Supply Unit)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../eload/">Electronic Load</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scope/">Scope (Oscilloscope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../i2c/">I2C</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../library/instrument/">Instrument</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/types/">Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/config/">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/registry/">Registry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/exceptions/">Exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/discover/">Discover</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/transports/">Transports</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Protocols</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/modbus/">Modbus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/ethernetip/">EtherNet/IP</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Changelog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog/">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#instrument-and-abstract-driver">Instrument and Abstract Driver</a></li>
+<li><a class="reference internal" href="#vendor-drivers">Vendor Drivers</a><ul class="simple">
+</ul>
+</li>
+<li><a class="reference internal" href="#types-configuration">Types &amp; Configuration</a></li>
+<li><a class="reference internal" href="#scaling">Scaling</a><ul>
+<li><a class="reference internal" href="#thermocouple-scaling">Thermocouple Scaling</a></li>
+</ul>
+</li>
+</ul>
+</div><div class="edit-this-page">
+  <a href="https://github.com/nominal-io/instro/edit/main/docs/sdk/instruments/daq.md">Edit this page</a>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">DAQ (Data Acquisition)</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/instruments/daq.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/instruments/daq.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/instruments/daq.md" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/instruments/daq.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/instruments/daq.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="daq-data-acquisition">
+<h1>DAQ (Data Acquisition)<a class="headerlink" href="#daq-data-acquisition" title="Link to this heading">#</a></h1>
+<p>Data acquisition systems.</p>
+<section id="instrument-and-abstract-driver">
+<h2>Instrument and Abstract Driver<a class="headerlink" href="#instrument-and-abstract-driver" title="Link to this heading">#</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.InstroDAQ/#instro.daq.InstroDAQ" title="instro.daq.InstroDAQ"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstroDAQ</span></code></a></p></td>
+<td><p>Initialize an InstroDAQ.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.DAQDriverBase/#instro.daq.DAQDriverBase" title="instro.daq.DAQDriverBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DAQDriverBase</span></code></a></p></td>
+<td><p>Vendor DAQ driver contract.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.drivers.HWTimestamper/#instro.daq.drivers.HWTimestamper" title="instro.daq.drivers.HWTimestamper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HWTimestamper</span></code></a></p></td>
+<td><p>Contiguous nanosecond timestamps for hardware-timed DAQ batches.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="vendor-drivers">
+<h2>Vendor Drivers<a class="headerlink" href="#vendor-drivers" title="Link to this heading">#</a></h2>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Vendor</p></th>
+<th class="head"><p>Model</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Keysight</p></td>
+<td><p><a class="reference internal" href="../instro.daq.drivers.keysight_34980a.Keysight34980A/#instro.daq.drivers.keysight_34980a.Keysight34980A" title="instro.daq.drivers.keysight_34980a.Keysight34980A"><code class="xref py py-class docutils literal notranslate"><span class="pre">34980A</span></code></a></p></td>
+<td><p>Keysight 34980A Multifunction Switch/Measure Unit.</p></td>
+</tr>
+<tr class="row-odd"><td><p>National Instruments</p></td>
+<td><p><a class="reference internal" href="../instro.daq.drivers.ni.nidaq.NIDAQDriver/#instro.daq.drivers.ni.nidaq.NIDAQDriver" title="instro.daq.drivers.ni.nidaq.NIDAQDriver"><code class="xref py py-class docutils literal notranslate"><span class="pre">NI-DAQmx</span></code></a></p></td>
+<td><p>NI-DAQmx DAQ driver.</p></td>
+</tr>
+<tr class="row-even"><td><p>LabJack</p></td>
+<td><p><a class="reference internal" href="../instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver/#instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver" title="instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver"><code class="xref py py-class docutils literal notranslate"><span class="pre">T-series</span></code></a></p></td>
+<td><p>LabJack T-series DAQ driver (T4/T7/T8 via the LJM library).</p></td>
+</tr>
+<tr class="row-odd"><td><p>Measurement Computing</p></td>
+<td><p><a class="reference internal" href="../instro.daq.drivers.mcc.mccdaq.MCCDriver/#instro.daq.drivers.mcc.mccdaq.MCCDriver" title="instro.daq.drivers.mcc.mccdaq.MCCDriver"><code class="xref py py-class docutils literal notranslate"><span class="pre">USB-series</span></code></a></p></td>
+<td><p>MCC (Universal Library / mcculw) DAQ driver.</p></td>
+</tr>
+<tr class="row-even"><td><p>Dewesoft</p></td>
+<td><p><a class="reference internal" href="../instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX" title="instro.unstable.daq.drivers.dewesoftx.DewesoftX"><code class="xref py py-class docutils literal notranslate"><span class="pre">DewesoftX</span> <span class="pre">(unstable)</span></code></a></p></td>
+<td><p>Streams live sync and async channels from a running DewesoftX instance over DCOM.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- The vendor table is laid out by hand for its Vendor/Model columns; its
+descriptions still come from the docstrings via {pysummary}. autosummary needs to
+see these classes to generate their pages, and it scans source text, so a
+never-built `only` block is enough. Sphinx collects toctrees inside `only`
+regardless, so the pages still appear in the sidebar. -->
+</section>
+<section id="types-configuration">
+<h2>Types &amp; Configuration<a class="headerlink" href="#types-configuration" title="Link to this heading">#</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.DAQVendor/#instro.daq.types.DAQVendor" title="instro.daq.types.DAQVendor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DAQVendor</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.ChannelType/#instro.daq.types.ChannelType" title="instro.daq.types.ChannelType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ChannelType</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.Logic/#instro.daq.types.Logic" title="instro.daq.types.Logic"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Logic</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.Direction/#instro.daq.types.Direction" title="instro.daq.types.Direction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Direction</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.TerminalConfig/#instro.daq.types.TerminalConfig" title="instro.daq.types.TerminalConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TerminalConfig</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.CJCSource/#instro.daq.types.CJCSource" title="instro.daq.types.CJCSource"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CJCSource</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">HWTimingConfig</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.DAQChannel/#instro.daq.types.DAQChannel" title="instro.daq.types.DAQChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DAQChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnalogChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnalogVoltageChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnalogCurrentChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.AnalogThermocoupleChannel/#instro.daq.types.AnalogThermocoupleChannel" title="instro.daq.types.AnalogThermocoupleChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnalogThermocoupleChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.DigitalPortWidth/#instro.daq.types.DigitalPortWidth" title="instro.daq.types.DigitalPortWidth"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DigitalPortWidth</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DigitalChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.DigitalPortChannel/#instro.daq.types.DigitalPortChannel" title="instro.daq.types.DigitalPortChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DigitalPortChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.types.DigitalLineChannel/#instro.daq.types.DigitalLineChannel" title="instro.daq.types.DigitalLineChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DigitalLineChannel</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.types.RelayChannel/#instro.daq.types.RelayChannel" title="instro.daq.types.RelayChannel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RelayChannel</span></code></a></p></td>
+<td><p>A relay channel routed via open/close.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="scaling">
+<h2>Scaling<a class="headerlink" href="#scaling" title="Link to this heading">#</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.scaling.Scaler/#instro.daq.scaling.Scaler" title="instro.daq.scaling.Scaler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Scaler</span></code></a></p></td>
+<td><p>Convert a raw DAQ reading to a physical value and report the resulting units.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.scaling.LinearScaler/#instro.daq.scaling.LinearScaler" title="instro.daq.scaling.LinearScaler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LinearScaler</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">output</span> <span class="pre">=</span> <span class="pre">raw</span> <span class="pre">*</span> <span class="pre">gain</span> <span class="pre">+</span> <span class="pre">offset</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.scaling.ReverseLinearScaler/#instro.daq.scaling.ReverseLinearScaler" title="instro.daq.scaling.ReverseLinearScaler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ReverseLinearScaler</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">output</span> <span class="pre">=</span> <span class="pre">(raw</span> <span class="pre">-</span> <span class="pre">offset)</span> <span class="pre">/</span> <span class="pre">gain</span></code> — inverse of <code class="docutils literal notranslate"><span class="pre">LinearScaler</span></code>, e.g. to back out a measurement amplifier.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.scaling.ScalerPipeline/#instro.daq.scaling.ScalerPipeline" title="instro.daq.scaling.ScalerPipeline"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ScalerPipeline</span></code></a></p></td>
+<td><p>Apply scaler stages sequentially (e.g. voltage divider → thermocouple).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<section id="thermocouple-scaling">
+<h3>Thermocouple Scaling<a class="headerlink" href="#thermocouple-scaling" title="Link to this heading">#</a></h3>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.ThermocoupleSensor/#instro.daq.scaling.thermocouple.ThermocoupleSensor" title="instro.daq.scaling.thermocouple.ThermocoupleSensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ThermocoupleSensor</span></code></a></p></td>
+<td><p>Thermocouple voltage → °C with cold-junction compensation.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.InverseThermocoupleSensor/#instro.daq.scaling.thermocouple.InverseThermocoupleSensor" title="instro.daq.scaling.thermocouple.InverseThermocoupleSensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InverseThermocoupleSensor</span></code></a></p></td>
+<td><p>Temperature (°C) → voltage with cold-junction compensation — inverse of <code class="docutils literal notranslate"><span class="pre">ThermocoupleSensor</span></code>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.TC_TYPE/#instro.daq.scaling.thermocouple.TC_TYPE" title="instro.daq.scaling.thermocouple.TC_TYPE"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TC_TYPE</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.TC_UNIT/#instro.daq.scaling.thermocouple.TC_UNIT" title="instro.daq.scaling.thermocouple.TC_UNIT"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TC_UNIT</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.kelvin_to_unit/#instro.daq.scaling.thermocouple.kelvin_to_unit" title="instro.daq.scaling.thermocouple.kelvin_to_unit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">kelvin_to_unit</span></code></a></p></td>
+<td><p>Convert a Kelvin temperature to <code class="docutils literal notranslate"><span class="pre">unit</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="../instro.daq.scaling.thermocouple.unit_to_kelvin/#instro.daq.scaling.thermocouple.unit_to_kelvin" title="instro.daq.scaling.thermocouple.unit_to_kelvin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unit_to_kelvin</span></code></a></p></td>
+<td><p>Convert a temperature in <code class="docutils literal notranslate"><span class="pre">unit</span></code> to Kelvin.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<hr class="docutils" />
+<p>Errors raised by these methods are documented in <a class="reference internal" href="../../library/exceptions/"><span class="std std-doc">Exceptions</span></a>.</p>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Overview</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../instro.daq.InstroDAQ/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">InstroDAQ</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

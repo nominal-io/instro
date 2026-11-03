@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>instro.lib.publishers.channel_buffer - instro</title><link rel="shortcut icon" href="../../../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../../../genindex/" /><link rel="search" title="Search" href="../../../../../search/" />
+      <link rel="canonical" href="https://instro.nominal.io/_modules/instro/lib/publishers/channel_buffer/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/_modules/instro/lib/publishers/channel_buffer/"/>
+  <meta property="og:title" content="instro.lib.publishers.channel_buffer"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../../../">
+      <img class="light-logo" src="../../../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../../../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../../../../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../instruments/">Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../scope/">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/transports/overview/">Transports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/config-files/">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../library/exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">instro.lib.publishers.channel_buffer</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for instro.lib.publishers.channel_buffer</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+</span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">ABC</span><span class="p">,</span> <span class="n">abstractmethod</span>
+</span><span data-line="5"><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">deque</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">numpy.typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">NDArray</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Command</span><span class="p">,</span> <span class="n">Measurement</span>
+</span><span data-line="12">
+</span><span data-line="13">
+<div class="viewcode-block" id="ChannelNotFoundError">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelNotFoundError/#instro.lib.publishers.plot.ChannelNotFoundError">[docs]</a>
+</span><span data-line="14"><span class="k">class</span><span class="w"> </span><span class="nc">ChannelNotFoundError</span><span class="p">(</span><span class="ne">TimeoutError</span><span class="p">):</span>
+</span><span data-line="15"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when a channel does not appear within the specified timeout.&quot;&quot;&quot;</span></div>
+
+</span><span data-line="16">
+</span><span data-line="17">
+<div class="viewcode-block" id="ChannelValueTimeoutError">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelValueTimeoutError/#instro.lib.publishers.plot.ChannelValueTimeoutError">[docs]</a>
+</span><span data-line="18"><span class="k">class</span><span class="w"> </span><span class="nc">ChannelValueTimeoutError</span><span class="p">(</span><span class="ne">TimeoutError</span><span class="p">):</span>
+</span><span data-line="19"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when sufficient channel values are not available within the specified timeout.&quot;&quot;&quot;</span></div>
+
+</span><span data-line="20">
+</span><span data-line="21">
+<div class="viewcode-block" id="ChannelBufferPublisher">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelBufferPublisher/#instro.lib.publishers.plot.ChannelBufferPublisher">[docs]</a>
+</span><span data-line="22"><span class="k">class</span><span class="w"> </span><span class="nc">ChannelBufferPublisher</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+</span><span data-line="23"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Base class for channel buffer publishers that store measurements in memory.&quot;&quot;&quot;</span>
+</span><span data-line="24">
+</span><span data-line="25">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">maxlen</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="26">        <span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span> <span class="o">=</span> <span class="n">maxlen</span>
+</span><span data-line="27">        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="28">        <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="29">        <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Condition</span><span class="p">()</span>
+</span><span data-line="30">        <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">:</span> <span class="n">Counter</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+</span><span data-line="31">        <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="32">
+</span><span data-line="33">    <span class="nd">@abstractmethod</span>
+</span><span data-line="34">    <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="35"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Ensure a channel exists in the buffers, sized/typed for ``values``. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="36">
+</span><span data-line="37">    <span class="nd">@abstractmethod</span>
+</span><span data-line="38">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="39"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Extend the values buffer for a channel. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="40">
+</span><span data-line="41">    <span class="nd">@abstractmethod</span>
+</span><span data-line="42">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="43"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Extend the timestamps buffer for a channel. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="44">
+</span><span data-line="45">    <span class="nd">@abstractmethod</span>
+</span><span data-line="46">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="47"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the latest values from a channel. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="48">
+</span><span data-line="49">    <span class="nd">@abstractmethod</span>
+</span><span data-line="50">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="51"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the latest timestamps from a channel. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="52">
+</span><span data-line="53">    <span class="nd">@abstractmethod</span>
+</span><span data-line="54">    <span class="k">def</span><span class="w"> </span><span class="nf">_points_in_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="55"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the current number of points in the buffer for a given channel. Must be implemented by subclasses.&quot;&quot;&quot;</span>
+</span><span data-line="56">
+<div class="viewcode-block" id="ChannelBufferPublisher.publish">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelBufferPublisher/#instro.lib.publishers.plot.ChannelBufferPublisher.publish">[docs]</a>
+</span><span data-line="57">    <span class="k">def</span><span class="w"> </span><span class="nf">publish</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Measurement</span> <span class="o">|</span> <span class="n">Command</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+</span><span data-line="58"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Publish measurement data to the buffers with thread synchronization.&quot;&quot;&quot;</span>
+</span><span data-line="59">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">Measurement</span><span class="p">):</span>
+</span><span data-line="60">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="61">                <span class="k">for</span> <span class="n">channel_name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">data</span><span class="o">.</span><span class="n">channel_data</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="62">                    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_channel</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+</span><span data-line="63">                    <span class="n">n_new</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="64">                    <span class="bp">self</span><span class="o">.</span><span class="n">_extend_values</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+</span><span data-line="65">                    <span class="bp">self</span><span class="o">.</span><span class="n">_extend_timestamps</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">timestamps</span><span class="p">)</span>
+</span><span data-line="66">                    <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">+=</span> <span class="n">n_new</span>
+</span><span data-line="67">                <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span></div>
+
+</span><span data-line="68">
+<div class="viewcode-block" id="ChannelBufferPublisher.get">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelBufferPublisher/#instro.lib.publishers.plot.ChannelBufferPublisher.get">[docs]</a>
+</span><span data-line="69">    <span class="k">def</span><span class="w"> </span><span class="nf">get</span><span class="p">(</span>
+</span><span data-line="70">        <span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">wait_for_new_samples</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span>
+</span><span data-line="71">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="72"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the trailing ``length`` samples for ``channel_name``.</span>
+</span><span data-line="73">
+</span><span data-line="74"><span class="sd">        With ``wait_for_new_samples=True`` blocks for ``length`` new samples; otherwise waits for</span>
+</span><span data-line="75"><span class="sd">        the buffer to already hold ``length``.</span>
+</span><span data-line="76">
+</span><span data-line="77"><span class="sd">        Raises:</span>
+</span><span data-line="78"><span class="sd">            ChannelNotFoundError: Channel did not appear within ``timeout``.</span>
+</span><span data-line="79"><span class="sd">            ChannelValueTimeoutError: Values did not arrive within ``timeout``.</span>
+</span><span data-line="80"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="81">        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+</span><span data-line="82">        <span class="k">if</span> <span class="n">wait_for_new_samples</span><span class="p">:</span>
+</span><span data-line="83">            <span class="c1"># Wait for channel to exist if it doesn&#39;t exist yet</span>
+</span><span data-line="84">            <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="85">                <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="86">                    <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">channel_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+</span><span data-line="87">                        <span class="k">raise</span> <span class="n">ChannelNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; did not appear within </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span>
+</span><span data-line="88">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+</span><span data-line="89">                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Publisher is closed. Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; data is not available.&quot;</span><span class="p">)</span>
+</span><span data-line="90">            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+</span><span data-line="91">            <span class="n">remaining</span> <span class="o">=</span> <span class="n">timeout</span> <span class="o">-</span> <span class="n">elapsed</span>
+</span><span data-line="92">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_with_wait</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">remaining</span><span class="p">)</span>
+</span><span data-line="93">
+</span><span data-line="94">        <span class="c1"># Non-waiting path: wait for channel to exist and buffer to have enough samples</span>
+</span><span data-line="95">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_with_buffer_wait</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">timeout</span><span class="p">)</span></div>
+
+</span><span data-line="96">
+</span><span data-line="97">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_with_buffer_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="98"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Wait for the channel to exist and for the buffer to hold ``length`` samples, then return them.&quot;&quot;&quot;</span>
+</span><span data-line="99">        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+</span><span data-line="100">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="101">            <span class="c1"># Wait for channel to exist</span>
+</span><span data-line="102">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">channel_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">,</span> <span class="n">timeout</span><span class="p">):</span>
+</span><span data-line="103">                <span class="k">raise</span> <span class="n">ChannelNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; did not appear within </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds.&quot;</span><span class="p">)</span>
+</span><span data-line="104">
+</span><span data-line="105">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+</span><span data-line="106">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Publisher is closed. Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; data is not available.&quot;</span><span class="p">)</span>
+</span><span data-line="107">
+</span><span data-line="108">            <span class="c1"># Wait for buffer to have at least &#39;length&#39; samples</span>
+</span><span data-line="109">            <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span>
+</span><span data-line="110">            <span class="n">remaining</span> <span class="o">=</span> <span class="n">timeout</span> <span class="o">-</span> <span class="n">elapsed</span>
+</span><span data-line="111">            <span class="k">if</span> <span class="n">remaining</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="112">                <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+</span><span data-line="113">                    <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_buffer</span><span class="p">(</span><span class="n">channel_name</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">length</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">,</span> <span class="n">remaining</span>
+</span><span data-line="114">                <span class="p">):</span>
+</span><span data-line="115">                    <span class="n">current_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_buffer</span><span class="p">(</span><span class="n">channel_name</span><span class="p">)</span>
+</span><span data-line="116">                    <span class="k">raise</span> <span class="n">ChannelValueTimeoutError</span><span class="p">(</span>
+</span><span data-line="117">                        <span class="sa">f</span><span class="s2">&quot;Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; did not accumulate </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> sample(s) within </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds. &quot;</span>
+</span><span data-line="118">                        <span class="sa">f</span><span class="s2">&quot;Only </span><span class="si">{</span><span class="n">current_length</span><span class="si">}</span><span class="s2"> sample(s) available.&quot;</span>
+</span><span data-line="119">                    <span class="p">)</span>
+</span><span data-line="120">
+</span><span data-line="121">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+</span><span data-line="122">                <span class="n">current_length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_buffer</span><span class="p">(</span><span class="n">channel_name</span><span class="p">)</span>
+</span><span data-line="123">                <span class="k">if</span> <span class="n">current_length</span> <span class="o">&lt;</span> <span class="n">length</span><span class="p">:</span>
+</span><span data-line="124">                    <span class="k">raise</span> <span class="n">ChannelValueTimeoutError</span><span class="p">(</span>
+</span><span data-line="125">                        <span class="sa">f</span><span class="s2">&quot;Publisher closed before channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; accumulated </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> sample(s). &quot;</span>
+</span><span data-line="126">                        <span class="sa">f</span><span class="s2">&quot;Only </span><span class="si">{</span><span class="n">current_length</span><span class="si">}</span><span class="s2"> sample(s) available.&quot;</span>
+</span><span data-line="127">                    <span class="p">)</span>
+</span><span data-line="128">
+</span><span data-line="129">            <span class="c1"># Extract the last &#39;length&#39; items (these are the newest)</span>
+</span><span data-line="130">            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_buffer</span><span class="p">(</span><span class="n">channel_name</span><span class="p">))</span>
+</span><span data-line="131">
+</span><span data-line="132">            <span class="c1"># Get the values and timestamps</span>
+</span><span data-line="133">            <span class="n">values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_values</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="134">            <span class="n">timestamps</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_timestamps</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="135">
+</span><span data-line="136">        <span class="k">return</span> <span class="n">Measurement</span><span class="p">(</span>
+</span><span data-line="137">            <span class="n">channel_data</span><span class="o">=</span><span class="p">{</span><span class="n">channel_name</span><span class="p">:</span> <span class="n">values</span><span class="p">},</span>
+</span><span data-line="138">            <span class="n">timestamps</span><span class="o">=</span><span class="n">timestamps</span><span class="p">,</span>
+</span><span data-line="139">        <span class="p">)</span>
+</span><span data-line="140">
+</span><span data-line="141">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_with_wait</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="142"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Block until ``length`` new samples arrive on ``channel_name`` (or close), then return them.&quot;&quot;&quot;</span>
+</span><span data-line="143">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="144">            <span class="c1"># Record the current count when we start waiting</span>
+</span><span data-line="145">            <span class="n">start_count</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="146">            <span class="n">target_count</span> <span class="o">=</span> <span class="n">start_count</span> <span class="o">+</span> <span class="n">length</span>
+</span><span data-line="147">
+</span><span data-line="148">            <span class="c1"># Wait until &#39;length&#39; new values have been added or publisher is closed</span>
+</span><span data-line="149">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+</span><span data-line="150">                <span class="k">lambda</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">target_count</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">,</span> <span class="n">timeout</span>
+</span><span data-line="151">            <span class="p">):</span>
+</span><span data-line="152">                <span class="k">raise</span> <span class="n">ChannelValueTimeoutError</span><span class="p">(</span>
+</span><span data-line="153">                    <span class="sa">f</span><span class="s2">&quot;Channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; did not receive </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> new value(s) within </span><span class="si">{</span><span class="n">timeout</span><span class="si">}</span><span class="s2"> seconds. &quot;</span>
+</span><span data-line="154">                    <span class="sa">f</span><span class="s2">&quot;Only </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start_count</span><span class="si">}</span><span class="s2"> new value(s) were received.&quot;</span>
+</span><span data-line="155">                <span class="p">)</span>
+</span><span data-line="156">
+</span><span data-line="157">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span><span class="p">:</span>
+</span><span data-line="158">                <span class="c1"># Check if we have enough values before publisher closed</span>
+</span><span data-line="159">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">target_count</span><span class="p">:</span>
+</span><span data-line="160">                    <span class="k">raise</span> <span class="n">ChannelValueTimeoutError</span><span class="p">(</span>
+</span><span data-line="161">                        <span class="sa">f</span><span class="s2">&quot;Publisher closed before channel &#39;</span><span class="si">{</span><span class="n">channel_name</span><span class="si">}</span><span class="s2">&#39; received </span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s2"> new value(s).&quot;</span>
+</span><span data-line="162">                    <span class="p">)</span>
+</span><span data-line="163">
+</span><span data-line="164">            <span class="c1"># Extract the last &#39;length&#39; items (these are the newest)</span>
+</span><span data-line="165">            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_points_in_buffer</span><span class="p">(</span><span class="n">channel_name</span><span class="p">))</span>
+</span><span data-line="166">
+</span><span data-line="167">            <span class="c1"># Get the values and timestamps</span>
+</span><span data-line="168">            <span class="n">values_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_values</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="169">            <span class="n">timestamps_list</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_timestamps</span><span class="p">(</span><span class="n">channel_name</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+</span><span data-line="170">
+</span><span data-line="171">        <span class="k">return</span> <span class="n">Measurement</span><span class="p">(</span>
+</span><span data-line="172">            <span class="n">channel_data</span><span class="o">=</span><span class="p">{</span><span class="n">channel_name</span><span class="p">:</span> <span class="n">values_list</span><span class="p">},</span>
+</span><span data-line="173">            <span class="n">timestamps</span><span class="o">=</span><span class="n">timestamps_list</span><span class="p">,</span>
+</span><span data-line="174">        <span class="p">)</span>
+</span><span data-line="175">
+<div class="viewcode-block" id="ChannelBufferPublisher.close">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.ChannelBufferPublisher/#instro.lib.publishers.plot.ChannelBufferPublisher.close">[docs]</a>
+</span><span data-line="176">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="177"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the publisher and clear all buffers with thread synchronization.&quot;&quot;&quot;</span>
+</span><span data-line="178">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="179">            <span class="bp">self</span><span class="o">.</span><span class="n">_closed</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="180">            <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="o">.</span><span class="n">notify_all</span><span class="p">()</span>
+</span><span data-line="181">            <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="182">            <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="183">            <span class="bp">self</span><span class="o">.</span><span class="n">_total_added_count</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span></div>
+
+</span><span data-line="184">
+</span><span data-line="185">    <span class="nd">@property</span>
+</span><span data-line="186">    <span class="k">def</span><span class="w"> </span><span class="nf">channel_names</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+</span><span data-line="187"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return an insertion-ordered snapshot of all channel names currently in the buffer.</span>
+</span><span data-line="188">
+</span><span data-line="189"><span class="sd">        Names are complete after one full daemon iteration: {name}.loop_time publishes</span>
+</span><span data-line="190"><span class="sd">        every iteration, so call get_channel(&quot;loop_time&quot;, wait_for_new_samples=True)</span>
+</span><span data-line="191"><span class="sd">        then read channel_names to ensure the complete set has arrived.</span>
+</span><span data-line="192"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="193">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_condition</span><span class="p">:</span>
+</span><span data-line="194">            <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span>
+</span><span data-line="195">
+</span><span data-line="196">    <span class="nd">@property</span>
+</span><span data-line="197">    <span class="nd">@abstractmethod</span>
+</span><span data-line="198">    <span class="k">def</span><span class="w"> </span><span class="nf">size_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="199"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current memory in bytes.&quot;&quot;&quot;</span></div>
+
+</span><span data-line="200">
+</span><span data-line="201">
+<div class="viewcode-block" id="DequeInMemoryPublisher">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.DequeInMemoryPublisher/#instro.lib.publishers.plot.DequeInMemoryPublisher">[docs]</a>
+</span><span data-line="202"><span class="k">class</span><span class="w"> </span><span class="nc">DequeInMemoryPublisher</span><span class="p">(</span><span class="n">ChannelBufferPublisher</span><span class="p">):</span>
+</span><span data-line="203">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">maxlen</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+</span><span data-line="204">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">maxlen</span><span class="p">)</span>
+</span><span data-line="205">
+</span><span data-line="206">    <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="207">        <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="208">            <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span><span class="p">)</span>
+</span><span data-line="209">            <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span><span class="p">)</span>
+</span><span data-line="210">
+</span><span data-line="211">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="212">        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="213">
+</span><span data-line="214">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="215">        <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
+</span><span data-line="216">
+</span><span data-line="217">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="218">        <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]))</span>
+</span><span data-line="219">        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">])[</span><span class="o">-</span><span class="n">n</span><span class="p">:]</span> <span class="k">if</span> <span class="n">n</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="220">
+</span><span data-line="221">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="222">        <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]))</span>
+</span><span data-line="223">        <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">])[</span><span class="o">-</span><span class="n">n</span><span class="p">:]</span> <span class="k">if</span> <span class="n">n</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="224">
+</span><span data-line="225">    <span class="k">def</span><span class="w"> </span><span class="nf">_points_in_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="226">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">])</span>
+</span><span data-line="227">
+</span><span data-line="228">    <span class="nd">@property</span>
+</span><span data-line="229">    <span class="k">def</span><span class="w"> </span><span class="nf">size_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="230"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current memory in bytes.&quot;&quot;&quot;</span>
+</span><span data-line="231">        <span class="n">size</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">)</span>
+</span><span data-line="232">
+</span><span data-line="233">        <span class="c1"># Add size of each deque and its elements</span>
+</span><span data-line="234">        <span class="k">for</span> <span class="n">channel_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="235">            <span class="n">values_deque</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="236">            <span class="n">timestamps_deque</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="237">
+</span><span data-line="238">            <span class="c1"># Size of deque objects</span>
+</span><span data-line="239">            <span class="n">size</span> <span class="o">+=</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">values_deque</span><span class="p">)</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">timestamps_deque</span><span class="p">)</span>
+</span><span data-line="240">
+</span><span data-line="241">            <span class="c1"># Size of elements: floats are typically 8 bytes, ints are typically 8 bytes</span>
+</span><span data-line="242">            <span class="n">size</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values_deque</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span>  <span class="c1"># float</span>
+</span><span data-line="243">            <span class="n">size</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">timestamps_deque</span><span class="p">)</span> <span class="o">*</span> <span class="mi">8</span>  <span class="c1"># int</span>
+</span><span data-line="244">
+</span><span data-line="245">        <span class="k">return</span> <span class="n">size</span></div>
+
+</span><span data-line="246">
+</span><span data-line="247">
+<div class="viewcode-block" id="NumpyInMemoryPublisher">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.NumpyInMemoryPublisher/#instro.lib.publishers.plot.NumpyInMemoryPublisher">[docs]</a>
+</span><span data-line="248"><span class="k">class</span><span class="w"> </span><span class="nc">NumpyInMemoryPublisher</span><span class="p">(</span><span class="n">ChannelBufferPublisher</span><span class="p">):</span>
+</span><span data-line="249"><span class="w">    </span><span class="sd">&quot;&quot;&quot;String-valued channels are stored in a plain deque; a float32 ring cannot hold them.&quot;&quot;&quot;</span>
+</span><span data-line="250">
+</span><span data-line="251">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">maxlen</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">value_dtype</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">):</span>
+</span><span data-line="252">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">maxlen</span><span class="p">)</span>
+</span><span data-line="253">        <span class="bp">self</span><span class="o">.</span><span class="n">_value_dtype</span> <span class="o">=</span> <span class="n">value_dtype</span>
+</span><span data-line="254">
+</span><span data-line="255">    <span class="k">def</span><span class="w"> </span><span class="nf">_ensure_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="256">        <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="257">            <span class="k">return</span>
+</span><span data-line="258">        <span class="k">if</span> <span class="ow">not</span> <span class="n">values</span><span class="p">:</span>
+</span><span data-line="259">            <span class="c1"># No values yet: defer store-kind selection until a non-empty batch arrives.</span>
+</span><span data-line="260">            <span class="k">return</span>
+</span><span data-line="261">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="nb">str</span><span class="p">):</span>
+</span><span data-line="262">            <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span><span class="p">)</span>
+</span><span data-line="263">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="264">            <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NumpyRingBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_value_dtype</span><span class="p">)</span>
+</span><span data-line="265">
+</span><span data-line="266">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="267">        <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="268">            <span class="k">return</span>
+</span><span data-line="269">        <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="270">
+</span><span data-line="271">    <span class="k">def</span><span class="w"> </span><span class="nf">_extend_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="272">        <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">:</span>
+</span><span data-line="273">            <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">NumpyRingBuffer</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">maxlen</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">int64</span><span class="p">)</span>
+</span><span data-line="274">        <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">timestamps</span><span class="p">)</span>
+</span><span data-line="275">
+</span><span data-line="276">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="277">        <span class="n">store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="278">        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">store</span><span class="p">,</span> <span class="n">deque</span><span class="p">):</span>
+</span><span data-line="279">            <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">store</span><span class="p">))</span>
+</span><span data-line="280">            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">store</span><span class="p">)[</span><span class="o">-</span><span class="n">n</span><span class="p">:]</span> <span class="k">if</span> <span class="n">n</span> <span class="k">else</span> <span class="p">[]</span>
+</span><span data-line="281">        <span class="k">return</span> <span class="n">store</span><span class="o">.</span><span class="n">get_latest</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+</span><span data-line="282">
+</span><span data-line="283">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_timestamps</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">length</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="284">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span><span class="o">.</span><span class="n">get_latest</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+</span><span data-line="285">
+</span><span data-line="286">    <span class="k">def</span><span class="w"> </span><span class="nf">_points_in_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="287">        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">])</span>
+</span><span data-line="288">
+</span><span data-line="289">    <span class="nd">@property</span>
+</span><span data-line="290">    <span class="k">def</span><span class="w"> </span><span class="nf">size_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="291"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current memory in bytes.&quot;&quot;&quot;</span>
+</span><span data-line="292">        <span class="n">size</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">)</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">)</span>
+</span><span data-line="293">
+</span><span data-line="294">        <span class="c1"># Add size of each channel&#39;s store and its elements. `_values` and `_timestamps` are</span>
+</span><span data-line="295">        <span class="c1"># populated by separate calls (_extend_values / _extend_timestamps); guard against a</span>
+</span><span data-line="296">        <span class="c1"># channel present in one but not yet the other (e.g. an allocation failure between the</span>
+</span><span data-line="297">        <span class="c1"># two calls) rather than assuming the invariant always holds.</span>
+</span><span data-line="298">        <span class="k">for</span> <span class="n">channel_name</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">:</span>
+</span><span data-line="299">            <span class="k">if</span> <span class="n">channel_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">:</span>
+</span><span data-line="300">                <span class="k">continue</span>
+</span><span data-line="301">            <span class="n">values_store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_values</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="302">            <span class="n">timestamps_buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_timestamps</span><span class="p">[</span><span class="n">channel_name</span><span class="p">]</span>
+</span><span data-line="303">
+</span><span data-line="304">            <span class="n">size</span> <span class="o">+=</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">values_store</span><span class="p">)</span> <span class="o">+</span> <span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">timestamps_buffer</span><span class="p">)</span>
+</span><span data-line="305">
+</span><span data-line="306">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">values_store</span><span class="p">,</span> <span class="n">deque</span><span class="p">):</span>
+</span><span data-line="307">                <span class="n">size</span> <span class="o">+=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">getsizeof</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values_store</span><span class="p">)</span>
+</span><span data-line="308">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="309">                <span class="n">size</span> <span class="o">+=</span> <span class="n">values_store</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">nbytes</span>  <span class="c1"># numpy array: nbytes gives actual data size</span>
+</span><span data-line="310">            <span class="n">size</span> <span class="o">+=</span> <span class="n">timestamps_buffer</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">nbytes</span>
+</span><span data-line="311">
+</span><span data-line="312">        <span class="k">return</span> <span class="n">size</span></div>
+
+</span><span data-line="313">
+</span><span data-line="314">
+<div class="viewcode-block" id="NumpyRingBuffer">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.NumpyRingBuffer/#instro.lib.publishers.plot.NumpyRingBuffer">[docs]</a>
+</span><span data-line="315"><span class="k">class</span><span class="w"> </span><span class="nc">NumpyRingBuffer</span><span class="p">:</span>
+</span><span data-line="316">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">maxlen</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+</span><span data-line="317">        <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">:</span> <span class="n">NDArray</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">maxlen</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="318">        <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span> <span class="o">=</span> <span class="n">maxlen</span>
+</span><span data-line="319">        <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Next write position</span>
+</span><span data-line="320">        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Current number of valid elements</span>
+</span><span data-line="321">
+<div class="viewcode-block" id="NumpyRingBuffer.extend">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.NumpyRingBuffer/#instro.lib.publishers.plot.NumpyRingBuffer.extend">[docs]</a>
+</span><span data-line="322">    <span class="k">def</span><span class="w"> </span><span class="nf">extend</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="323">        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="324">        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="325">
+</span><span data-line="326">        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="327">            <span class="k">return</span>
+</span><span data-line="328">
+</span><span data-line="329">        <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span><span class="p">:</span>
+</span><span data-line="330">            <span class="c1"># Incoming data fills or exceeds buffer — just take the last maxlen</span>
+</span><span data-line="331">            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="o">-</span><span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span> <span class="p">:]</span>
+</span><span data-line="332">            <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="333">            <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span>
+</span><span data-line="334">            <span class="k">return</span>
+</span><span data-line="335">
+</span><span data-line="336">        <span class="c1"># Where does the write end?</span>
+</span><span data-line="337">        <span class="n">end</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">+</span> <span class="n">n</span>
+</span><span data-line="338">
+</span><span data-line="339">        <span class="k">if</span> <span class="n">end</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span><span class="p">:</span>
+</span><span data-line="340">            <span class="c1"># No wraparound</span>
+</span><span data-line="341">            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="p">:</span> <span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span>
+</span><span data-line="342">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="343">            <span class="c1"># Wraparound</span>
+</span><span data-line="344">            <span class="n">first</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span>
+</span><span data-line="345">            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[:</span><span class="n">first</span><span class="p">]</span>
+</span><span data-line="346">            <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span> <span class="n">n</span> <span class="o">-</span> <span class="n">first</span><span class="p">]</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">first</span><span class="p">:]</span>
+</span><span data-line="347">
+</span><span data-line="348">        <span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">=</span> <span class="n">end</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span>
+</span><span data-line="349">        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">+</span> <span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span><span class="p">)</span></div>
+
+</span><span data-line="350">
+<div class="viewcode-block" id="NumpyRingBuffer.get_latest">
+<a class="viewcode-back" href="../../../../../sdk/library/instro.lib.publishers.channel_buffer.NumpyRingBuffer/#instro.lib.publishers.plot.NumpyRingBuffer.get_latest">[docs]</a>
+</span><span data-line="351">    <span class="k">def</span><span class="w"> </span><span class="nf">get_latest</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">:</span>
+</span><span data-line="352">        <span class="n">n</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span>
+</span><span data-line="353">        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="354">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+</span><span data-line="355">
+</span><span data-line="356">        <span class="c1"># Data is stored oldest-to-newest up to _index</span>
+</span><span data-line="357">        <span class="c1"># Latest n items end at _index (exclusive)</span>
+</span><span data-line="358">        <span class="n">start</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_index</span> <span class="o">-</span> <span class="n">n</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">_maxlen</span>
+</span><span data-line="359">
+</span><span data-line="360">        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">:</span>
+</span><span data-line="361">            <span class="c1"># No wraparound</span>
+</span><span data-line="362">            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+</span><span data-line="363">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="364">            <span class="c1"># Wraparound</span>
+</span><span data-line="365">            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[</span><span class="n">start</span><span class="p">:],</span> <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_index</span><span class="p">]])</span></div>
+
+</span><span data-line="366">
+</span><span data-line="367">    <span class="k">def</span><span class="w"> </span><span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="368"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current number of valid elements in the buffer.&quot;&quot;&quot;</span>
+</span><span data-line="369">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Control an Oscilloscope with Python - instro</title><link rel="shortcut icon" href="../_static/favicon.png"/><link rel="index" title="Index" href="../genindex/" /><link rel="search" title="Search" href="../search/" /><link rel="next" title="Power Supply (PSU)" href="../psu/" /><link rel="prev" title="Instruments" href="../instruments/" />
+      <link rel="canonical" href="https://instro.nominal.io/scope/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/scope/"/>
+  <meta property="og:title" content="Oscilloscope (Scope)"/>
+    <meta name="description" content="Control oscilloscopes from Python with one API for Keysight, Siglent, and Tektronix: set channels, timebase, and triggers, fetch waveforms and measurements."/>
+    <meta property="og:description" content="Control oscilloscopes from Python with one API for Keysight, Siglent, and Tektronix: set channels, timebase, and triggers, fetch waveforms and measurements."/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../">
+      <img class="light-logo" src="../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../examples/"><span>Examples</span></a></li><li class="link"><a href="../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../instruments/">Instruments</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../library/concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/transports/overview/">Transports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/config-files/">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#creating-an-instroscope">Creating an InstroScope</a></li>
+<li><a class="reference internal" href="#supported-vendors">Supported Vendors</a></li>
+<li><a class="reference internal" href="#example">Example</a></li>
+<li><a class="reference internal" href="#details">Details</a><ul>
+<li><a class="reference internal" href="#driver-composition">Driver Composition</a></li>
+<li><a class="reference internal" href="#lifecycle">Lifecycle</a></li>
+<li><a class="reference internal" href="#acquisition-control-vs-the-background-daemon">Acquisition Control vs. the Background Daemon</a></li>
+<li><a class="reference internal" href="#configuration-tracking">Configuration Tracking</a></li>
+<li><a class="reference internal" href="#init-from-a-config-file">Init from a Config File</a></li>
+<li><a class="reference internal" href="#measurements">Measurements</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#custom-driver-development">Custom Driver Development</a></li>
+</ul>
+</div><div class="edit-this-page">
+  <a href="https://github.com/nominal-io/instro/edit/main/docs/scope.md">Edit this page</a>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Oscilloscope (Scope)</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/scope.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/scope.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/scope.md" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/scope.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/scope.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="oscilloscope-scope">
+<h1>Oscilloscope (Scope)<a class="headerlink" href="#oscilloscope-scope" title="Link to this heading">#</a></h1>
+<p class="lead">Instrument for all oscilloscopes</p>
+<p><code class="docutils literal notranslate"><span class="pre">InstroScope</span></code>  provides a unified interface all oscilloscopes. This class is initialized with a vender-specfic driver (<code class="docutils literal notranslate"><span class="pre">Keysight1200X</span></code>,<code class="docutils literal notranslate"> <span class="pre">Tektronix2SeriesMSO</span></code>,…), and provides the vendor-agnostic API (<code class="docutils literal notranslate"><span class="pre">set_vertical_scale</span></code>, <code class="docutils literal notranslate"><span class="pre">fetch_waveform</span></code>, <code class="docutils literal notranslate"><span class="pre">measure</span></code>, <code class="docutils literal notranslate"><span class="pre">set_trigger_level</span></code>, …).</p>
+<section id="creating-an-instroscope">
+<h2>Creating an InstroScope<a class="headerlink" href="#creating-an-instroscope" title="Link to this heading">#</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.scope.drivers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Keysight1200X</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.scope</span><span class="w"> </span><span class="kn">import</span> <span class="n">InstroScope</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">scope</span> <span class="o">=</span> <span class="n">InstroScope</span><span class="p">(</span>
+</span><span data-line="5">    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;myScope&quot;</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">driver</span><span class="o">=</span><span class="n">Keysight1200X</span><span class="p">(</span><span class="s2">&quot;&lt;visa_resource&gt;&quot;</span><span class="p">),</span>
+</span><span data-line="7">    <span class="n">num_channels</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="8"><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<section id="supported-vendors">
+<h2>Supported Vendors<a class="headerlink" href="#supported-vendors" title="Link to this heading">#</a></h2>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-1 sd-row-cols-xs-1 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover driver-card docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Keysight 1200X</div>
+</div>
+<img alt="" class="sd-card-img-bottom" src="../_images/Keysight1200X.png" />
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="Keysight1200X/"><span class="doc">Keysight1200X</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover driver-card docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Keysight 3000T X</div>
+</div>
+<img alt="" class="sd-card-img-bottom" src="../_images/Keysight3000TX.png" />
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="Keysight3000TX/"><span class="doc">Keysight3000TX</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover driver-card docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Siglent SDS1000X-E</div>
+</div>
+<img alt="" class="sd-card-img-bottom" src="../_images/SiglentSDS1000XE.png" />
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="SiglentSDS1000XE/"><span class="doc">SiglentSDS1000XE</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover driver-card docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Tektronix 2-series</div>
+</div>
+<img alt="" class="sd-card-img-bottom" src="../_images/Tektronix2SeriesMSO.png" />
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="Tektronix2SeriesMSO/"><span class="doc">Tektronix2SeriesMSO</span></a></div>
+</div>
+</div>
+</div>
+<p>If your vendor or model is not listed, see <a class="reference internal" href="../library/custom-instruments/#oscilloscope-scope"><span class="std std-ref">Custom Driver Development</span></a>, or open a <a class="reference external" href="https://github.com/nominal-io/instro/issues" rel="noreferer noopener" target="_blank">Driver Request</a> issue on GitHub.</p>
+</section>
+<section id="example">
+<h2>Example<a class="headerlink" href="#example" title="Link to this heading">#</a></h2>
+<p>More examples found in <a class="reference internal" href="../examples/scope/"><span class="std std-doc">Examples</span></a></p>
+</section>
+<section id="details">
+<h2>Details<a class="headerlink" href="#details" title="Link to this heading">#</a></h2>
+<p>The following presents details about the <code class="docutils literal notranslate"><span class="pre">InstroScope</span></code>. Specific driver details can be found in on <a class="reference internal" href="#supported-vendors">their pages</a>.</p>
+<section id="driver-composition">
+<h3>Driver Composition<a class="headerlink" href="#driver-composition" title="Link to this heading">#</a></h3>
+<p>An <code class="docutils literal notranslate"><span class="pre">InstroScope</span></code> is built from a concrete driver:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">InstroScope</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">driver</span><span class="o">=</span><span class="n">Keysight1200X</span><span class="p">(</span><span class="s2">&quot;&lt;visa_resource&gt;&quot;</span><span class="p">),</span> <span class="n">num_channels</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">Keysight1200X</span></code></strong> owns the connection setup and vendor-specific command mapping.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">InstroScope</span></code></strong> owns the category-level workflow: configuration tracking, acquisition control, measurements, waveform fetches, publishers, the background daemon.</p></li>
+</ul>
+</section>
+<section id="lifecycle">
+<h3>Lifecycle<a class="headerlink" href="#lifecycle" title="Link to this heading">#</a></h3>
+<ol class="arabic simple">
+<li><p><strong>Construct</strong>: instantiate the vendor driver and pass it to <code class="docutils literal notranslate"><span class="pre">InstroScope</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">open()</span></code></strong>: establish the VISA connection. When constructed from a config, <code class="docutils literal notranslate"><span class="pre">open()</span></code> also applies the configured state, resyncs the tracked state, and optionally starts acquisition.</p></li>
+<li><p><strong>Configure</strong>: set vertical (per channel), horizontal, acquisition, and trigger settings.</p></li>
+<li><p><strong>Acquire</strong>: arm a single-shot with <code class="docutils literal notranslate"><span class="pre">single()</span></code>, or free-run with <code class="docutils literal notranslate"><span class="pre">run()</span></code>.</p></li>
+<li><p><strong>Read</strong>: fetch a waveform with <code class="docutils literal notranslate"><span class="pre">fetch_waveform()</span></code> or take a built-in measurement with <code class="docutils literal notranslate"><span class="pre">measure()</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">close()</span></code></strong>: disconnect from hardware.</p></li>
+</ol>
+</section>
+<section id="acquisition-control-vs-the-background-daemon">
+<h3>Acquisition Control vs. the Background Daemon<a class="headerlink" href="#acquisition-control-vs-the-background-daemon" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">InstroScope</span></code> has two independent start/stop concepts:</p>
+<ul class="simple">
+<li><p><strong>Acquisition control</strong> drives the instrument: <code class="docutils literal notranslate"><span class="pre">run()</span></code>, <code class="docutils literal notranslate"><span class="pre">single()</span></code>, and <code class="docutils literal notranslate"><span class="pre">stop_acquisition()</span></code>. These map to the front-panel Run, Single, and Stop keys. After <code class="docutils literal notranslate"><span class="pre">single()</span></code>, both <code class="docutils literal notranslate"><span class="pre">fetch_waveform()</span></code> and <code class="docutils literal notranslate"><span class="pre">measure()</span></code> block up to their <code class="docutils literal notranslate"><span class="pre">timeout</span></code> for the trigger to fire, then read. They raise <code class="docutils literal notranslate"><span class="pre">TimeoutError</span></code> if it does not.</p></li>
+<li><p><strong>The background daemon</strong> drives polling on the host: <code class="docutils literal notranslate"><span class="pre">start()</span></code> and <code class="docutils literal notranslate"><span class="pre">stop()</span></code> (inherited from <code class="docutils literal notranslate"><span class="pre">Instrument</span></code>) periodically call the methods you register and stream their results to publishers.</p></li>
+</ul>
+</section>
+<section id="configuration-tracking">
+<h3>Configuration Tracking<a class="headerlink" href="#configuration-tracking" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">InstroScope</span></code> tracks vertical, horizontal, acquisition, and trigger state locally as you issue commands, in a <code class="docutils literal notranslate"><span class="pre">ScopeState</span></code> dataclass. Call <code class="docutils literal notranslate"><span class="pre">sync_configuration()</span></code> after <code class="docutils literal notranslate"><span class="pre">open()</span></code> (or after <code class="docutils literal notranslate"><span class="pre">load_settings()</span></code>) to bulk-query the instrument and overwrite the tracked state with what the hardware reports. Scopes snap requested values to the nearest supported step, so the tracked value can differ from what you asked for until you resync.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">sync_configuration()</span></code> does not bulk-query trigger source, type, level, slope, or mode. Not all scopes expose those through a simple query, so set them explicitly to populate the tracked state.</p>
+</div>
+</section>
+<section id="init-from-a-config-file">
+<h3>Init from a Config File<a class="headerlink" href="#init-from-a-config-file" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">InstroScope</span></code> can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:</p>
+<p>See <a class="reference internal" href="../library/config-files/"><span class="std std-doc">Config Files</span></a> for more info.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.scope</span><span class="w"> </span><span class="kn">import</span> <span class="n">InstroScope</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">scope</span> <span class="o">=</span> <span class="n">InstroScope</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="s2">&quot;bench_scope.json&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Where <code class="docutils literal notranslate"><span class="pre">bench_scope.json</span></code> contains:</p>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">&quot;instrument&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InstroScope&quot;</span><span class="p">,</span>
+</span><span data-line="4"><span class="w">  </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bench_scope&quot;</span><span class="p">,</span>
+</span><span data-line="6"><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bench oscilloscope&quot;</span><span class="p">,</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">&quot;manufacturer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Keysight&quot;</span><span class="p">,</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DSOX1204A&quot;</span>
+</span><span data-line="9"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="10"><span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="11"><span class="w">    </span><span class="nt">&quot;connection_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;visa&quot;</span><span class="p">,</span>
+</span><span data-line="12"><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Keysight1200X&quot;</span><span class="p">,</span>
+</span><span data-line="13"><span class="w">    </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">4</span><span class="p">,</span>
+</span><span data-line="14"><span class="w">    </span><span class="nt">&quot;visa&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="15"><span class="w">      </span><span class="nt">&quot;visa_resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;TCPIP0::192.168.1.50::INSTR&quot;</span>
+</span><span data-line="16"><span class="w">    </span><span class="p">}</span>
+</span><span data-line="17"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="18"><span class="w">  </span><span class="nt">&quot;channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="19"><span class="w">    </span><span class="nt">&quot;1&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="20"><span class="w">      </span><span class="nt">&quot;vertical_scale&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="21"><span class="w">      </span><span class="nt">&quot;vertical_offset&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.0</span><span class="p">,</span>
+</span><span data-line="22"><span class="w">      </span><span class="nt">&quot;coupling&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;DC&quot;</span><span class="p">,</span>
+</span><span data-line="23"><span class="w">      </span><span class="nt">&quot;probe_attenuation&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">10.0</span><span class="p">,</span>
+</span><span data-line="24"><span class="w">      </span><span class="nt">&quot;measurements&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;VRMS&quot;</span><span class="p">,</span><span class="w"> </span><span class="s2">&quot;FREQUENCY&quot;</span><span class="p">]</span>
+</span><span data-line="25"><span class="w">    </span><span class="p">},</span>
+</span><span data-line="26"><span class="w">    </span><span class="nt">&quot;2&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="27"><span class="w">      </span><span class="nt">&quot;vertical_scale&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="28"><span class="w">      </span><span class="nt">&quot;coupling&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AC&quot;</span><span class="p">,</span>
+</span><span data-line="29"><span class="w">      </span><span class="nt">&quot;probe_attenuation&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="30"><span class="w">      </span><span class="nt">&quot;measurements&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">&quot;VPP&quot;</span><span class="p">]</span>
+</span><span data-line="31"><span class="w">    </span><span class="p">}</span>
+</span><span data-line="32"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="33"><span class="w">  </span><span class="nt">&quot;acquisition&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="34"><span class="w">    </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;AVERAGE&quot;</span><span class="p">,</span>
+</span><span data-line="35"><span class="w">    </span><span class="nt">&quot;average_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">16</span><span class="p">,</span>
+</span><span data-line="36"><span class="w">    </span><span class="nt">&quot;horizontal_scale&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.001</span><span class="p">,</span>
+</span><span data-line="37"><span class="w">    </span><span class="nt">&quot;start_acquisition_on_open&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span>
+</span><span data-line="38"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="39"><span class="w">  </span><span class="nt">&quot;trigger&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="40"><span class="w">    </span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="41"><span class="w">    </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;EDGE&quot;</span><span class="p">,</span>
+</span><span data-line="42"><span class="w">    </span><span class="nt">&quot;level&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="43"><span class="w">    </span><span class="nt">&quot;slope&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;RISING&quot;</span><span class="p">,</span>
+</span><span data-line="44"><span class="w">    </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NORMAL&quot;</span>
+</span><span data-line="45"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="46"><span class="w">  </span><span class="nt">&quot;timing&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="47"><span class="w">    </span><span class="nt">&quot;poll_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span>
+</span><span data-line="48"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="49"><span class="w">  </span><span class="nt">&quot;publishers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span data-line="50"><span class="w">    </span><span class="p">{</span>
+</span><span data-line="51"><span class="w">      </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;FilePublisher&quot;</span><span class="p">,</span>
+</span><span data-line="52"><span class="w">      </span><span class="nt">&quot;directory&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;scope_captures&quot;</span><span class="p">,</span>
+</span><span data-line="53"><span class="w">      </span><span class="nt">&quot;format&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;csv&quot;</span>
+</span><span data-line="54"><span class="w">    </span><span class="p">}</span>
+</span><span data-line="55"><span class="w">  </span><span class="p">]</span>
+</span><span data-line="56"><span class="p">}</span>
+</span></pre></div>
+</div>
+</section>
+<section id="measurements">
+<h3>Measurements<a class="headerlink" href="#measurements" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">measure(measurement_type,</span> <span class="pre">channel)</span></code> reads a built-in measurement: <code class="docutils literal notranslate"><span class="pre">VPP</span></code>, <code class="docutils literal notranslate"><span class="pre">VMAX</span></code>, <code class="docutils literal notranslate"><span class="pre">VMIN</span></code>, <code class="docutils literal notranslate"><span class="pre">VAVG</span></code>, <code class="docutils literal notranslate"><span class="pre">VRMS</span></code>, <code class="docutils literal notranslate"><span class="pre">FREQUENCY</span></code>, <code class="docutils literal notranslate"><span class="pre">PERIOD</span></code>, or <code class="docutils literal notranslate"><span class="pre">DUTY_CYCLE</span></code>. It returns <code class="docutils literal notranslate"><span class="pre">NaN</span></code> when the scope has no valid result (no acquisition yet, channel off). <code class="docutils literal notranslate"><span class="pre">fetch_waveform(channel)</span></code> returns a <code class="docutils literal notranslate"><span class="pre">Measurement</span></code> whose timestamps are relative to the trigger point (negative values are pre-trigger), with voltages already scaled through the configured probe attenuation.</p>
+</section>
+</section>
+<section id="custom-driver-development">
+<h2>Custom Driver Development<a class="headerlink" href="#custom-driver-development" title="Link to this heading">#</a></h2>
+<p>For more information on writing a custom driver, see <a class="reference internal" href="../library/custom-instruments/#oscilloscope-scope"><span class="std std-ref">Custom Driver Development</span></a>.</p>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../instruments/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Instruments</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../psu/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Power Supply (PSU)</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=f281be69"></script>
+      <script src="../_static/nominal.js?v=92629581"></script>
+      <script src="../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../_static/shibuya.js?v=50760d75"></script></body>
+</html>

@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Changelog - instro</title><link rel="shortcut icon" href="../../_static/favicon.png"/><link rel="index" title="Index" href="../../genindex/" /><link rel="search" title="Search" href="../../search/" /><link rel="prev" title="TagDef" href="../protocols/instro.ethernetip.ethernetip_types.TagDef/" />
+      <link rel="canonical" href="https://instro.nominal.io/sdk/changelog/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/sdk/changelog/"/>
+  <meta property="og:title" content="Changelog"/>
+    <meta name="description" content="Release notes for each instro version: new features, fixes, and breaking changes."/>
+    <meta property="og:description" content="Release notes for each instro version: new features, fixes, and breaking changes."/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../">
+      <img class="light-logo" src="../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../"><span>Guides</span></a></li><li class="link"><a href="../../examples/"><span>Examples</span></a></li><li class="link"><a href="../" class="current" aria-current="page"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">SDK</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../">Overview</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/daq/">DAQ (Data Acquisition)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/dmm/">DMM (Digital Multimeter)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/psu/">PSU (Power Supply Unit)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/eload/">Electronic Load</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/scope/">Scope (Oscilloscope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/i2c/">I2C</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../instruments/sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../library/instrument/">Instrument</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/types/">Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/config/">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/registry/">Registry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/exceptions/">Exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/discover/">Discover</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/transports/">Transports</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Protocols</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../protocols/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../protocols/modbus/">Modbus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../protocols/ethernetip/">EtherNet/IP</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Changelog</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#id1">1.23.0 (2026-10-28)</a><ul>
+<li><a class="reference internal" href="#features">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id2">1.22.0 (2026-10-23)</a><ul>
+<li><a class="reference internal" href="#id3">Features</a></li>
+<li><a class="reference internal" href="#bug-fixes">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id4">1.21.0 (2026-09-18)</a><ul>
+<li><a class="reference internal" href="#id5">Features</a></li>
+<li><a class="reference internal" href="#id6">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id7">1.20.0 (2026-09-09)</a><ul>
+<li><a class="reference internal" href="#id8">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id9">1.19.0 (2026-09-07)</a><ul>
+<li><a class="reference internal" href="#id10">Features</a></li>
+<li><a class="reference internal" href="#id11">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id12">1.18.1 (2026-09-04)</a><ul>
+<li><a class="reference internal" href="#id13">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id14">1.18.0 (2026-09-04)</a><ul>
+<li><a class="reference internal" href="#breaking-changes">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id15">Features</a></li>
+<li><a class="reference internal" href="#id16">Bug Fixes</a></li>
+<li><a class="reference internal" href="#documentation">Documentation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id17">1.17.0 (2026-09-03)</a><ul>
+<li><a class="reference internal" href="#id18">Features</a></li>
+<li><a class="reference internal" href="#id19">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id20">1.16.0 (2026-09-02)</a><ul>
+<li><a class="reference internal" href="#id21">Features</a></li>
+<li><a class="reference internal" href="#id22">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id23">1.15.0 (2026-08-31)</a><ul>
+<li><a class="reference internal" href="#id24">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id25">1.14.0 (2026-08-28)</a><ul>
+<li><a class="reference internal" href="#id26">Features</a></li>
+<li><a class="reference internal" href="#id27">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id28">1.13.0 (2026-08-24)</a><ul>
+<li><a class="reference internal" href="#id29">Features</a></li>
+<li><a class="reference internal" href="#id30">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id31">1.12.0 (2026-08-21)</a><ul>
+<li><a class="reference internal" href="#id32">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id33">1.11.0 (2026-08-21)</a><ul>
+<li><a class="reference internal" href="#id34">Features</a></li>
+<li><a class="reference internal" href="#id35">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id36">1.10.0 (2026-08-13)</a><ul>
+<li><a class="reference internal" href="#id37">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id38">1.9.1 (2026-08-10)</a><ul>
+<li><a class="reference internal" href="#id39">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id40">1.9.0 (2026-08-07)</a><ul>
+<li><a class="reference internal" href="#id41">Features</a></li>
+<li><a class="reference internal" href="#id42">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id43">1.8.0 (2026-08-06)</a><ul>
+<li><a class="reference internal" href="#id44">Features</a></li>
+<li><a class="reference internal" href="#id45">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id46">1.7.0 (2026-08-05)</a><ul>
+<li><a class="reference internal" href="#id47">Features</a></li>
+<li><a class="reference internal" href="#id48">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id49">1.6.0 (2026-08-04)</a><ul>
+<li><a class="reference internal" href="#id50">Features</a></li>
+<li><a class="reference internal" href="#id51">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id52">1.5.0 (2026-07-26)</a><ul>
+<li><a class="reference internal" href="#id53">Features</a></li>
+<li><a class="reference internal" href="#id54">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id55">1.4.0 (2026-07-13)</a><ul>
+<li><a class="reference internal" href="#id56">Features</a></li>
+<li><a class="reference internal" href="#id57">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id58">1.3.0 (2026-07-08)</a><ul>
+<li><a class="reference internal" href="#id59">Features</a></li>
+<li><a class="reference internal" href="#id60">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id61">1.2.0 (2026-07-07)</a><ul>
+<li><a class="reference internal" href="#id62">Features</a></li>
+<li><a class="reference internal" href="#id63">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id64">1.1.0 (2026-07-06)</a><ul>
+<li><a class="reference internal" href="#id65">Features</a></li>
+<li><a class="reference internal" href="#id66">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id67">1.0.1 (2026-07-02)</a><ul>
+<li><a class="reference internal" href="#id68">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id69">1.0.0 (2026-07-02)</a><ul>
+<li><a class="reference internal" href="#miscellaneous">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id70">0.14.0 (2026-06-30)</a><ul>
+<li><a class="reference internal" href="#id71">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id72">Features</a></li>
+<li><a class="reference internal" href="#id73">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id74">0.13.0 (2026-06-25)</a><ul>
+<li><a class="reference internal" href="#id75">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id76">Features</a></li>
+<li><a class="reference internal" href="#id77">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id78">0.12.1 (2026-06-24)</a><ul>
+<li><a class="reference internal" href="#id79">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id80">0.12.0 (2026-06-22)</a><ul>
+<li><a class="reference internal" href="#id81">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id82">0.11.0 (2026-06-17)</a><ul>
+<li><a class="reference internal" href="#id83">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id84">Features</a></li>
+<li><a class="reference internal" href="#id85">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id86">0.10.0 (2026-06-12)</a><ul>
+<li><a class="reference internal" href="#id87">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id88">Features</a></li>
+<li><a class="reference internal" href="#id89">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id90">0.9.0 (2026-06-10)</a><ul>
+<li><a class="reference internal" href="#id91">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id92">Features</a></li>
+<li><a class="reference internal" href="#id93">Bug Fixes</a></li>
+<li><a class="reference internal" href="#id94">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id95">0.8.0 (2026-06-02)</a><ul>
+<li><a class="reference internal" href="#id96">&#9888; BREAKING CHANGES</a></li>
+<li><a class="reference internal" href="#id97">Features</a></li>
+<li><a class="reference internal" href="#id98">Bug Fixes</a></li>
+<li><a class="reference internal" href="#id99">Miscellaneous</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id100">0.7.0 (2026-05-27)</a><ul>
+<li><a class="reference internal" href="#id101">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id102">0.6.0 (2026-05-01)</a><ul>
+<li><a class="reference internal" href="#id103">Features</a></li>
+<li><a class="reference internal" href="#id104">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id105">0.5.2 (2026-03-20)</a><ul>
+<li><a class="reference internal" href="#id106">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id107">0.5.1 (2026-02-23)</a><ul>
+<li><a class="reference internal" href="#id108">Features</a></li>
+<li><a class="reference internal" href="#id109">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id110">0.5.0 (2026-02-04)</a><ul>
+<li><a class="reference internal" href="#id111">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id112">0.4.0 (2025-12-19)</a><ul>
+<li><a class="reference internal" href="#id113">Features</a></li>
+<li><a class="reference internal" href="#id114">Bug Fixes</a></li>
+<li><a class="reference internal" href="#id115">Documentation</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id116">0.3.0 (2025-11-20)</a><ul>
+<li><a class="reference internal" href="#id117">Features</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id118">0.2.0 (2025-11-05)</a><ul>
+<li><a class="reference internal" href="#id119">Features</a></li>
+<li><a class="reference internal" href="#id120">Bug Fixes</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#id121">0.1.0 (2025-10-15)</a><ul>
+<li><a class="reference internal" href="#id122">Features</a></li>
+<li><a class="reference internal" href="#id123">Bug Fixes</a></li>
+</ul>
+</li>
+</ul>
+</div><div class="edit-this-page">
+  <a href="https://github.com/nominal-io/instro/edit/main/docs/sdk/changelog.md">Edit this page</a>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Changelog</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/changelog.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/changelog.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/changelog.md" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/changelog.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/sdk/changelog.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="changelog">
+<h1>Changelog<a class="headerlink" href="#changelog" title="Link to this heading">#</a></h1>
+<section id="id1">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.22.0...instro-v1.23.0" rel="noreferer noopener" target="_blank">1.23.0</a> (2026-10-28)<a class="headerlink" href="#id1" title="Link to this heading">#</a></h2>
+<section id="features">
+<h3>Features<a class="headerlink" href="#features" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>unstable/dmm:</strong> add Fluke 8845A driver wrapping Agilent34401A (<a class="reference external" href="https://github.com/nominal-io/instro/issues/668" rel="noreferer noopener" target="_blank">#668</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f2c1284794ff5824807c52aecd3b02b83833038f" rel="noreferer noopener" target="_blank">f2c1284</a>)</p></li>
+<li><p><strong>unstable/scope:</strong> add Keysight 3000T X-Series oscilloscope driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/667" rel="noreferer noopener" target="_blank">#667</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/af43270ef472e8a472d83780dfa50759a9dc8fda" rel="noreferer noopener" target="_blank">af43270</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id2">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.21.0...instro-v1.22.0" rel="noreferer noopener" target="_blank">1.22.0</a> (2026-10-23)<a class="headerlink" href="#id2" title="Link to this heading">#</a></h2>
+<section id="id3">
+<h3>Features<a class="headerlink" href="#id3" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>discover:</strong> add dataclass for discovered instruments with driver and config builders (<a class="reference external" href="https://github.com/nominal-io/instro/issues/620" rel="noreferer noopener" target="_blank">#620</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/311aee4ae227205b773e6cc9c523df9ea7e7ce03" rel="noreferer noopener" target="_blank">311aee4</a>)</p></li>
+<li><p><strong>dmm:</strong> add per-function read shorthands to InstroDMM (<a class="reference external" href="https://github.com/nominal-io/instro/issues/559" rel="noreferer noopener" target="_blank">#559</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c11e7aee7dc88ecf064cf6acf2d8f456d4c3f324" rel="noreferer noopener" target="_blank">c11e7ae</a>)</p></li>
+<li><p><strong>docs:</strong> port sdk mkdocs to sphinx (<a class="reference external" href="https://github.com/nominal-io/instro/issues/583" rel="noreferer noopener" target="_blank">#583</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e758e73c1d4e2b4ae9420bafd043b909d4399334" rel="noreferer noopener" target="_blank">e758e73</a>)</p></li>
+<li><p><strong>eload:</strong> move rigol dl30xx driver from contrib to core (<a class="reference external" href="https://github.com/nominal-io/instro/issues/642" rel="noreferer noopener" target="_blank">#642</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/dfb672b81de3813b66221e5f3d37c30b0e18d61f" rel="noreferer noopener" target="_blank">dfb672b</a>)</p></li>
+<li><p><strong>psu:</strong> add GW Instek GPD3303D driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/651" rel="noreferer noopener" target="_blank">#651</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/460e8ce56a9bd65fcdbe9a03935c8cbc4f367704" rel="noreferer noopener" target="_blank">460e8ce</a>)</p></li>
+<li><p><strong>psu:</strong> add InstroPSU.apply for one-call channel bring-up (<a class="reference external" href="https://github.com/nominal-io/instro/issues/560" rel="noreferer noopener" target="_blank">#560</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1509827d28961fdd13c9d7cdc8ba7d080e7cf018" rel="noreferer noopener" target="_blank">1509827</a>)</p></li>
+<li><p><strong>psu:</strong> add OVP/OCP trip clear and query methods (<a class="reference external" href="https://github.com/nominal-io/instro/issues/599" rel="noreferer noopener" target="_blank">#599</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/90f2ceba72cb02b87d80206f82d9b294ec112670" rel="noreferer noopener" target="_blank">90f2ceb</a>)</p></li>
+<li><p><strong>psu:</strong> implement get_operating_mode for RigolDP800 (<a class="reference external" href="https://github.com/nominal-io/instro/issues/598" rel="noreferer noopener" target="_blank">#598</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/2bb81f436c24bf3f292b32b7fdcce279f2e0c601" rel="noreferer noopener" target="_blank">2bb81f4</a>)</p></li>
+<li><p><strong>unstable:</strong> sdr first pass (<a class="reference external" href="https://github.com/nominal-io/instro/issues/447" rel="noreferer noopener" target="_blank">#447</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/a64cd131ed4f2b9110a65367822ba740f8c59f76" rel="noreferer noopener" target="_blank">a64cd13</a>)</p></li>
+</ul>
+</section>
+<section id="bug-fixes">
+<h3>Bug Fixes<a class="headerlink" href="#bug-fixes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>deps:</strong> update nominal and fix security alerts (<a class="reference external" href="https://github.com/nominal-io/instro/issues/666" rel="noreferer noopener" target="_blank">#666</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1aa8ca0fd6a039257846599b4701e5c1c11ba549" rel="noreferer noopener" target="_blank">1aa8ca0</a>)</p></li>
+<li><p><strong>just:</strong> run clippy –fix in fix-rust recipe (<a class="reference external" href="https://github.com/nominal-io/instro/issues/568" rel="noreferer noopener" target="_blank">#568</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/964921dda4b1b7811195de8e570c2ba5d9b27eb1" rel="noreferer noopener" target="_blank">964921d</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id4">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.20.0...instro-v1.21.0" rel="noreferer noopener" target="_blank">1.21.0</a> (2026-09-18)<a class="headerlink" href="#id4" title="Link to this heading">#</a></h2>
+<section id="id5">
+<h3>Features<a class="headerlink" href="#id5" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>dewesoftx:</strong> add dewesoftx daq driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/443" rel="noreferer noopener" target="_blank">#443</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/905422dd0f7c1209008e9a9786557afcba36f88d" rel="noreferer noopener" target="_blank">905422d</a>)</p></li>
+</ul>
+</section>
+<section id="id6">
+<h3>Bug Fixes<a class="headerlink" href="#id6" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>correct PSB mode select to reflect CV only (<a class="reference external" href="https://github.com/nominal-io/instro/issues/525" rel="noreferer noopener" target="_blank">#525</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/009ab0ca957d645b657b8117aeddf860b46856d5" rel="noreferer noopener" target="_blank">009ab0c</a>)</p></li>
+<li><p><strong>dmm:</strong> release the driver and reset apply state when close() fails (<a class="reference external" href="https://github.com/nominal-io/instro/issues/534" rel="noreferer noopener" target="_blank">#534</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/a8c0aeaada9de15c5db0e4bb9070b45dd655c4b3" rel="noreferer noopener" target="_blank">a8c0aea</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id7">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.19.0...instro-v1.20.0" rel="noreferer noopener" target="_blank">1.20.0</a> (2026-09-09)<a class="headerlink" href="#id7" title="Link to this heading">#</a></h2>
+<section id="id8">
+<h3>Features<a class="headerlink" href="#id8" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>scope:</strong> json config-driven instrument creation (<a class="reference external" href="https://github.com/nominal-io/instro/issues/460" rel="noreferer noopener" target="_blank">#460</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1d1c4f8c4196a2d4aa3223ac4bf0ef1eccb038c7" rel="noreferer noopener" target="_blank">1d1c4f8</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id9">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.18.1...instro-v1.19.0" rel="noreferer noopener" target="_blank">1.19.0</a> (2026-09-07)<a class="headerlink" href="#id9" title="Link to this heading">#</a></h2>
+<section id="id10">
+<h3>Features<a class="headerlink" href="#id10" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>psu,eload:</strong> add support for EA PSB 10000 series (<a class="reference external" href="https://github.com/nominal-io/instro/issues/379" rel="noreferer noopener" target="_blank">#379</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/b155819621296a63778405a77232c95fd71e8222" rel="noreferer noopener" target="_blank">b155819</a>)</p></li>
+</ul>
+</section>
+<section id="id11">
+<h3>Bug Fixes<a class="headerlink" href="#id11" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>eload:</strong> cache mode only after the driver confirms set_mode (<a class="reference external" href="https://github.com/nominal-io/instro/issues/485" rel="noreferer noopener" target="_blank">#485</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9ccbf0ab4c84fc229a305a21e30f3bd1c1db56eb" rel="noreferer noopener" target="_blank">9ccbf0a</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id12">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.18.0...instro-v1.18.1" rel="noreferer noopener" target="_blank">1.18.1</a> (2026-09-04)<a class="headerlink" href="#id12" title="Link to this heading">#</a></h2>
+<section id="id13">
+<h3>Bug Fixes<a class="headerlink" href="#id13" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>read_batch:</strong> read measurements from background daemon fetch (<a class="reference external" href="https://github.com/nominal-io/instro/issues/465" rel="noreferer noopener" target="_blank">#465</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/98a7832a18f4e77c0010ef6e717356a9962453e3" rel="noreferer noopener" target="_blank">98a7832</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id14">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.17.0...instro-v1.18.0" rel="noreferer noopener" target="_blank">1.18.0</a> (2026-09-04)<a class="headerlink" href="#id14" title="Link to this heading">#</a></h2>
+<section id="breaking-changes">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#breaking-changes" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> graduate InstroAWG from instro-unstable to instro (<a class="reference external" href="https://github.com/nominal-io/instro/issues/453" rel="noreferer noopener" target="_blank">#453</a>)</p></li>
+</ul>
+</section>
+<section id="id15">
+<h3>Features<a class="headerlink" href="#id15" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add awg to idn map (<a class="reference external" href="https://github.com/nominal-io/instro/issues/475" rel="noreferer noopener" target="_blank">#475</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1b8e3c5778df2a19f58e44dc4e448138e6135f6f" rel="noreferer noopener" target="_blank">1b8e3c5</a>)</p></li>
+<li><p><strong>awg:</strong> graduate InstroAWG from instro-unstable to instro (<a class="reference external" href="https://github.com/nominal-io/instro/issues/453" rel="noreferer noopener" target="_blank">#453</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/ed9adfd9f4aba9d5ea796769981e09736be06d1a" rel="noreferer noopener" target="_blank">ed9adfd</a>)</p></li>
+</ul>
+</section>
+<section id="id16">
+<h3>Bug Fixes<a class="headerlink" href="#id16" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ci:</strong> mint a GitHub App token for release-please instead of the shared PAT (<a class="reference external" href="https://github.com/nominal-io/instro/issues/469" rel="noreferer noopener" target="_blank">#469</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/3b8cab8d8fec31c90fcb6f50bd15af3dc4eead38" rel="noreferer noopener" target="_blank">3b8cab8</a>)</p></li>
+</ul>
+</section>
+<section id="documentation">
+<h3>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>agents:</strong> document Release-As scoping for release-please overrides (<a class="reference external" href="https://github.com/nominal-io/instro/issues/478" rel="noreferer noopener" target="_blank">#478</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/3bbf55a6d501244eac13aa6b6ed704cd6909b2d7" rel="noreferer noopener" target="_blank">3bbf55a</a>), closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/476" rel="noreferer noopener" target="_blank">#476</a></p></li>
+</ul>
+</section>
+</section>
+<section id="id17">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.16.0...instro-v1.17.0" rel="noreferer noopener" target="_blank">1.17.0</a> (2026-09-03)<a class="headerlink" href="#id17" title="Link to this heading">#</a></h2>
+<section id="id18">
+<h3>Features<a class="headerlink" href="#id18" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>unstable:</strong> add motor-controller HAL and VESC 6 CAN driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/386" rel="noreferer noopener" target="_blank">#386</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e7f9627cefb8c48e7e2f50c45b488ec6a0e02f68" rel="noreferer noopener" target="_blank">e7f9627</a>)</p></li>
+</ul>
+</section>
+<section id="id19">
+<h3>Bug Fixes<a class="headerlink" href="#id19" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> wait for a full fresh batch in read_batch() (<a class="reference external" href="https://github.com/nominal-io/instro/issues/457" rel="noreferer noopener" target="_blank">#457</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9245b70aca84658f856900818be002050ca2dee7" rel="noreferer noopener" target="_blank">9245b70</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id20">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.15.0...instro-v1.16.0" rel="noreferer noopener" target="_blank">1.16.0</a> (2026-09-02)<a class="headerlink" href="#id20" title="Link to this heading">#</a></h2>
+<section id="id21">
+<h3>Features<a class="headerlink" href="#id21" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>unstable:</strong> add VNA category and NanoVNA driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/439" rel="noreferer noopener" target="_blank">#439</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/20dc3eaea5d3dca60b99cab01dd7502a1394f7e4" rel="noreferer noopener" target="_blank">20dc3ea</a>)</p></li>
+</ul>
+</section>
+<section id="id22">
+<h3>Bug Fixes<a class="headerlink" href="#id22" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> standardize sample_rate in arbitrary waveforms (<a class="reference external" href="https://github.com/nominal-io/instro/issues/442" rel="noreferer noopener" target="_blank">#442</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f0e2432e747fcc66964b5b16311b3b95cad90bae" rel="noreferer noopener" target="_blank">f0e2432</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id23">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.14.0...instro-v1.15.0" rel="noreferer noopener" target="_blank">1.15.0</a> (2026-08-31)<a class="headerlink" href="#id23" title="Link to this heading">#</a></h2>
+<section id="id24">
+<h3>Features<a class="headerlink" href="#id24" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>publish categorical instrument reads as Measurement (<a class="reference external" href="https://github.com/nominal-io/instro/issues/445" rel="noreferer noopener" target="_blank">#445</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6ccce834b59f67753c192374c4154d0901d8bb3a" rel="noreferer noopener" target="_blank">6ccce83</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id25">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.13.0...instro-v1.14.0" rel="noreferer noopener" target="_blank">1.14.0</a> (2026-08-28)<a class="headerlink" href="#id25" title="Link to this heading">#</a></h2>
+<section id="id26">
+<h3>Features<a class="headerlink" href="#id26" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add burst to Keysight 33521B driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/405" rel="noreferer noopener" target="_blank">#405</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/bc38a6b183904c00718d92b8f407dda031fa6e43" rel="noreferer noopener" target="_blank">bc38a6b</a>)</p></li>
+<li><p><strong>awg:</strong> add sweep to Keysight 33521B driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/410" rel="noreferer noopener" target="_blank">#410</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/a55974c1cbecc561e721440556dc2031dd3d0faa" rel="noreferer noopener" target="_blank">a55974c</a>)</p></li>
+<li><p><strong>awg:</strong> use bulk download for small LAN waveforms (<a class="reference external" href="https://github.com/nominal-io/instro/issues/432" rel="noreferer noopener" target="_blank">#432</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/bde7b1ee24a9ef77b0c1332a3d4700c8185dbef2" rel="noreferer noopener" target="_blank">bde7b1e</a>)</p></li>
+<li><p><strong>psu:</strong> add get_operating_mode query for CV/CC/off state (<a class="reference external" href="https://github.com/nominal-io/instro/issues/438" rel="noreferer noopener" target="_blank">#438</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9da5701ba6cb2d53b4ae9a36567ae9a97048e077" rel="noreferer noopener" target="_blank">9da5701</a>)</p></li>
+</ul>
+</section>
+<section id="id27">
+<h3>Bug Fixes<a class="headerlink" href="#id27" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>labjack:</strong> fix start and timeout inconsistencies (<a class="reference external" href="https://github.com/nominal-io/instro/issues/444" rel="noreferer noopener" target="_blank">#444</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5acbd4dae16eb6902f7c696f241069473bc952c8" rel="noreferer noopener" target="_blank">5acbd4d</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id28">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.12.0...instro-v1.13.0" rel="noreferer noopener" target="_blank">1.13.0</a> (2026-08-24)<a class="headerlink" href="#id28" title="Link to this heading">#</a></h2>
+<section id="id29">
+<h3>Features<a class="headerlink" href="#id29" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>mcc:</strong> typed channel support for mcc daqs (<a class="reference external" href="https://github.com/nominal-io/instro/issues/403" rel="noreferer noopener" target="_blank">#403</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/df59d2f4173ff145dac003dc7f1544e669f201c4" rel="noreferer noopener" target="_blank">df59d2f</a>)</p></li>
+<li><p><strong>psu:</strong> implement get_voltage_setpoint and get_current_setpoint for SimulatedPSU (<a class="reference external" href="https://github.com/nominal-io/instro/issues/421" rel="noreferer noopener" target="_blank">#421</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e6bfd5730f0c2128176f91aa52477e1c7da6cc60" rel="noreferer noopener" target="_blank">e6bfd57</a>)</p></li>
+</ul>
+</section>
+<section id="id30">
+<h3>Bug Fixes<a class="headerlink" href="#id30" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>discover:</strong> report 2 programmable channels for SiglentSPD3303 (<a class="reference external" href="https://github.com/nominal-io/instro/issues/407" rel="noreferer noopener" target="_blank">#407</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d69d000747000103cd9152c9d1ff4e149878a31e" rel="noreferer noopener" target="_blank">d69d000</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id31">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.11.0...instro-v1.12.0" rel="noreferer noopener" target="_blank">1.12.0</a> (2026-08-21)<a class="headerlink" href="#id31" title="Link to this heading">#</a></h2>
+<section id="id32">
+<h3>Features<a class="headerlink" href="#id32" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add sweep to Rigol DG1022Z driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/412" rel="noreferer noopener" target="_blank">#412</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/bd18a1b454cc91d7327808405c1700f2f811268a" rel="noreferer noopener" target="_blank">bd18a1b</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id33">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.10.0...instro-v1.11.0" rel="noreferer noopener" target="_blank">1.11.0</a> (2026-08-21)<a class="headerlink" href="#id33" title="Link to this heading">#</a></h2>
+<section id="id34">
+<h3>Features<a class="headerlink" href="#id34" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add keysight 33500b awg driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/359" rel="noreferer noopener" target="_blank">#359</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/4d36ade00313184e8aa202bd3a58e88cd3ec2393" rel="noreferer noopener" target="_blank">4d36ade</a>)</p></li>
+<li><p><strong>awg:</strong> add sweep functions to AWG base (<a class="reference external" href="https://github.com/nominal-io/instro/issues/388" rel="noreferer noopener" target="_blank">#388</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/2b6227ac07ff3ac6f2a1538a750a8b5fb65dc58e" rel="noreferer noopener" target="_blank">2b6227a</a>)</p></li>
+<li><p><strong>daq:</strong> ni typed channel support (<a class="reference external" href="https://github.com/nominal-io/instro/issues/382" rel="noreferer noopener" target="_blank">#382</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/867585557101deca2efc03c9b9d82ea038a95217" rel="noreferer noopener" target="_blank">8675855</a>)</p></li>
+<li><p><strong>eload:</strong> json config-driven instrument creation (<a class="reference external" href="https://github.com/nominal-io/instro/issues/411" rel="noreferer noopener" target="_blank">#411</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d1da228d2c280365c277f43b0bff22bdc5adb846" rel="noreferer noopener" target="_blank">d1da228</a>)</p></li>
+<li><p><strong>modbus:</strong> share one connection across multiple unit addresses (<a class="reference external" href="https://github.com/nominal-io/instro/issues/409" rel="noreferer noopener" target="_blank">#409</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/765b9eac3c28e949ca5bd08d83e14340949d6105" rel="noreferer noopener" target="_blank">765b9ea</a>)</p></li>
+<li><p><strong>unstable:</strong> add a shared CAN transport on TransportBase (<a class="reference external" href="https://github.com/nominal-io/instro/issues/396" rel="noreferer noopener" target="_blank">#396</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/18da653ae41097b7f930e11d3ac3145d670a7691" rel="noreferer noopener" target="_blank">18da653</a>)</p></li>
+</ul>
+</section>
+<section id="id35">
+<h3>Bug Fixes<a class="headerlink" href="#id35" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ljm:</strong> stop() stops the stream (<a class="reference external" href="https://github.com/nominal-io/instro/issues/413" rel="noreferer noopener" target="_blank">#413</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/ec77591977bf7335b29c82d6080a30ce107de88a" rel="noreferer noopener" target="_blank">ec77591</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id36">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.9.1...instro-v1.10.0" rel="noreferer noopener" target="_blank">1.10.0</a> (2026-08-13)<a class="headerlink" href="#id36" title="Link to this heading">#</a></h2>
+<section id="id37">
+<h3>Features<a class="headerlink" href="#id37" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add burst to awg (<a class="reference external" href="https://github.com/nominal-io/instro/issues/367" rel="noreferer noopener" target="_blank">#367</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/27fea81239be095b97a8e54093a781c029263316" rel="noreferer noopener" target="_blank">27fea81</a>)</p></li>
+<li><p><strong>dmm:</strong> json config-driven instrument creation (<a class="reference external" href="https://github.com/nominal-io/instro/issues/387" rel="noreferer noopener" target="_blank">#387</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6b6789f31970d639755ce9b2377e7d928cf88239" rel="noreferer noopener" target="_blank">6b6789f</a>)</p></li>
+<li><p><strong>instrodaq:</strong> unified read and write functions (<a class="reference external" href="https://github.com/nominal-io/instro/issues/303" rel="noreferer noopener" target="_blank">#303</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/22abe4997a126b7600c3be30b84411cdfa25db46" rel="noreferer noopener" target="_blank">22abe49</a>)</p></li>
+<li><p><strong>lib:</strong> transport base class that implements shared ownership of transport (<a class="reference external" href="https://github.com/nominal-io/instro/issues/336" rel="noreferer noopener" target="_blank">#336</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/80841e0d81f082edbf59e8ad910f27f05d63e60b" rel="noreferer noopener" target="_blank">80841e0</a>)</p></li>
+<li><p><strong>psu:</strong> implement get_voltage_setpoint()/get_current_setpoint() for SiglentSPD3303 (<a class="reference external" href="https://github.com/nominal-io/instro/issues/377" rel="noreferer noopener" target="_blank">#377</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/653a6dbd50958e4f2000556d43d1086b9f2b8f93" rel="noreferer noopener" target="_blank">653a6db</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id38">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.9.0...instro-v1.9.1" rel="noreferer noopener" target="_blank">1.9.1</a> (2026-08-10)<a class="headerlink" href="#id38" title="Link to this heading">#</a></h2>
+<section id="id39">
+<h3>Bug Fixes<a class="headerlink" href="#id39" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> change check_errors() from required to optional in awg (<a class="reference external" href="https://github.com/nominal-io/instro/issues/374" rel="noreferer noopener" target="_blank">#374</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/753ecd55d64f9c7752126fb23e357c06e91f2f11" rel="noreferer noopener" target="_blank">753ecd5</a>)</p></li>
+<li><p><strong>awg:</strong> move check_errors() into driver level instead of outer abstraction (<a class="reference external" href="https://github.com/nominal-io/instro/issues/381" rel="noreferer noopener" target="_blank">#381</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/bc461b79f2e56e17a70cb7992a9bc557b85d752b" rel="noreferer noopener" target="_blank">bc461b7</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id40">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.8.0...instro-v1.9.0" rel="noreferer noopener" target="_blank">1.9.0</a> (2026-08-07)<a class="headerlink" href="#id40" title="Link to this heading">#</a></h2>
+<section id="id41">
+<h3>Features<a class="headerlink" href="#id41" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>instrodaq:</strong> add support for sw timed background daemon (<a class="reference external" href="https://github.com/nominal-io/instro/issues/325" rel="noreferer noopener" target="_blank">#325</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/81f37845e12eda260c55d71537e93221956fa17e" rel="noreferer noopener" target="_blank">81f3784</a>)</p></li>
+</ul>
+</section>
+<section id="id42">
+<h3>Bug Fixes<a class="headerlink" href="#id42" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ljm:</strong> expose stream buffer byte size configuration (<a class="reference external" href="https://github.com/nominal-io/instro/issues/366" rel="noreferer noopener" target="_blank">#366</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/4cc6d14977b1c3c8c42f17d22e79bd139df2953b" rel="noreferer noopener" target="_blank">4cc6d14</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id43">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.7.0...instro-v1.8.0" rel="noreferer noopener" target="_blank">1.8.0</a> (2026-08-06)<a class="headerlink" href="#id43" title="Link to this heading">#</a></h2>
+<section id="id44">
+<h3>Features<a class="headerlink" href="#id44" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>lib:</strong> add VISA instrument discovery API, consolidate CLI onto it (<a class="reference external" href="https://github.com/nominal-io/instro/issues/341" rel="noreferer noopener" target="_blank">#341</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d922c0dcc30c43d6a522807ccc44cf62997ae12a" rel="noreferer noopener" target="_blank">d922c0d</a>)</p></li>
+</ul>
+</section>
+<section id="id45">
+<h3>Bug Fixes<a class="headerlink" href="#id45" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>lib:</strong> import exceptions from nominal.core (<a class="reference external" href="https://github.com/nominal-io/instro/issues/353" rel="noreferer noopener" target="_blank">#353</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e53edb2b2a5a71e8fbfab54a61aa0addb98e38c0" rel="noreferer noopener" target="_blank">e53edb2</a>), closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/352" rel="noreferer noopener" target="_blank">#352</a></p></li>
+</ul>
+</section>
+</section>
+<section id="id46">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.6.0...instro-v1.7.0" rel="noreferer noopener" target="_blank">1.7.0</a> (2026-08-05)<a class="headerlink" href="#id46" title="Link to this heading">#</a></h2>
+<section id="id47">
+<h3>Features<a class="headerlink" href="#id47" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>awg:</strong> add modulation to AWG (<a class="reference external" href="https://github.com/nominal-io/instro/issues/335" rel="noreferer noopener" target="_blank">#335</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9ea6bbd3548de24b809503e5adc4d2e0d1772aab" rel="noreferer noopener" target="_blank">9ea6bbd</a>)</p></li>
+</ul>
+</section>
+<section id="id48">
+<h3>Bug Fixes<a class="headerlink" href="#id48" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>publishers:</strong> fix BufferedPublisher retains its buffer after close (<a class="reference external" href="https://github.com/nominal-io/instro/issues/345" rel="noreferer noopener" target="_blank">#345</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/fe2d1605c8fe47f9bb179a3ba23a3c0ed3503584" rel="noreferer noopener" target="_blank">fe2d160</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id49">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.5.0...instro-v1.6.0" rel="noreferer noopener" target="_blank">1.6.0</a> (2026-08-04)<a class="headerlink" href="#id49" title="Link to this heading">#</a></h2>
+<section id="id50">
+<h3>Features<a class="headerlink" href="#id50" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add gen-examples to <code class="docutils literal notranslate"><span class="pre">fix</span></code> step in justfile, closing <a class="reference external" href="https://github.com/nominal-io/instro/issues/326" rel="noreferer noopener" target="_blank">#326</a> (<a class="reference external" href="https://github.com/nominal-io/instro/issues/327" rel="noreferer noopener" target="_blank">#327</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c9f992b3ebd13e3c402c7b6d81d65fbbb4b91fe8" rel="noreferer noopener" target="_blank">c9f992b</a>)</p></li>
+<li><p>add support for alicat mc flow controller and the concept of an instro flow controller. First pass. Aimed for future compatibility for different flow control types and different vendors but expect to adapt as new vendors supported. (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225" rel="noreferer noopener" target="_blank">d897ee2</a>)</p></li>
+<li><p>add support for alicat mc flow controller and the concept of an InstroFlowController (<a class="reference external" href="https://github.com/nominal-io/instro/issues/132" rel="noreferer noopener" target="_blank">#132</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d897ee2188117aec6faad1dacadad8b67623e225" rel="noreferer noopener" target="_blank">d897ee2</a>)</p></li>
+<li><p><strong>awg:</strong> add Rigol-DG1022Z driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/307" rel="noreferer noopener" target="_blank">#307</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/168be78a092cf7847410059137f925d7cb7ea2c9" rel="noreferer noopener" target="_blank">168be78</a>)</p></li>
+<li><p><strong>cli:</strong> add scopes to idn map (<a class="reference external" href="https://github.com/nominal-io/instro/issues/330" rel="noreferer noopener" target="_blank">#330</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f44cf7710fb685bcd7f266e05fee5b4b9b6c4090" rel="noreferer noopener" target="_blank">f44cf77</a>)</p></li>
+<li><p><strong>dmm:</strong> add Keysight 34461A Truevolt driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/263" rel="noreferer noopener" target="_blank">#263</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f00ff08bb44e4398dd92b4253f25e5bfd5a3c1cc" rel="noreferer noopener" target="_blank">f00ff08</a>)</p></li>
+<li><p><strong>psu:</strong> add get_voltage_setpoint() and get_current_setpoint() to PSUDriverBase (<a class="reference external" href="https://github.com/nominal-io/instro/issues/308" rel="noreferer noopener" target="_blank">#308</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c487dcd512bb0d851932480c5740afe0f9f1d64a" rel="noreferer noopener" target="_blank">c487dcd</a>)</p></li>
+<li><p><strong>psu:</strong> config-driven InstroPSU initialization from JSON and dict (<a class="reference external" href="https://github.com/nominal-io/instro/issues/131" rel="noreferer noopener" target="_blank">#131</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/73c1415bed3015ad86b72df471b8c3003c61cfb7" rel="noreferer noopener" target="_blank">73c1415</a>)</p></li>
+<li><p><strong>psu:</strong> implement get_voltage_setpoint()/get_current_setpoint() for RigolDP800 (<a class="reference external" href="https://github.com/nominal-io/instro/issues/314" rel="noreferer noopener" target="_blank">#314</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5ec23edae3d5859462119505cc99a93da3ce417d" rel="noreferer noopener" target="_blank">5ec23ed</a>)</p></li>
+</ul>
+</section>
+<section id="id51">
+<h3>Bug Fixes<a class="headerlink" href="#id51" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>scope:</strong> remove loop from scope check_errors() (<a class="reference external" href="https://github.com/nominal-io/instro/issues/340" rel="noreferer noopener" target="_blank">#340</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/719aff413d6cd5b48a0502cbccf980a10c6f99ba" rel="noreferer noopener" target="_blank">719aff4</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id52">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.4.0...instro-v1.5.0" rel="noreferer noopener" target="_blank">1.5.0</a> (2026-07-26)<a class="headerlink" href="#id52" title="Link to this heading">#</a></h2>
+<section id="id53">
+<h3>Features<a class="headerlink" href="#id53" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add espec gl controller environmental chamber driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/299" rel="noreferer noopener" target="_blank">#299</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6cfb65804b549b4410a57bf2f27ce8aed6c54eae" rel="noreferer noopener" target="_blank">6cfb658</a>)</p></li>
+<li><p><strong>awg:</strong> adding AWGDriverBase and InstroAWG (<a class="reference external" href="https://github.com/nominal-io/instro/issues/159" rel="noreferer noopener" target="_blank">#159</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/71baa7ed1aff6166510008500de58db8ce049f12" rel="noreferer noopener" target="_blank">71baa7e</a>)</p></li>
+<li><p><strong>opcua:</strong> implement browse paths (<a class="reference external" href="https://github.com/nominal-io/instro/issues/161" rel="noreferer noopener" target="_blank">#161</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/8b2ea1c976279ada509904255ae99d37b37d6e6b" rel="noreferer noopener" target="_blank">8b2ea1c</a>)</p></li>
+<li><p><strong>opcua:</strong> support bytestring and guid node ids (<a class="reference external" href="https://github.com/nominal-io/instro/issues/162" rel="noreferer noopener" target="_blank">#162</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5365856f802fc587bc8cb9f49f65cc640de25a72" rel="noreferer noopener" target="_blank">5365856</a>)</p></li>
+<li><p><strong>scaling:</strong> add inverse thermocouple scaling (<a class="reference external" href="https://github.com/nominal-io/instro/issues/294" rel="noreferer noopener" target="_blank">#294</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/3e5078ca84272a4d748aeb423efb64dbbd087b41" rel="noreferer noopener" target="_blank">3e5078c</a>)</p></li>
+<li><p><strong>transports:</strong> add composable ModbusDriver transport (<a class="reference external" href="https://github.com/nominal-io/instro/issues/295" rel="noreferer noopener" target="_blank">#295</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1eed6f6eacf4ecbf625132fe16db283332c96ebf" rel="noreferer noopener" target="_blank">1eed6f6</a>)</p></li>
+</ul>
+</section>
+<section id="id54">
+<h3>Bug Fixes<a class="headerlink" href="#id54" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> standardize internal analog reads on lists (<a class="reference external" href="https://github.com/nominal-io/instro/issues/280" rel="noreferer noopener" target="_blank">#280</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/efb9283f4e3c92d0974b98128fbd6a08d4bc1a20" rel="noreferer noopener" target="_blank">efb9283</a>)</p></li>
+<li><p><strong>nidaqmx:</strong> validate digital port width (<a class="reference external" href="https://github.com/nominal-io/instro/issues/284" rel="noreferer noopener" target="_blank">#284</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/980bc7dd3fe915ef338e77712ff9efaa7980f6c3" rel="noreferer noopener" target="_blank">980bc7d</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id55">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.3.0...instro-v1.4.0" rel="noreferer noopener" target="_blank">1.4.0</a> (2026-07-13)<a class="headerlink" href="#id55" title="Link to this heading">#</a></h2>
+<section id="id56">
+<h3>Features<a class="headerlink" href="#id56" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ci:</strong> trigger claude review on <a class="reference external" href="https://github.com/claude" rel="noreferer noopener" target="_blank">&#64;claude</a> review comments (<a class="reference external" href="https://github.com/nominal-io/instro/issues/271" rel="noreferer noopener" target="_blank">#271</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6a87ef91920d58712e3f8c1ddb0480c17bc05f26" rel="noreferer noopener" target="_blank">6a87ef9</a>)</p></li>
+<li><p><strong>dmm:</strong> add simulated DMM driver and sim server (<a class="reference external" href="https://github.com/nominal-io/instro/issues/259" rel="noreferer noopener" target="_blank">#259</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9da86596544db05de318d843eb1dc996f810e15d" rel="noreferer noopener" target="_blank">9da8659</a>)</p></li>
+<li><p><strong>publishers:</strong> shared publisher (<a class="reference external" href="https://github.com/nominal-io/instro/issues/250" rel="noreferer noopener" target="_blank">#250</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6c00e3e41ae2f708f13bfbc190b82c260a047ea3" rel="noreferer noopener" target="_blank">6c00e3e</a>)</p></li>
+</ul>
+</section>
+<section id="id57">
+<h3>Bug Fixes<a class="headerlink" href="#id57" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>instrument:</strong> remove flaky channel names test (<a class="reference external" href="https://github.com/nominal-io/instro/issues/268" rel="noreferer noopener" target="_blank">#268</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/bb3b2e55204a668863f224d93fcd2b4d7dc15720" rel="noreferer noopener" target="_blank">bb3b2e5</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id58">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.2.0...instro-v1.3.0" rel="noreferer noopener" target="_blank">1.3.0</a> (2026-07-08)<a class="headerlink" href="#id58" title="Link to this heading">#</a></h2>
+<section id="id59">
+<h3>Features<a class="headerlink" href="#id59" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>instrument:</strong> add channel_names property (<a class="reference external" href="https://github.com/nominal-io/instro/issues/243" rel="noreferer noopener" target="_blank">#243</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6936ac8fd2c010b6036ab849bdefbeca7655891b" rel="noreferer noopener" target="_blank">6936ac8</a>)</p></li>
+</ul>
+</section>
+<section id="id60">
+<h3>Bug Fixes<a class="headerlink" href="#id60" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>close <a class="reference external" href="https://github.com/nominal-io/instro/issues/219" rel="noreferer noopener" target="_blank">#219</a> by adding additional rules for properly listing out available contrib drivers (<a class="reference external" href="https://github.com/nominal-io/instro/issues/230" rel="noreferer noopener" target="_blank">#230</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/6f81dd06131bfcd6e3008df8b0becfd444971793" rel="noreferer noopener" target="_blank">6f81dd0</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id61">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.1.0...instro-v1.2.0" rel="noreferer noopener" target="_blank">1.2.0</a> (2026-07-07)<a class="headerlink" href="#id61" title="Link to this heading">#</a></h2>
+<section id="id62">
+<h3>Features<a class="headerlink" href="#id62" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>dmm:</strong> add Keithley 2750 DMM driver (unstable) (<a class="reference external" href="https://github.com/nominal-io/instro/issues/237" rel="noreferer noopener" target="_blank">#237</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/ff013685d879c6c8e2105d7c3048abf8d79e7121" rel="noreferer noopener" target="_blank">ff01368</a>), closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/193" rel="noreferer noopener" target="_blank">#193</a></p></li>
+</ul>
+</section>
+<section id="id63">
+<h3>Bug Fixes<a class="headerlink" href="#id63" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>use dark foreground in light mode (<a class="reference external" href="https://github.com/nominal-io/instro/issues/242" rel="noreferer noopener" target="_blank">#242</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/fee81d5627af04097c92cc03cae6f464b79de740" rel="noreferer noopener" target="_blank">fee81d5</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id64">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.0.1...instro-v1.1.0" rel="noreferer noopener" target="_blank">1.1.0</a> (2026-07-06)<a class="headerlink" href="#id64" title="Link to this heading">#</a></h2>
+<section id="id65">
+<h3>Features<a class="headerlink" href="#id65" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>cli:</strong> add –version listing installed instro packages (<a class="reference external" href="https://github.com/nominal-io/instro/issues/228" rel="noreferer noopener" target="_blank">#228</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/baea5fde6e4318c25164959562ae7cee948cd170" rel="noreferer noopener" target="_blank">baea5fd</a>)</p></li>
+<li><p><strong>cli:</strong> report backend and interface coverage in discover (<a class="reference external" href="https://github.com/nominal-io/instro/issues/226" rel="noreferer noopener" target="_blank">#226</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/abe1b1be83932b2b8340b7963756ff879fe7b404" rel="noreferer noopener" target="_blank">abe1b1b</a>)</p></li>
+<li><p><strong>publishers:</strong> add jsonl format and deprecate the array-JSON writer (<a class="reference external" href="https://github.com/nominal-io/instro/issues/227" rel="noreferer noopener" target="_blank">#227</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/ce5a1b96cc58e436842dd81563828e0a4bc766cf" rel="noreferer noopener" target="_blank">ce5a1b9</a>)</p></li>
+<li><p>rearrange README, add badges, and add unstable extra (<a class="reference external" href="https://github.com/nominal-io/instro/issues/207" rel="noreferer noopener" target="_blank">#207</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/98c4103614ec213a4353dcb1f8024fd5dc33bdb5" rel="noreferer noopener" target="_blank">98c4103</a>)</p></li>
+</ul>
+</section>
+<section id="id66">
+<h3>Bug Fixes<a class="headerlink" href="#id66" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>close <a class="reference external" href="https://github.com/nominal-io/instro/issues/218" rel="noreferer noopener" target="_blank">#218</a> by simplifying scope.mdx language (<a class="reference external" href="https://github.com/nominal-io/instro/issues/224" rel="noreferer noopener" target="_blank">#224</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e85e173637c24ffd013a56061d882edb1dba03b0" rel="noreferer noopener" target="_blank">e85e173</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id67">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v1.0.0...instro-v1.0.1" rel="noreferer noopener" target="_blank">1.0.1</a> (2026-07-02)<a class="headerlink" href="#id67" title="Link to this heading">#</a></h2>
+<section id="id68">
+<h3>Bug Fixes<a class="headerlink" href="#id68" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>visa:</strong> quiet pyvisa-py fallback on the healthy path (<a class="reference external" href="https://github.com/nominal-io/instro/issues/192" rel="noreferer noopener" target="_blank">#192</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e3c675d6ce8d7f47c22b4d4603738d12e27a5404" rel="noreferer noopener" target="_blank">e3c675d</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id69">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.14.0...instro-v1.0.0" rel="noreferer noopener" target="_blank">1.0.0</a> (2026-07-02)<a class="headerlink" href="#id69" title="Link to this heading">#</a></h2>
+<section id="miscellaneous">
+<h3>Miscellaneous<a class="headerlink" href="#miscellaneous" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>release main (<a class="reference external" href="https://github.com/nominal-io/instro/issues/198" rel="noreferer noopener" target="_blank">#198</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c12e2744537241be228ba49312ab3f4c9be16c61" rel="noreferer noopener" target="_blank">c12e274</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id70">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.13.0...instro-v0.14.0" rel="noreferer noopener" target="_blank">0.14.0</a> (2026-06-30)<a class="headerlink" href="#id70" title="Link to this heading">#</a></h2>
+<section id="id71">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id71" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>scope:</strong> graduate InstroScope from instro-unstable to core (<a class="reference external" href="https://github.com/nominal-io/instro/issues/167" rel="noreferer noopener" target="_blank">#167</a>)</p></li>
+</ul>
+</section>
+<section id="id72">
+<h3>Features<a class="headerlink" href="#id72" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ethernetip:</strong> graduate EtherNet/IP out of unstable into a dedicated package (<a class="reference external" href="https://github.com/nominal-io/instro/issues/178" rel="noreferer noopener" target="_blank">#178</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/4f716e4e8e3b56fa0cfa4543732bd306f068cea5" rel="noreferer noopener" target="_blank">4f716e4</a>)</p></li>
+<li><p><strong>psu:</strong> add support for matrix WPS300s [closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/124" rel="noreferer noopener" target="_blank">#124</a>] (<a class="reference external" href="https://github.com/nominal-io/instro/issues/125" rel="noreferer noopener" target="_blank">#125</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5e84286596b1c52a5f6130b5bb752453beac79be" rel="noreferer noopener" target="_blank">5e84286</a>)</p></li>
+<li><p><strong>scope:</strong> graduate InstroScope from instro-unstable to core (<a class="reference external" href="https://github.com/nominal-io/instro/issues/167" rel="noreferer noopener" target="_blank">#167</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/787a8bad9a566f25bb161ee5b34c6dc90eab520f" rel="noreferer noopener" target="_blank">787a8ba</a>)</p></li>
+</ul>
+</section>
+<section id="id73">
+<h3>Bug Fixes<a class="headerlink" href="#id73" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ethernetip:</strong> kill cpppo simulator process tree on test teardown (<a class="reference external" href="https://github.com/nominal-io/instro/issues/174" rel="noreferer noopener" target="_blank">#174</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f9e00e849956a619ab69fd1acfe5dcb7845f9125" rel="noreferer noopener" target="_blank">f9e00e8</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id74">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.12.1...instro-v0.13.0" rel="noreferer noopener" target="_blank">0.13.0</a> (2026-06-25)<a class="headerlink" href="#id74" title="Link to this heading">#</a></h2>
+<section id="id75">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id75" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>149 bug documentation for get channel does not match behavior (<a class="reference external" href="https://github.com/nominal-io/instro/issues/151" rel="noreferer noopener" target="_blank">#151</a>)</p></li>
+</ul>
+</section>
+<section id="id76">
+<h3>Features<a class="headerlink" href="#id76" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>cli:</strong> add instro discover command (<a class="reference external" href="https://github.com/nominal-io/instro/issues/99" rel="noreferer noopener" target="_blank">#99</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/699648cf66e87f3d3c7c1122d1004c89fffb43c2" rel="noreferer noopener" target="_blank">699648c</a>)</p></li>
+<li><p><strong>instrument:</strong> auto-prepend instrument name in get_channel (<a class="reference external" href="https://github.com/nominal-io/instro/issues/152" rel="noreferer noopener" target="_blank">#152</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e807209caccc5d28e55be69169c68f58db22984c" rel="noreferer noopener" target="_blank">e807209</a>), closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/147" rel="noreferer noopener" target="_blank">#147</a></p></li>
+</ul>
+</section>
+<section id="id77">
+<h3>Bug Fixes<a class="headerlink" href="#id77" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>149 bug documentation for get channel does not match behavior (<a class="reference external" href="https://github.com/nominal-io/instro/issues/151" rel="noreferer noopener" target="_blank">#151</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d" rel="noreferer noopener" target="_blank">f4f3966</a>)</p></li>
+<li><p>closes <a class="reference external" href="https://github.com/nominal-io/instro/issues/149" rel="noreferer noopener" target="_blank">#149</a>. First, updates documentation about timeout behavior. (<a class="reference external" href="https://github.com/nominal-io/instro/commit/f4f396686fab9b437143730954d0638d28dbbb6d" rel="noreferer noopener" target="_blank">f4f3966</a>)</p></li>
+<li><p><strong>transports:</strong> disable Nagle on raw TCP sockets for pyvisa-py (<a class="reference external" href="https://github.com/nominal-io/instro/issues/157" rel="noreferer noopener" target="_blank">#157</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e1ce26a01384d940d8e7dda84c54f293311cf72d" rel="noreferer noopener" target="_blank">e1ce26a</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id78">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.12.0...instro-v0.12.1" rel="noreferer noopener" target="_blank">0.12.1</a> (2026-06-24)<a class="headerlink" href="#id78" title="Link to this heading">#</a></h2>
+<section id="id79">
+<h3>Bug Fixes<a class="headerlink" href="#id79" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>dmm:</strong> apply Agilent34401A manual range without requiring set_digits (<a class="reference external" href="https://github.com/nominal-io/instro/issues/148" rel="noreferer noopener" target="_blank">#148</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/563aabbd366e60ceafc63e44a35c3aab588d3170" rel="noreferer noopener" target="_blank">563aabb</a>)</p></li>
+<li><p><strong>dmm:</strong> record measurement function only after driver accepts it (<a class="reference external" href="https://github.com/nominal-io/instro/issues/146" rel="noreferer noopener" target="_blank">#146</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d720cf146aa2f7edb52c58a64a6ac7d67247c67b" rel="noreferer noopener" target="_blank">d720cf1</a>)</p></li>
+<li><p><strong>ethernetip:</strong> disable cpppo UDP in simulator tests (<a class="reference external" href="https://github.com/nominal-io/instro/issues/137" rel="noreferer noopener" target="_blank">#137</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/4048fbf42889332b0fe8ebe4d75a6ca7445887c9" rel="noreferer noopener" target="_blank">4048fbf</a>)</p></li>
+<li><p><strong>ethernetip:</strong> remove strings from Python EIP surface (<a class="reference external" href="https://github.com/nominal-io/instro/issues/128" rel="noreferer noopener" target="_blank">#128</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c133d814a66b68775fb5a05114cf1ccac22aa466" rel="noreferer noopener" target="_blank">c133d81</a>)</p></li>
+<li><p><strong>visa:</strong> catch pyvisa errors so <a class="reference external" href="https://github.com/ivi" rel="noreferer noopener" target="_blank">&#64;ivi</a> to <a class="reference external" href="https://github.com/py" rel="noreferer noopener" target="_blank">&#64;py</a> fallback fires correctly (<a class="reference external" href="https://github.com/nominal-io/instro/issues/136" rel="noreferer noopener" target="_blank">#136</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9329df6f48d92f196ce205a0e07f9bf0f3df21d0" rel="noreferer noopener" target="_blank">9329df6</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id80">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.11.0...instro-v0.12.0" rel="noreferer noopener" target="_blank">0.12.0</a> (2026-06-22)<a class="headerlink" href="#id80" title="Link to this heading">#</a></h2>
+<section id="id81">
+<h3>Features<a class="headerlink" href="#id81" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ethernetip:</strong> reconnect after transient failures (<a class="reference external" href="https://github.com/nominal-io/instro/issues/100" rel="noreferer noopener" target="_blank">#100</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/e9a35da96e619719cad008ee591d6be250343cbd" rel="noreferer noopener" target="_blank">e9a35da</a>)</p></li>
+<li><p><strong>visa:</strong> default to <a class="reference external" href="https://github.com/ivi" rel="noreferer noopener" target="_blank">&#64;ivi</a> backend, fall back to <a class="reference external" href="https://github.com/py" rel="noreferer noopener" target="_blank">&#64;py</a> (<a class="reference external" href="https://github.com/nominal-io/instro/issues/130" rel="noreferer noopener" target="_blank">#130</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/61a21664053cb5d81e1fee0df03817bfe83f056a" rel="noreferer noopener" target="_blank">61a2166</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id82">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.10.0...instro-v0.11.0" rel="noreferer noopener" target="_blank">0.11.0</a> (2026-06-17)<a class="headerlink" href="#id82" title="Link to this heading">#</a></h2>
+<section id="id83">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id83" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>psu:</strong> update bk 914X with OVP, OCP, and remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/93" rel="noreferer noopener" target="_blank">#93</a>)</p></li>
+<li><p><strong>psu:</strong> remove default channel selection from psu drivers (<a class="reference external" href="https://github.com/nominal-io/instro/issues/106" rel="noreferer noopener" target="_blank">#106</a>)</p></li>
+</ul>
+</section>
+<section id="id84">
+<h3>Features<a class="headerlink" href="#id84" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>psu:</strong> add OVP, OCP, remote sense to bk 9115 (<a class="reference external" href="https://github.com/nominal-io/instro/issues/94" rel="noreferer noopener" target="_blank">#94</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/783f753501c541a9b6caa4952371d6d194ae573f" rel="noreferer noopener" target="_blank">783f753</a>)</p></li>
+<li><p><strong>psu:</strong> add Rigol DP800 ovp, ocp, and remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/114" rel="noreferer noopener" target="_blank">#114</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d1f15875f91f896e1cecf86a520ba68073b5ba50" rel="noreferer noopener" target="_blank">d1f1587</a>)</p></li>
+<li><p><strong>psu:</strong> update bk 914X with OVP, OCP, and remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/93" rel="noreferer noopener" target="_blank">#93</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/df0e28f84aa8ad88f58b0a9e02c8e3f7efe4bcaf" rel="noreferer noopener" target="_blank">df0e28f</a>)</p></li>
+<li><p><strong>psu:</strong> update tdk genesys with ovp, ocp, remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/104" rel="noreferer noopener" target="_blank">#104</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1bd22a0d7e8eb9083971c13bb8d1d05b723839da" rel="noreferer noopener" target="_blank">1bd22a0</a>)</p></li>
+</ul>
+</section>
+<section id="id85">
+<h3>Bug Fixes<a class="headerlink" href="#id85" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>build:</strong> resolve Git Bash for just recipes on Windows (<a class="reference external" href="https://github.com/nominal-io/instro/issues/110" rel="noreferer noopener" target="_blank">#110</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/8c8ae6b91659555d8b07447cff486b3f9f7d04c9" rel="noreferer noopener" target="_blank">8c8ae6b</a>)</p></li>
+<li><p><strong>daq:</strong> guard NI fetch_analog against fetch before start() (<a class="reference external" href="https://github.com/nominal-io/instro/issues/116" rel="noreferer noopener" target="_blank">#116</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/2e2f4bce22928e7ce1be04741e5995c79b6bf50f" rel="noreferer noopener" target="_blank">2e2f4bc</a>)</p></li>
+<li><p><strong>daq:</strong> make close() tolerant of double-close and failed open (<a class="reference external" href="https://github.com/nominal-io/instro/issues/108" rel="noreferer noopener" target="_blank">#108</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5474c982044106fd91f9b000fb9bdcef6812c4a7" rel="noreferer noopener" target="_blank">5474c98</a>)</p></li>
+<li><p><strong>daq:</strong> mcc fetch path integrity fix (<a class="reference external" href="https://github.com/nominal-io/instro/issues/113" rel="noreferer noopener" target="_blank">#113</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/aa682895959804b506efa99a3b1571d757f050e3" rel="noreferer noopener" target="_blank">aa68289</a>)</p></li>
+<li><p><strong>daq:</strong> raise clear error when DAQ methods are called before open() (<a class="reference external" href="https://github.com/nominal-io/instro/issues/97" rel="noreferer noopener" target="_blank">#97</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/9f9ed5dd496f632440d3d71e225350bd544b571a" rel="noreferer noopener" target="_blank">9f9ed5d</a>)</p></li>
+<li><p><strong>lib:</strong> bundle every pyvisa-py backend for clean-install VISA support (<a class="reference external" href="https://github.com/nominal-io/instro/issues/103" rel="noreferer noopener" target="_blank">#103</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/60604dc79de9802c5d40720d8d0265ba85e4cac0" rel="noreferer noopener" target="_blank">60604dc</a>)</p></li>
+<li><p><strong>psu:</strong> remove default channel selection from psu drivers (<a class="reference external" href="https://github.com/nominal-io/instro/issues/106" rel="noreferer noopener" target="_blank">#106</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/45c6423f8b86cdb7f2c5dad165a6d18b8d6c1a00" rel="noreferer noopener" target="_blank">45c6423</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id86">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.9.0...instro-v0.10.0" rel="noreferer noopener" target="_blank">0.10.0</a> (2026-06-12)<a class="headerlink" href="#id86" title="Link to this heading">#</a></h2>
+<section id="id87">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id87" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>psu:</strong> support simulated protection and sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/47" rel="noreferer noopener" target="_blank">#47</a>)</p></li>
+<li><p><strong>psu:</strong> add tui for sim and refactor command set for ovp ocp and remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/30" rel="noreferer noopener" target="_blank">#30</a>)</p></li>
+</ul>
+</section>
+<section id="id88">
+<h3>Features<a class="headerlink" href="#id88" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>ethernetip:</strong> batch reads (<a class="reference external" href="https://github.com/nominal-io/instro/issues/68" rel="noreferer noopener" target="_blank">#68</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/0afb900ad01c752397ecbf23ea1012370658fc77" rel="noreferer noopener" target="_blank">0afb900</a>)</p></li>
+<li><p><strong>psu:</strong> add tui for sim and refactor command set for ovp ocp and remote sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/30" rel="noreferer noopener" target="_blank">#30</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/16f89b25b0f6086fb3c988a13a9081bade5dae45" rel="noreferer noopener" target="_blank">16f89b2</a>)</p></li>
+<li><p><strong>psu:</strong> support simulated protection and sense (<a class="reference external" href="https://github.com/nominal-io/instro/issues/47" rel="noreferer noopener" target="_blank">#47</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/0ad4cf0baef6d9d994e9303668e0f5bc97d3941f" rel="noreferer noopener" target="_blank">0ad4cf0</a>)</p></li>
+</ul>
+</section>
+<section id="id89">
+<h3>Bug Fixes<a class="headerlink" href="#id89" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>test:</strong> bind ephemeral port in simulated PSU socket test (<a class="reference external" href="https://github.com/nominal-io/instro/issues/98" rel="noreferer noopener" target="_blank">#98</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/06587213f5d2cd1ae7f5505d54a9d8e01b3168ff" rel="noreferer noopener" target="_blank">0658721</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id90">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.8.0...instro-v0.9.0" rel="noreferer noopener" target="_blank">0.9.0</a> (2026-06-10)<a class="headerlink" href="#id90" title="Link to this heading">#</a></h2>
+<section id="id91">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id91" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> decouple acquisition start from the daemon thread (<a class="reference external" href="https://github.com/nominal-io/instro/issues/62" rel="noreferer noopener" target="_blank">#62</a>)</p></li>
+<li><p><strong>daq:</strong> make driver channel/timing state private and read-only (<a class="reference external" href="https://github.com/nominal-io/instro/issues/56" rel="noreferer noopener" target="_blank">#56</a>)</p></li>
+</ul>
+</section>
+<section id="id92">
+<h3>Features<a class="headerlink" href="#id92" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> make driver channel/timing state private and read-only (<a class="reference external" href="https://github.com/nominal-io/instro/issues/56" rel="noreferer noopener" target="_blank">#56</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/c34cf0d9508db3d73db1c8f537fb41f6763a0616" rel="noreferer noopener" target="_blank">c34cf0d</a>)</p></li>
+<li><p><strong>psu:</strong> add Keysight E36100 support (<a class="reference external" href="https://github.com/nominal-io/instro/issues/48" rel="noreferer noopener" target="_blank">#48</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/417035eb3b688b4058d42ea3a46f86c90acbbf66" rel="noreferer noopener" target="_blank">417035e</a>)</p></li>
+<li><p><strong>psu:</strong> update Siglent SPD3303X driver and tests (<a class="reference external" href="https://github.com/nominal-io/instro/issues/55" rel="noreferer noopener" target="_blank">#55</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/a07f0f3515c863101db6059eb82a65d9c6bccfba" rel="noreferer noopener" target="_blank">a07f0f3</a>)</p></li>
+<li><p><strong>scope:</strong> add hardware-validated Siglent SDS1104X-E driver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/74" rel="noreferer noopener" target="_blank">#74</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/b572a876efc7b3d80e0b4eac18d4f8721fbd2171" rel="noreferer noopener" target="_blank">b572a87</a>)</p></li>
+</ul>
+</section>
+<section id="id93">
+<h3>Bug Fixes<a class="headerlink" href="#id93" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> stop kwarg crash and samples_per_channel=0 below 10 Hz (<a class="reference external" href="https://github.com/nominal-io/instro/issues/83" rel="noreferer noopener" target="_blank">#83</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/65392845794060a0edd0aafaac59035f6ea6b513" rel="noreferer noopener" target="_blank">6539284</a>)</p></li>
+<li><p><strong>dmm:</strong> accept the Keithley 2400 signed +0 no-error reply (<a class="reference external" href="https://github.com/nominal-io/instro/issues/85" rel="noreferer noopener" target="_blank">#85</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/2af65dace4e7441d5dcc76421e768007b7e8be4c" rel="noreferer noopener" target="_blank">2af65da</a>)</p></li>
+<li><p><strong>lib,daq:</strong> make Instrument start/stop/start restartable (<a class="reference external" href="https://github.com/nominal-io/instro/issues/81" rel="noreferer noopener" target="_blank">#81</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/eb60201b7738e3158386bca13f6bd4f5e7f1afb8" rel="noreferer noopener" target="_blank">eb60201</a>)</p></li>
+<li><p><strong>lib:</strong> stop closing the shared pyvisa ResourceManager in VisaDriver (<a class="reference external" href="https://github.com/nominal-io/instro/issues/79" rel="noreferer noopener" target="_blank">#79</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/1865d6172ef8c5fc951bddb1dd13ca9e60ebc929" rel="noreferer noopener" target="_blank">1865d61</a>)</p></li>
+</ul>
+</section>
+<section id="id94">
+<h3>Miscellaneous<a class="headerlink" href="#id94" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> decouple acquisition start from the daemon thread (<a class="reference external" href="https://github.com/nominal-io/instro/issues/62" rel="noreferer noopener" target="_blank">#62</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/52c9f8b19d6b2220f1bf78201a026256cdd7956d" rel="noreferer noopener" target="_blank">52c9f8b</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id95">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.7.0...instro-v0.8.0" rel="noreferer noopener" target="_blank">0.8.0</a> (2026-06-02)<a class="headerlink" href="#id95" title="Link to this heading">#</a></h2>
+<section id="id96">
+<h3>⚠ BREAKING CHANGES<a class="headerlink" href="#id96" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> split digital line and port configuration into separate methods (<a class="reference external" href="https://github.com/nominal-io/instro/issues/36" rel="noreferer noopener" target="_blank">#36</a>)</p></li>
+<li><p><strong>daq:</strong> require fully-qualified NI physical channel names (<a class="reference external" href="https://github.com/nominal-io/instro/issues/41" rel="noreferer noopener" target="_blank">#41</a>)</p></li>
+<li><p><strong>daq:</strong> remove InstroDAQFacade; driver owns channel/timing state (<a class="reference external" href="https://github.com/nominal-io/instro/issues/19" rel="noreferer noopener" target="_blank">#19</a>)</p></li>
+</ul>
+</section>
+<section id="id97">
+<h3>Features<a class="headerlink" href="#id97" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> implement digital port read/write for NI and Keysight drivers (<a class="reference external" href="https://github.com/nominal-io/instro/issues/50" rel="noreferer noopener" target="_blank">#50</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/3150ae09a84f6b75b5800b128309173b65ca667b" rel="noreferer noopener" target="_blank">3150ae0</a>)</p></li>
+<li><p><strong>daq:</strong> require fully-qualified NI physical channel names (<a class="reference external" href="https://github.com/nominal-io/instro/issues/41" rel="noreferer noopener" target="_blank">#41</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/a9dbdfd481dca8424da4e892d28986acce024d87" rel="noreferer noopener" target="_blank">a9dbdfd</a>)</p></li>
+<li><p><strong>psu:</strong> add ovp, ocp, and remote sense method signatures (<a class="reference external" href="https://github.com/nominal-io/instro/issues/31" rel="noreferer noopener" target="_blank">#31</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/ecd40718ec00227deb2b619d5d2fea0f01ea15fd" rel="noreferer noopener" target="_blank">ecd4071</a>)</p></li>
+</ul>
+</section>
+<section id="id98">
+<h3>Bug Fixes<a class="headerlink" href="#id98" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>psu:</strong> expect “+0” from TDK Lambda SYST:ERR? response (<a class="reference external" href="https://github.com/nominal-io/instro/issues/54" rel="noreferer noopener" target="_blank">#54</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5f9e4a942c46b63895a218826eb5df46b4b91a59" rel="noreferer noopener" target="_blank">5f9e4a9</a>)</p></li>
+<li><p><strong>tests:</strong> add tests/<strong>init</strong>.py so pyaardvark’s bundled tests package stops shadowing (<a class="reference external" href="https://github.com/nominal-io/instro/issues/44" rel="noreferer noopener" target="_blank">#44</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/d755f95fcdf906fcb89cd41d1888a49ada2d45c1" rel="noreferer noopener" target="_blank">d755f95</a>)</p></li>
+</ul>
+</section>
+<section id="id99">
+<h3>Miscellaneous<a class="headerlink" href="#id99" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> remove InstroDAQFacade; driver owns channel/timing state (<a class="reference external" href="https://github.com/nominal-io/instro/issues/19" rel="noreferer noopener" target="_blank">#19</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/cd43847904a492b83cc3c2f8da97e356a06e9435" rel="noreferer noopener" target="_blank">cd43847</a>)</p></li>
+<li><p><strong>daq:</strong> split digital line and port configuration into separate methods (<a class="reference external" href="https://github.com/nominal-io/instro/issues/36" rel="noreferer noopener" target="_blank">#36</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/52c8c44e2981aae9610606309c411a9b44c4094c" rel="noreferer noopener" target="_blank">52c8c44</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id100">
+<h2><a class="reference external" href="https://github.com/nominal-io/instro/compare/instro-v0.6.0...instro-v0.7.0" rel="noreferer noopener" target="_blank">0.7.0</a> (2026-05-27)<a class="headerlink" href="#id100" title="Link to this heading">#</a></h2>
+<section id="id101">
+<h3>Features<a class="headerlink" href="#id101" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add PyPI project URLs (<a class="reference external" href="https://github.com/nominal-io/instro/issues/18" rel="noreferer noopener" target="_blank">#18</a>) (<a class="reference external" href="https://github.com/nominal-io/instro/commit/5ffe6cfa8aec92504c9c4c2af91c33a5d7c3d26f" rel="noreferer noopener" target="_blank">5ffe6cf</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id102">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/instro-v0.5.2...instro-v0.6.0" rel="noreferer noopener" target="_blank">0.6.0</a> (2026-05-01)<a class="headerlink" href="#id102" title="Link to this heading">#</a></h2>
+<section id="id103">
+<h3>Features<a class="headerlink" href="#id103" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add CD workflow to publish instro-unstable to GemFury (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/167" rel="noreferer noopener" target="_blank">#167</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/b210ccd4a1068725d506e8f3822aaf2f8384c87a" rel="noreferer noopener" target="_blank">b210ccd</a>)</p></li>
+<li><p>add core logging capabilities (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/148" rel="noreferer noopener" target="_blank">#148</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/98c7c050dd1f6672e5e408ce08892f8d471467b1" rel="noreferer noopener" target="_blank">98c7c05</a>)</p></li>
+<li><p>add experimental workspace package for in-development features (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/154" rel="noreferer noopener" target="_blank">#154</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/e1a4b8260155cd6ca9d77b6c90ecdc3d7638e0a0" rel="noreferer noopener" target="_blank">e1a4b82</a>)</p></li>
+<li><p>add mccdaq driver (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/82" rel="noreferer noopener" target="_blank">#82</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/c6acfeed8a34d53cc83edf369b1c0eff23984187" rel="noreferer noopener" target="_blank">c6acfee</a>)</p></li>
+<li><p>add instro-unstable package alongside experimental (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/165" rel="noreferer noopener" target="_blank">#165</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/e57c21880c5f846d9c033f0e16835dd31c41f259" rel="noreferer noopener" target="_blank">e57c218</a>)</p></li>
+<li><p><strong>ethernetip:</strong> add experimental rust bindings (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/164" rel="noreferer noopener" target="_blank">#164</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/6ec03b02e8866e853db8f0d1ee362ef963721bec" rel="noreferer noopener" target="_blank">6ec03b0</a>)</p></li>
+<li><p><strong>modbus:</strong> add config types foundation for InstroModbus (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/155" rel="noreferer noopener" target="_blank">#155</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/0aab1814a1f48886ad39b3f1de938833e5c94c60" rel="noreferer noopener" target="_blank">0aab181</a>)</p></li>
+<li><p><strong>modbus:</strong> add config validation for swaps, scale, and overlaps (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/157" rel="noreferer noopener" target="_blank">#157</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/2c5d86b9fff50fda8582578e55af8c1c6931f382" rel="noreferer noopener" target="_blank">2c5d86b</a>)</p></li>
+<li><p><strong>modbus:</strong> add InstroModbus core read/write (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/156" rel="noreferer noopener" target="_blank">#156</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/97a18f7fef59f18bf3d87dcaaf539fd026fe7347" rel="noreferer noopener" target="_blank">97a18f7</a>)</p></li>
+<li><p><strong>modbus:</strong> add read groups, bitmap extraction, background polling (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/159" rel="noreferer noopener" target="_blank">#159</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/8ddc7a0106d17bbef24d54bc1aff6ded5dd21420" rel="noreferer noopener" target="_blank">8ddc7a0</a>)</p></li>
+<li><p><strong>modbus:</strong> add write safety — value maps, limits, type checking (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/158" rel="noreferer noopener" target="_blank">#158</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/1cf03015ac8052d45063e8374976de70aadfc09c" rel="noreferer noopener" target="_blank">1cf0301</a>)</p></li>
+<li><p><strong>scope:</strong> add Keysight 1200X oscilloscope driver (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/175" rel="noreferer noopener" target="_blank">#175</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/34bfb2ec3375e8de22b3825669cadebacd7ab3a1" rel="noreferer noopener" target="_blank">34bfb2e</a>)</p></li>
+<li><p><strong>scope:</strong> add InstroScope instrument class (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/172" rel="noreferer noopener" target="_blank">#172</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/5e21937499e1522d2a8406b4b53b3f25a5d57646" rel="noreferer noopener" target="_blank">5e21937</a>)</p></li>
+<li><p><strong>scope:</strong> add oscilloscope types and driver base classes (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/171" rel="noreferer noopener" target="_blank">#171</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ce666f2d0d83d749779a07900cf3fdce289d3c05" rel="noreferer noopener" target="_blank">ce666f2</a>)</p></li>
+<li><p><strong>scope:</strong> add scope public API and driver discovery (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/173" rel="noreferer noopener" target="_blank">#173</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/502b2598f4f327aee5ba43f872c4b670b701be5a" rel="noreferer noopener" target="_blank">502b259</a>)</p></li>
+<li><p><strong>scope:</strong> add Tektronix 2 Series MSO driver (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/174" rel="noreferer noopener" target="_blank">#174</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/855a61ea12a3f21591be86d1c2e75be03af64719" rel="noreferer noopener" target="_blank">855a61e</a>)</p></li>
+<li><p>use absolute timestamps for fetch waveform data (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/187" rel="noreferer noopener" target="_blank">#187</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ddced95e36a46387e0fbd31acdd8828424720809" rel="noreferer noopener" target="_blank">ddced95</a>)</p></li>
+</ul>
+</section>
+<section id="id104">
+<h3>Bug Fixes<a class="headerlink" href="#id104" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add actions read permission (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/153" rel="noreferer noopener" target="_blank">#153</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/dc696eb150129243021d8af3110cf32d25ee373f" rel="noreferer noopener" target="_blank">dc696eb</a>)</p></li>
+<li><p><strong>dmm:</strong> don’t start reading from DMM if not fully configured (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/145" rel="noreferer noopener" target="_blank">#145</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/e56db933a25a05f7d502a9914953dba132e7fb61" rel="noreferer noopener" target="_blank">e56db93</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id105">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/instro-v0.5.1...instro-v0.5.2" rel="noreferer noopener" target="_blank">0.5.2</a> (2026-03-20)<a class="headerlink" href="#id105" title="Link to this heading">#</a></h2>
+<section id="id106">
+<h3>Bug Fixes<a class="headerlink" href="#id106" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>daq:</strong> fix DAQ data integrity due to poor timestamp algorithm (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/134" rel="noreferer noopener" target="_blank">#134</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/db6769042b166faf6e9dc35feaf51ef275827f7f" rel="noreferer noopener" target="_blank">db67690</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id107">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/v0.5.0...v0.5.1" rel="noreferer noopener" target="_blank">0.5.1</a> (2026-02-23)<a class="headerlink" href="#id107" title="Link to this heading">#</a></h2>
+<section id="id108">
+<h3>Features<a class="headerlink" href="#id108" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>adding relay for the keysight_34980a (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/114" rel="noreferer noopener" target="_blank">#114</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/0f257737322407ece9bb785fb3ad47b061fce2df" rel="noreferer noopener" target="_blank">0f25773</a>)</p></li>
+<li><p>reduce NominalConnectPublisher import path (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/120" rel="noreferer noopener" target="_blank">#120</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/d6ca81665eb87a1b8533367cd6331dde576b2605" rel="noreferer noopener" target="_blank">d6ca816</a>)</p></li>
+</ul>
+</section>
+<section id="id109">
+<h3>Bug Fixes<a class="headerlink" href="#id109" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p><strong>dmm:</strong> fix InstroDMM daemon not starting (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/93" rel="noreferer noopener" target="_blank">#93</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/51cadee1316df080fdd432a4300369ee06527f93" rel="noreferer noopener" target="_blank">51cadee</a>)</p></li>
+<li><p><strong>daq:</strong> raise exceptions with verbose messages instead of failing silently, including for unconfigured channels in write_digital_line() (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/118" rel="noreferer noopener" target="_blank">#118</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ce6cf81f63d47fbad23b5bd47e4aa6bba09f17fd" rel="noreferer noopener" target="_blank">ce6cf81</a>)</p></li>
+<li><p><strong>daq:</strong> support multiple channels with same physical channel (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/87" rel="noreferer noopener" target="_blank">#87</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/aa069b6c4135d5e1fffe92f2f734cb14886d320c" rel="noreferer noopener" target="_blank">aa069b6</a>)</p></li>
+<li><p><strong>keysight:</strong> correct logic polarity comparison in digital channel config (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/116" rel="noreferer noopener" target="_blank">#116</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/976800b879e7946b63efaf14ff661f38e162a7a6" rel="noreferer noopener" target="_blank">976800b</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id110">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/v0.4.0...v0.5.0" rel="noreferer noopener" target="_blank">0.5.0</a> (2026-02-04)<a class="headerlink" href="#id110" title="Link to this heading">#</a></h2>
+<section id="id111">
+<h3>Features<a class="headerlink" href="#id111" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add InstroDMM (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/88" rel="noreferer noopener" target="_blank">#88</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ae04ad8893380e39f9052049e6f0568abc2d03d4" rel="noreferer noopener" target="_blank">ae04ad8</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id112">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/v0.3.0...v0.4.0" rel="noreferer noopener" target="_blank">0.4.0</a> (2025-12-19)<a class="headerlink" href="#id112" title="Link to this heading">#</a></h2>
+<section id="id113">
+<h3>Features<a class="headerlink" href="#id113" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>Handle bad network conditions by writing to fallback file (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/66" rel="noreferer noopener" target="_blank">#66</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/b7c3e4c05ef1a89d374d5cefb85fc4cba11acddd" rel="noreferer noopener" target="_blank">b7c3e4c</a>)</p></li>
+<li><p>add .avro file logging capabilities (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/70" rel="noreferer noopener" target="_blank">#70</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/7b0c9a971a8c9745d47123e281bfc067174862a2" rel="noreferer noopener" target="_blank">7b0c9a9</a>)</p></li>
+<li><p>add package name and version tag to measurements/commands(<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/74" rel="noreferer noopener" target="_blank">#74</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/d2e018ae17b4603b992ac9ee48e6d625ba53f000" rel="noreferer noopener" target="_blank">d2e018a</a>)</p></li>
+<li><p>add support for terminal config in InstroDAQ (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/62" rel="noreferer noopener" target="_blank">#62</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/f92a71217cc0ddc01012d8ee0181b4b030df9c75" rel="noreferer noopener" target="_blank">f92a712</a>)</p></li>
+<li><p>add configuration selection for visa backends (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/63" rel="noreferer noopener" target="_blank">#63</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ab3051e2cb790caacf6aa25d55578d0a8dc5ad52" rel="noreferer noopener" target="_blank">ab3051e</a>)</p></li>
+<li><p>data access from main thread to background daemons (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/68" rel="noreferer noopener" target="_blank">#68</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/0a04d6ff36d16bb6f1cc4a796bcb47ecdb53665e" rel="noreferer noopener" target="_blank">0a04d6f</a>)</p></li>
+<li><p>software timed analog output for daq (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/72" rel="noreferer noopener" target="_blank">#72</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/1a5f443de9d8b58bd011972da6ab671309469331" rel="noreferer noopener" target="_blank">1a5f443</a>)</p></li>
+</ul>
+</section>
+<section id="id114">
+<h3>Bug Fixes<a class="headerlink" href="#id114" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>labjack STREAM_ACTIVE and segfault (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/77" rel="noreferer noopener" target="_blank">#77</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/c9b75515a6e223e6d00dca4470c9242aa4340b39" rel="noreferer noopener" target="_blank">c9b7551</a>)</p></li>
+<li><p>prevent nominal core publisher from raising rust runtime error on exit (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/76" rel="noreferer noopener" target="_blank">#76</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/510decbed60aae5bcb047db81faca309016ab45b" rel="noreferer noopener" target="_blank">510decb</a>)</p></li>
+<li><p>remove analog input channels to avoid multiple channels with same physical channel (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/65" rel="noreferer noopener" target="_blank">#65</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/5d5ed501761dc80cad77c1b24dd05e4562e3f80a" rel="noreferer noopener" target="_blank">5d5ed50</a>)</p></li>
+<li><p>nominaldaq loop rate lies when background enable is false (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/75" rel="noreferer noopener" target="_blank">#75</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ca48db694764b701e3fcdab295c92337ad721b57" rel="noreferer noopener" target="_blank">ca48db6</a>)</p></li>
+</ul>
+</section>
+<section id="id115">
+<h3>Documentation<a class="headerlink" href="#id115" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add example and reference documentation (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/56" rel="noreferer noopener" target="_blank">#56</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/6f7d3073eb42c2ecf5cf60c953153ddda3a7d82c" rel="noreferer noopener" target="_blank">6f7d307</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id116">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/v0.2.0...v0.3.0" rel="noreferer noopener" target="_blank">0.3.0</a> (2025-11-20)<a class="headerlink" href="#id116" title="Link to this heading">#</a></h2>
+<section id="id117">
+<h3>Features<a class="headerlink" href="#id117" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>daq scaling support (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/57" rel="noreferer noopener" target="_blank">#57</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/9f78251b3f7aa4e76f40b824beab210d442ff366" rel="noreferer noopener" target="_blank">9f78251</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id118">
+<h2><a class="reference external" href="https://github.com/nominal-io/instrumentation/compare/v0.1.0...v0.2.0" rel="noreferer noopener" target="_blank">0.2.0</a> (2025-11-05)<a class="headerlink" href="#id118" title="Link to this heading">#</a></h2>
+<section id="id119">
+<h3>Features<a class="headerlink" href="#id119" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>i2c (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/33" rel="noreferer noopener" target="_blank">#33</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/d61c69feb13d46fbef33a8c8f43c2e64863c80cc" rel="noreferer noopener" target="_blank">d61c69f</a>)</p></li>
+<li><p>interface for drivers to HAL (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/48" rel="noreferer noopener" target="_blank">#48</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/02ecafe0c0ab1880946bdd0b7a582958172bf925" rel="noreferer noopener" target="_blank">02ecafe</a>)</p></li>
+<li><p>public abilities to define background daemon functions (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/50" rel="noreferer noopener" target="_blank">#50</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/36a155d75d350f59ed6b1b62af55306c03ef0e60" rel="noreferer noopener" target="_blank">36a155d</a>)</p></li>
+<li><p>unifying the instrument, driver, data_handler and factory patterns across HALs (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/45" rel="noreferer noopener" target="_blank">#45</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/a8c720f4b554239c7cb8ac23da1668920600bf8c" rel="noreferer noopener" target="_blank">a8c720f</a>)</p></li>
+</ul>
+</section>
+<section id="id120">
+<h3>Bug Fixes<a class="headerlink" href="#id120" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>docstrings (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/51" rel="noreferer noopener" target="_blank">#51</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/5427abcc1619dd0208e7d246997b5a7379234f8c" rel="noreferer noopener" target="_blank">5427abc</a>)</p></li>
+</ul>
+</section>
+</section>
+<section id="id121">
+<h2>0.1.0 (2025-10-15)<a class="headerlink" href="#id121" title="Link to this heading">#</a></h2>
+<section id="id122">
+<h3>Features<a class="headerlink" href="#id122" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>add just build command (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/37" rel="noreferer noopener" target="_blank">#37</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/1a7454ef040f628e5708fbecb7aede3a212b2f74" rel="noreferer noopener" target="_blank">1a7454e</a>)</p></li>
+<li><p>allow IDN match for “BK PRECISION” (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/34" rel="noreferer noopener" target="_blank">#34</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/0632d5305a4b46dc990324060ad96a630d8bf912" rel="noreferer noopener" target="_blank">0632d53</a>)</p></li>
+<li><p>overhaul devx (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/89b95a51ec1f760d6cbfc35839363d905ffa9efe" rel="noreferer noopener" target="_blank">89b95a5</a>)</p></li>
+<li><p>packaging restructure for extensibility (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/35" rel="noreferer noopener" target="_blank">#35</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/0027400cc9e8efaaaab76da00253aee7cb497af4" rel="noreferer noopener" target="_blank">0027400</a>)</p></li>
+<li><p>poetry -&gt; uv (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/4ac773835fe948c9b82ba77e456ebcb0da100438" rel="noreferer noopener" target="_blank">4ac7738</a>)</p></li>
+<li><p>psu registry/discovery without factory (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/23" rel="noreferer noopener" target="_blank">#23</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/e91c38364c4e80a408a5eee8c6997e73e7728b79" rel="noreferer noopener" target="_blank">e91c383</a>)</p></li>
+</ul>
+</section>
+<section id="id123">
+<h3>Bug Fixes<a class="headerlink" href="#id123" title="Link to this heading">#</a></h3>
+<ul class="simple">
+<li><p>documentation &amp; typing cleanup (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/26" rel="noreferer noopener" target="_blank">#26</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/4a77f1e14c817ae480ca1f6d7175510fb173d7c6" rel="noreferer noopener" target="_blank">4a77f1e</a>)</p></li>
+<li><p>rigol caps (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/28" rel="noreferer noopener" target="_blank">#28</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/3674f6a843cb9d81ecb34f1e1db0477b1922bd41" rel="noreferer noopener" target="_blank">3674f6a</a>)</p></li>
+<li><p>small typos (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/cc9ee8f205b5ca58cd5635ed1d5045695d10fe19" rel="noreferer noopener" target="_blank">cc9ee8f</a>)</p></li>
+<li><p>small typos (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/fea0ab565c7d9f5603b07d00d6474cc6f0aae459" rel="noreferer noopener" target="_blank">fea0ab5</a>)</p></li>
+<li><p>sort imports (<a class="reference external" href="https://github.com/nominal-io/instrumentation/issues/27" rel="noreferer noopener" target="_blank">#27</a>) (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/df2119925997055c8430d9b8caced04f44170e3d" rel="noreferer noopener" target="_blank">df21199</a>)</p></li>
+<li><p>use global logger in scpi sim (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/8eda021d24286bb3a1244274d7f9bab7cb3d4f52" rel="noreferer noopener" target="_blank">8eda021</a>)</p></li>
+<li><p>use global logger in scpi sim (<a class="reference external" href="https://github.com/nominal-io/instrumentation/commit/ad8f96f8c99828c46b8f2d7d577b7fc81575b030" rel="noreferer noopener" target="_blank">ad8f96f</a>)</p></li>
+</ul>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../protocols/instro.ethernetip.ethernetip_types.TagDef/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">TagDef</div></div>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../_static/nominal.js?v=92629581"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

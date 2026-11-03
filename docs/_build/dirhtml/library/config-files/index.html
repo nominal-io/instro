@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Config Files - instro</title><link rel="shortcut icon" href="../../_static/favicon.png"/><link rel="index" title="Index" href="../../genindex/" /><link rel="search" title="Search" href="../../search/" /><link rel="next" title="Simulated Instruments" href="../simulated-instruments/" /><link rel="prev" title="Transports" href="../transports/overview/" />
+      <link rel="canonical" href="https://instro.nominal.io/library/config-files/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/library/config-files/"/>
+  <meta property="og:title" content="Config Files"/>
+    <meta name="description" content="Constructing instruments from JSON config files instead of Python setup code"/>
+    <meta property="og:description" content="Constructing instruments from JSON config files instead of Python setup code"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../">
+      <img class="light-logo" src="../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../instruments/">Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../scope/">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../transports/overview/">Transports</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#shape-shared-by-every-category">Shape shared by every category</a></li>
+<li><a class="reference internal" href="#category-specific-state-blocks">Category-specific state blocks</a><ul>
+<li><a class="reference internal" href="#psu">PSU</a></li>
+<li><a class="reference internal" href="#dmm">DMM</a></li>
+<li><a class="reference internal" href="#eload">ELoad</a></li>
+<li><a class="reference internal" href="#awg">AWG</a></li>
+<li><a class="reference internal" href="#scope">Scope</a></li>
+</ul>
+</li>
+</ul>
+</div><div class="edit-this-page">
+  <a href="https://github.com/nominal-io/instro/edit/main/docs/library/config-files.md">Edit this page</a>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Config Files</strong>
+        <meta itemprop="position" content="2" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/config-files.md"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/config-files.md">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/config-files.md" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/config-files.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//raw.githubusercontent.com/nominal-io/instro/refs/heads/main/docs/library/config-files.md%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
+          <section id="config-files">
+<h1>Config Files<a class="headerlink" href="#config-files" title="Link to this heading">#</a></h1>
+<p class="lead">Constructing instruments from JSON config files instead of Python setup code</p>
+<p>Every config-driven category (<code class="docutils literal notranslate"><span class="pre">InstroPSU</span></code>, <code class="docutils literal notranslate"><span class="pre">InstroDMM</span></code>, <code class="docutils literal notranslate"><span class="pre">InstroELoad</span></code>, <code class="docutils literal notranslate"><span class="pre">InstroAWG</span></code>, <code class="docutils literal notranslate"><span class="pre">InstroScope</span></code>, …) can be constructed directly from a JSON config file, a plain dict, or an already-built config object, instead of <code class="docutils literal notranslate"><span class="pre">driver=...</span></code> Python setup code:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">psu</span> <span class="o">=</span> <span class="n">InstroPSU</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="s2">&quot;bench_psu.json&quot;</span><span class="p">)</span>
+</span><span data-line="2"><span class="n">psu</span> <span class="o">=</span> <span class="n">InstroPSU</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;device&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="s2">&quot;bench_psu&quot;</span><span class="p">},</span> <span class="s2">&quot;driver&quot;</span><span class="p">:</span> <span class="p">{</span><span class="o">...</span><span class="p">},</span> <span class="o">...</span><span class="p">})</span>
+</span><span data-line="3"><span class="n">psu</span> <span class="o">=</span> <span class="n">InstroPSU</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">my_psu_config</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">config</span></code> is mutually exclusive with <code class="docutils literal notranslate"><span class="pre">driver</span></code>/<code class="docutils literal notranslate"><span class="pre">num_channels</span></code>. A passed-in config object is copied up front, so later edits to the object you passed don’t reach the instrument.</p>
+<section id="shape-shared-by-every-category">
+<h2>Shape shared by every category<a class="headerlink" href="#shape-shared-by-every-category" title="Link to this heading">#</a></h2>
+<div class="highlight-json notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="p">{</span>
+</span><span data-line="2"><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="3"><span class="w">  </span><span class="nt">&quot;instrument&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;InstroPSU&quot;</span><span class="p">,</span>
+</span><span data-line="4"><span class="w">  </span><span class="nt">&quot;device&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="5"><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;bench_psu&quot;</span><span class="p">,</span>
+</span><span data-line="6"><span class="w">    </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Bench channel 1 supply&quot;</span><span class="p">,</span>
+</span><span data-line="7"><span class="w">    </span><span class="nt">&quot;manufacturer&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;B&amp;K Precision&quot;</span><span class="p">,</span>
+</span><span data-line="8"><span class="w">    </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;9115&quot;</span>
+</span><span data-line="9"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="10"><span class="w">  </span><span class="nt">&quot;driver&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span data-line="11"><span class="w">    </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;BK9115&quot;</span><span class="p">,</span>
+</span><span data-line="12"><span class="w">    </span><span class="nt">&quot;num_channels&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span data-line="13"><span class="w">    </span><span class="nt">&quot;connection_type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;visa&quot;</span><span class="p">,</span>
+</span><span data-line="14"><span class="w">    </span><span class="nt">&quot;visa&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;visa_resource&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;USB0::0x2A8D::0x0101::MY12345::INSTR&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span data-line="15"><span class="w">  </span><span class="p">},</span>
+</span><span data-line="16"><span class="w">  </span><span class="nt">&quot;timing&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;poll_interval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.0</span><span class="w"> </span><span class="p">},</span>
+</span><span data-line="17"><span class="w">  </span><span class="nt">&quot;publishers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span data-line="18"><span class="w">    </span><span class="p">{</span><span class="w"> </span><span class="nt">&quot;type&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;NominalCorePublisher&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;dataset_rid&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;&lt;dataset_rid&gt;&quot;</span><span class="w"> </span><span class="p">}</span>
+</span><span data-line="19"><span class="w">  </span><span class="p">]</span>
+</span><span data-line="20"><span class="p">}</span>
+</span></pre></div>
+</div>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">device.name</span></code></strong> is required and used as the channel-name prefix when publishing. <code class="docutils literal notranslate"><span class="pre">description</span></code>, <code class="docutils literal notranslate"><span class="pre">manufacturer</span></code>, and <code class="docutils literal notranslate"><span class="pre">model</span></code> are optional descriptive metadata about the physical instrument.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">driver.name</span></code></strong> must match one of that category’s registered vendor/model keys. The <code class="docutils literal notranslate"><span class="pre">visa</span></code> block accepts every <code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code> field, so a non-default backend, timeout, or serial setting can be set from JSON too.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">driver.num_channels</span></code></strong> is required by the multi-channel categories (PSU, Scope, AWG) and rejected by the single-channel ones (DMM, ELoad). The <code class="docutils literal notranslate"><span class="pre">driver</span></code> block is category-specific, not a shared component: each category validates it strictly, so a config copied between categories will not validate unchanged.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">timing.poll_interval</span></code></strong> is optional and sets the background daemon’s polling interval. Some categories require an initial-state block to be present before <code class="docutils literal notranslate"><span class="pre">timing</span></code> is meaningful (see each category below).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">publishers</span></code></strong> is optional and accepts a list of <code class="docutils literal notranslate"><span class="pre">NominalCorePublisher</span></code> and/or <code class="docutils literal notranslate"><span class="pre">FilePublisher</span></code> entries, each tagged by <code class="docutils literal notranslate"><span class="pre">type</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">autostart=True</span></code></strong> opens the connection and starts background polling immediately: <code class="docutils literal notranslate"><span class="pre">InstroPSU(config=&quot;bench_psu.json&quot;,</span> <span class="pre">autostart=True)</span></code>.</p></li>
+<li><p>Every category’s config model is validated strictly: fields outside the documented set are rejected, so there’s no <code class="docutils literal notranslate"><span class="pre">**kwargs</span></code>-style escape hatch from JSON. Set default tags via the direct Python constructor instead.</p></li>
+</ul>
+<p>Options the concrete driver doesn’t support raise <code class="docutils literal notranslate"><span class="pre">NotImplementedError</span></code> when the config is applied, exactly as the equivalent runtime call would.</p>
+</section>
+<section id="category-specific-state-blocks">
+<h2>Category-specific state blocks<a class="headerlink" href="#category-specific-state-blocks" title="Link to this heading">#</a></h2>
+<p>Beyond the shared shape above, some categories accept an optional block that sets initial instrument state through the same public setters a manual call would use, so it publishes the same <code class="docutils literal notranslate"><span class="pre">.cmd</span></code> channels.</p>
+<section id="psu">
+<h3>PSU<a class="headerlink" href="#psu" title="Link to this heading">#</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">InstroPSU</span></code>’s config has no initial-state block — only <code class="docutils literal notranslate"><span class="pre">device</span></code>, <code class="docutils literal notranslate"><span class="pre">driver</span></code>, <code class="docutils literal notranslate"><span class="pre">timing</span></code>, and <code class="docutils literal notranslate"><span class="pre">publishers</span></code>. See the <a class="reference internal" href="../../psu/#creating-an-instropsu"><span class="std std-ref">PSU guide</span></a> for a full example.</p>
+</section>
+<section id="dmm">
+<h3>DMM<a class="headerlink" href="#dmm" title="Link to this heading">#</a></h3>
+<p>An optional <code class="docutils literal notranslate"><span class="pre">measurement</span></code> block:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">function</span></code></strong> (required within the block): one of <code class="docutils literal notranslate"><span class="pre">DC_VOLTAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">AC_VOLTAGE</span></code>, <code class="docutils literal notranslate"><span class="pre">DC_CURRENT</span></code>, <code class="docutils literal notranslate"><span class="pre">AC_CURRENT</span></code>, <code class="docutils literal notranslate"><span class="pre">TWO_WIRE_RESISTANCE</span></code>, <code class="docutils literal notranslate"><span class="pre">FOUR_WIRE_RESISTANCE</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">digits</span></code></strong>: resolution in digits. Omit to keep the instrument default. Driver support varies: the Agilent 34401A accepts it, while the Keysight 34461A rejects it in favor of <code class="docutils literal notranslate"><span class="pre">aperture_nplc</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">aperture_nplc</span></code></strong> / <strong><code class="docutils literal notranslate"><span class="pre">aperture_seconds</span></code></strong>: integration time, in power-line cycles or seconds. At most one of the two.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">range</span></code></strong>: a number for a manual range in the function’s units, or <code class="docutils literal notranslate"><span class="pre">&quot;auto&quot;</span></code> for auto-range. Omit to keep the instrument default.</p></li>
+</ul>
+<p>Because background polling cannot start without a measurement function, a config that declares <code class="docutils literal notranslate"><span class="pre">timing</span></code> must also declare <code class="docutils literal notranslate"><span class="pre">measurement</span></code>.</p>
+</section>
+<section id="eload">
+<h3>ELoad<a class="headerlink" href="#eload" title="Link to this heading">#</a></h3>
+<p>An optional <code class="docutils literal notranslate"><span class="pre">load</span></code> block:</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">mode</span></code></strong> (required within the block): one of <code class="docutils literal notranslate"><span class="pre">CC</span></code>, <code class="docutils literal notranslate"><span class="pre">CV</span></code>, <code class="docutils literal notranslate"><span class="pre">CP</span></code>, <code class="docutils literal notranslate"><span class="pre">CR</span></code>. Required because level and range cannot be set before a mode.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">level</span></code></strong>: operating level in the mode’s units (CC: A, CV: V, CP: W, CR: Ω). Omit to keep the instrument default.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">range</span></code></strong>: operating range in the mode’s units. Driver support for <code class="docutils literal notranslate"><span class="pre">range</span></code> on <code class="docutils literal notranslate"><span class="pre">CP</span></code>/<code class="docutils literal notranslate"><span class="pre">CR</span></code> modes varies by vendor.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">slew_rate</span></code></strong>: <code class="docutils literal notranslate"><span class="pre">{&quot;direction&quot;:</span> <span class="pre">&quot;RISE&quot;</span> <span class="pre">|</span> <span class="pre">&quot;FALL&quot;</span> <span class="pre">|</span> <span class="pre">&quot;BOTH&quot;,</span> <span class="pre">&quot;rate&quot;:</span> <span class="pre">&lt;A/µs&gt;}</span></code>, mapping to <code class="docutils literal notranslate"><span class="pre">set_slewrate</span></code>.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The config never enables the input. The <code class="docutils literal notranslate"><span class="pre">load</span></code> block pre-arms the setpoint; enabling the input stays an explicit runtime call (<code class="docutils literal notranslate"><span class="pre">eload.output_enable(True)</span></code>). The polled measurements (<code class="docutils literal notranslate"><span class="pre">get_voltage</span></code>, <code class="docutils literal notranslate"><span class="pre">get_current</span></code>) work regardless of mode, so <code class="docutils literal notranslate"><span class="pre">timing</span></code> is valid without a <code class="docutils literal notranslate"><span class="pre">load</span></code> block for passive monitoring.</p>
+</div>
+</section>
+<section id="awg">
+<h3>AWG<a class="headerlink" href="#awg" title="Link to this heading">#</a></h3>
+<p>A required, non-empty <code class="docutils literal notranslate"><span class="pre">channels</span></code> dict, keyed by channel number as a string. Each entry is applied once per session on <code class="docutils literal notranslate"><span class="pre">open()</span></code> (a <code class="docutils literal notranslate"><span class="pre">close()</span></code> + <code class="docutils literal notranslate"><span class="pre">open()</span></code> cycle reapplies it):</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">waveform</span></code></strong> (required): one of <code class="docutils literal notranslate"><span class="pre">sine</span></code>, <code class="docutils literal notranslate"><span class="pre">square</span></code>, <code class="docutils literal notranslate"><span class="pre">sawtooth</span></code>, <code class="docutils literal notranslate"><span class="pre">triangle</span></code>, <code class="docutils literal notranslate"><span class="pre">pulse</span></code>, <code class="docutils literal notranslate"><span class="pre">arbitrary</span></code>, or <code class="docutils literal notranslate"><span class="pre">static_value</span></code>, discriminated by a <code class="docutils literal notranslate"><span class="pre">shape</span></code> field. <code class="docutils literal notranslate"><span class="pre">arbitrary</span></code>’s <code class="docutils literal notranslate"><span class="pre">samples</span></code> accepts an inline array of at least 2 floats normalized to <code class="docutils literal notranslate"><span class="pre">[-1.0,</span> <span class="pre">1.0]</span></code>, or a string path to a CSV file (read fresh on every <code class="docutils literal notranslate"><span class="pre">open()</span></code>; a relative path resolves against the process’s working directory, not the config file).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">amplitude</span></code></strong> (optional): <code class="docutils literal notranslate"><span class="pre">{&quot;value&quot;:</span> <span class="pre">&lt;float&gt;,</span> <span class="pre">&quot;unit&quot;:</span> <span class="pre">&quot;VPP&quot;</span> <span class="pre">|</span> <span class="pre">&quot;VP&quot;</span> <span class="pre">|</span> <span class="pre">&quot;VRMS&quot;</span> <span class="pre">|</span> <span class="pre">&quot;DBM&quot;}</span></code>; <code class="docutils literal notranslate"><span class="pre">unit</span></code> defaults to <code class="docutils literal notranslate"><span class="pre">VPP</span></code>.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">offset</span></code></strong> (optional): DC offset in volts.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">modulation</span></code></strong> / <strong><code class="docutils literal notranslate"><span class="pre">burst</span></code></strong> / <strong><code class="docutils literal notranslate"><span class="pre">sweep</span></code></strong> (optional): at most one may carry <code class="docutils literal notranslate"><span class="pre">&quot;enable&quot;:</span> <span class="pre">true</span></code> per channel. See <code class="docutils literal notranslate"><span class="pre">set_modulation</span></code>, <code class="docutils literal notranslate"><span class="pre">set_burst*</span></code>, <code class="docutils literal notranslate"><span class="pre">set_sweep*</span></code> for the field semantics.</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">output_enable</span></code> cannot be set from the config; call <code class="docutils literal notranslate"><span class="pre">awg.output_enable(channel,</span> <span class="pre">True)</span></code> explicitly after <code class="docutils literal notranslate"><span class="pre">open()</span></code>.</p>
+</section>
+<section id="scope">
+<h3>Scope<a class="headerlink" href="#scope" title="Link to this heading">#</a></h3>
+<p>Optional <code class="docutils literal notranslate"><span class="pre">channels</span></code>, <code class="docutils literal notranslate"><span class="pre">acquisition</span></code>, and <code class="docutils literal notranslate"><span class="pre">trigger</span></code> blocks, applied through the public setters when <code class="docutils literal notranslate"><span class="pre">open()</span></code> runs, in dependency order (coupling/attenuation before scale, trigger before acquisition, <code class="docutils literal notranslate"><span class="pre">average_count</span></code> before <code class="docutils literal notranslate"><span class="pre">mode</span></code>). If <code class="docutils literal notranslate"><span class="pre">acquisition.start_acquisition_on_open</span></code> is set, <code class="docutils literal notranslate"><span class="pre">run()</span></code> fires before the <code class="docutils literal notranslate"><span class="pre">acquisition</span></code> block applies, since some scopes only accept acquisition-mode changes while running.</p>
+<ul class="simple">
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">channels</span></code></strong>: per-channel initial state keyed by 1-based channel number. Accepts <code class="docutils literal notranslate"><span class="pre">vertical_scale</span></code>, <code class="docutils literal notranslate"><span class="pre">vertical_offset</span></code>, <code class="docutils literal notranslate"><span class="pre">coupling</span></code> (<code class="docutils literal notranslate"><span class="pre">&quot;AC&quot;</span></code>/<code class="docutils literal notranslate"><span class="pre">&quot;DC&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">probe_attenuation</span></code>, and a <code class="docutils literal notranslate"><span class="pre">measurements</span></code> list to poll from the background daemon.</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">acquisition</span></code></strong>: <code class="docutils literal notranslate"><span class="pre">mode</span></code>, <code class="docutils literal notranslate"><span class="pre">average_count</span></code> (requires <code class="docutils literal notranslate"><span class="pre">mode:</span> <span class="pre">&quot;AVERAGE&quot;</span></code>), <code class="docutils literal notranslate"><span class="pre">horizontal_scale</span></code>, <code class="docutils literal notranslate"><span class="pre">start_acquisition_on_open</span></code> (default <code class="docutils literal notranslate"><span class="pre">false</span></code>).</p></li>
+<li><p><strong><code class="docutils literal notranslate"><span class="pre">trigger</span></code></strong>: <code class="docutils literal notranslate"><span class="pre">source</span></code> (required within the block), <code class="docutils literal notranslate"><span class="pre">type</span></code>, <code class="docutils literal notranslate"><span class="pre">level</span></code>, <code class="docutils literal notranslate"><span class="pre">slope</span></code>, <code class="docutils literal notranslate"><span class="pre">mode</span></code>.</p></li>
+</ul>
+<p>After the blocks apply, <code class="docutils literal notranslate"><span class="pre">open()</span></code> calls <code class="docutils literal notranslate"><span class="pre">sync_configuration()</span></code> and logs one warning per field the instrument reports differently from the config (scopes snap requested values to the nearest supported step). Trigger fields are not checked, since <code class="docutils literal notranslate"><span class="pre">sync_configuration()</span></code> does not read them back. <code class="docutils literal notranslate"><span class="pre">autostart</span></code> (host-side daemon) and <code class="docutils literal notranslate"><span class="pre">acquisition.start_acquisition_on_open</span></code> (instrument acquiring) are independent knobs.</p>
+<p>See the <a class="reference internal" href="../../scope/#creating-an-instroscope"><span class="std std-ref">Scope guide</span></a> for a full example.</p>
+</section>
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../transports/overview/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">Transports</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../simulated-instruments/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">Simulated Instruments</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../_static/nominal.js?v=92629581"></script>
+      <script src="../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

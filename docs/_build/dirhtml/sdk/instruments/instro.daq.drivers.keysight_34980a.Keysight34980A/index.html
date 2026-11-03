@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Keysight34980A (instro.daq.drivers.keysight_34980a) - instro Python API</title><link rel="shortcut icon" href="../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" /><link rel="next" title="NIDAQDriver" href="../instro.daq.drivers.ni.nidaq.NIDAQDriver/" /><link rel="prev" title="HWTimestamper" href="../instro.daq.drivers.HWTimestamper/" />
+      <link rel="canonical" href="https://instro.nominal.io/sdk/instruments/instro.daq.drivers.keysight_34980a.Keysight34980A/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/sdk/instruments/instro.daq.drivers.keysight_34980a.Keysight34980A/"/>
+  <meta property="og:title" content="Keysight34980A"/>
+    <meta name="description" content="Keysight 34980A Multifunction Switch/Measure Unit."/>
+    <meta property="og:description" content="Keysight 34980A Multifunction Switch/Measure Unit."/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../">
+      <img class="light-logo" src="../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../"><span>Guides</span></a></li><li class="link"><a href="../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../" class="current" aria-current="page"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">SDK</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../">Overview</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../">Overview</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../daq/">DAQ (Data Acquisition)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dmm/">DMM (Digital Multimeter)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psu/">PSU (Power Supply Unit)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../eload/">Electronic Load</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scope/">Scope (Oscilloscope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../i2c/">I2C</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../library/instrument/">Instrument</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/types/">Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/config/">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/registry/">Registry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/exceptions/">Exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/discover/">Discover</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/transports/">Transports</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Protocols</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/modbus/">Modbus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/ethernetip/">EtherNet/IP</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Changelog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog/">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A"><code class="docutils literal notranslate"><span class="pre">Keysight34980A</span></code></a><ul>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close"><code class="docutils literal notranslate"><span class="pre">close()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_channel"><code class="docutils literal notranslate"><span class="pre">configure_ai_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_voltage_channel"><code class="docutils literal notranslate"><span class="pre">configure_ai_voltage_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_hw_timing"><code class="docutils literal notranslate"><span class="pre">configure_ai_hw_timing()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.start"><code class="docutils literal notranslate"><span class="pre">start()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.stop"><code class="docutils literal notranslate"><span class="pre">stop()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_analog"><code class="docutils literal notranslate"><span class="pre">read_analog()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.fetch_analog"><code class="docutils literal notranslate"><span class="pre">fetch_analog()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_line_channel"><code class="docutils literal notranslate"><span class="pre">configure_di_line_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_line_channel"><code class="docutils literal notranslate"><span class="pre">configure_do_line_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_port_channel"><code class="docutils literal notranslate"><span class="pre">configure_di_port_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_port_channel"><code class="docutils literal notranslate"><span class="pre">configure_do_port_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_line"><code class="docutils literal notranslate"><span class="pre">write_digital_line()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_line"><code class="docutils literal notranslate"><span class="pre">read_digital_line()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_port"><code class="docutils literal notranslate"><span class="pre">write_digital_port()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_port"><code class="docutils literal notranslate"><span class="pre">read_digital_port()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close_relay"><code class="docutils literal notranslate"><span class="pre">close_relay()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open_relay"><code class="docutils literal notranslate"><span class="pre">open_relay()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_channels"><code class="docutils literal notranslate"><span class="pre">ai_channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_hw_timing_config"><code class="docutils literal notranslate"><span class="pre">ai_hw_timing_config</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_channels"><code class="docutils literal notranslate"><span class="pre">ao_channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_hw_timing_config"><code class="docutils literal notranslate"><span class="pre">ao_hw_timing_config</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.channels"><code class="docutils literal notranslate"><span class="pre">channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_current_channel"><code class="docutils literal notranslate"><span class="pre">configure_ai_current_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_thermocouple_channel"><code class="docutils literal notranslate"><span class="pre">configure_ai_thermocouple_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_channel"><code class="docutils literal notranslate"><span class="pre">configure_ao_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_current_channel"><code class="docutils literal notranslate"><span class="pre">configure_ao_current_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_voltage_channel"><code class="docutils literal notranslate"><span class="pre">configure_ao_voltage_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.define_relay_channel"><code class="docutils literal notranslate"><span class="pre">define_relay_channel()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_channels"><code class="docutils literal notranslate"><span class="pre">di_channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_hw_timing_config"><code class="docutils literal notranslate"><span class="pre">di_hw_timing_config</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_channels"><code class="docutils literal notranslate"><span class="pre">do_channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_hw_timing_config"><code class="docutils literal notranslate"><span class="pre">do_hw_timing_config</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.get_actual_sample_rate"><code class="docutils literal notranslate"><span class="pre">get_actual_sample_rate()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.relay_channels"><code class="docutils literal notranslate"><span class="pre">relay_channels</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_analog_value"><code class="docutils literal notranslate"><span class="pre">write_analog_value()</span></code></a></li>
+<li><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.points_in_buffer"><code class="docutils literal notranslate"><span class="pre">points_in_buffer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../daq/"><span itemprop="name">DAQ (Data Acquisition)</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Keysight34980A</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="keysight34980a">
+<h1>Keysight34980A<a class="headerlink" href="#keysight34980a" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Keysight34980A</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">visa_resource</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../../library/instro.lib.transports.visa.VisaConfig/#instro.lib.transports.visa.VisaConfig" title="instro.lib.transports.visa.VisaConfig"><span class="pre">VisaConfig</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sync_system_clock</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="../instro.daq.DAQDriverBase/#instro.daq.DAQDriverBase" title="instro.daq.daq.DAQDriverBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">DAQDriverBase</span></code></a></p>
+<p>Keysight 34980A Multifunction Switch/Measure Unit.</p>
+<p>Initialize the driver.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>visa_resource</strong></p>
+<p class="nominal-param-desc">VISA resource string or full <code class="docutils literal notranslate"><span class="pre">VisaConfig</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>sync_system_clock</strong></p>
+<p class="nominal-param-desc">Sync the instrument clock to host UTC on <code class="docutils literal notranslate"><span class="pre">open()</span></code>
+so returned timestamps align with the host. Enabled by default.</p>
+</li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Attributes</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.ai_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ai_channels</span></code></a></p></td>
+<td><p>Frozen snapshot of configured AI channels, keyed by alias.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_hw_timing_config" title="instro.daq.drivers.keysight_34980a.Keysight34980A.ai_hw_timing_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ai_hw_timing_config</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.ao_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ao_channels</span></code></a></p></td>
+<td><p>Frozen snapshot of configured AO channels, keyed by alias.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_hw_timing_config" title="instro.daq.drivers.keysight_34980a.Keysight34980A.ao_hw_timing_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ao_hw_timing_config</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">channels</span></code></a></p></td>
+<td><p>Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.di_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">di_channels</span></code></a></p></td>
+<td><p>Frozen snapshot of configured DI channels, keyed by alias.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_hw_timing_config" title="instro.daq.drivers.keysight_34980a.Keysight34980A.di_hw_timing_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">di_hw_timing_config</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.do_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">do_channels</span></code></a></p></td>
+<td><p>Frozen snapshot of configured DO channels, keyed by alias.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_hw_timing_config" title="instro.daq.drivers.keysight_34980a.Keysight34980A.do_hw_timing_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">do_hw_timing_config</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.relay_channels" title="instro.daq.drivers.keysight_34980a.Keysight34980A.relay_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">relay_channels</span></code></a></p></td>
+<td><p>Frozen snapshot of configured relay channels, keyed by alias.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.points_in_buffer" title="instro.daq.drivers.keysight_34980a.Keysight34980A.points_in_buffer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">points_in_buffer</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close" title="instro.daq.drivers.keysight_34980a.Keysight34980A.close"><code class="xref py py-obj docutils literal notranslate"><span class="pre">close</span></code></a></p></td>
+<td><p>Close every task/handle owned by the driver.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close_relay" title="instro.daq.drivers.keysight_34980a.Keysight34980A.close_relay"><code class="xref py py-obj docutils literal notranslate"><span class="pre">close_relay</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ROUTe:CLOSe</span></code> the relay.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ai_channel</span></code></a></p></td>
+<td><p>Deprecated: use <code class="docutils literal notranslate"><span class="pre">configure_ai_voltage_channel</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_current_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_current_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ai_current_channel</span></code></a></p></td>
+<td><p>Register an AI current channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_hw_timing" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_hw_timing"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ai_hw_timing</span></code></a></p></td>
+<td><p>Configure <code class="docutils literal notranslate"><span class="pre">TRIG:SOUR</span> <span class="pre">TIMER</span></code> at the configured sample period and infinite count.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_thermocouple_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_thermocouple_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ai_thermocouple_channel</span></code></a></p></td>
+<td><p>Register an AI thermocouple channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_voltage_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_voltage_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ai_voltage_channel</span></code></a></p></td>
+<td><p>Configure an AI voltage channel: <code class="docutils literal notranslate"><span class="pre">CONF:VOLT:DC</span></code> at computed range, then add to <code class="docutils literal notranslate"><span class="pre">ROUT:SCAN</span></code> and enable timestamps.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ao_channel</span></code></a></p></td>
+<td><p>Deprecated: implement <code class="docutils literal notranslate"><span class="pre">configure_ao_voltage_channel</span></code> instead.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_current_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_current_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ao_current_channel</span></code></a></p></td>
+<td><p>Register an AO current channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_voltage_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_voltage_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_ao_voltage_channel</span></code></a></p></td>
+<td><p>Register an AO voltage channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_line_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_line_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_di_line_channel</span></code></a></p></td>
+<td><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN/B</span></code> (slot/channel/bit), program the port for DI, and register the line.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_port_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_port_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_di_port_channel</span></code></a></p></td>
+<td><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN</span></code> (slot/channel), program the port for DI, and register the port.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_line_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_line_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_do_line_channel</span></code></a></p></td>
+<td><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN/B</span></code> (slot/channel/bit), program the port for DO, and register the line.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_port_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_port_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_do_port_channel</span></code></a></p></td>
+<td><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN</span></code> (slot/channel), program the port for DO, and register the port.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.define_relay_channel" title="instro.daq.drivers.keysight_34980a.Keysight34980A.define_relay_channel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">define_relay_channel</span></code></a></p></td>
+<td><p>Build a <code class="docutils literal notranslate"><span class="pre">RelayChannel</span></code> for <code class="docutils literal notranslate"><span class="pre">physical_channel</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;3101&quot;</span></code> = slot 3 / channel 101).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.fetch_analog" title="instro.daq.drivers.keysight_34980a.Keysight34980A.fetch_analog"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fetch_analog</span></code></a></p></td>
+<td><p>Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.get_actual_sample_rate" title="instro.daq.drivers.keysight_34980a.Keysight34980A.get_actual_sample_rate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_actual_sample_rate</span></code></a></p></td>
+<td><p>Actual hardware sample rate achieved after <code class="docutils literal notranslate"><span class="pre">start()</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open" title="instro.daq.drivers.keysight_34980a.Keysight34980A.open"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open</span></code></a></p></td>
+<td><p>Open the underlying transport (or verify the device is present, for handle-less SDKs).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open_relay" title="instro.daq.drivers.keysight_34980a.Keysight34980A.open_relay"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open_relay</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ROUTe:OPEN</span></code> the relay.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_analog" title="instro.daq.drivers.keysight_34980a.Keysight34980A.read_analog"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_analog</span></code></a></p></td>
+<td><p>Software-timed read of every configured AI channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_line" title="instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_line"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_digital_line</span></code></a></p></td>
+<td><p>Sample a single DI line.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_port" title="instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_port"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_digital_port</span></code></a></p></td>
+<td><p>Sample a DI port as one N-bit integer.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.start" title="instro.daq.drivers.keysight_34980a.Keysight34980A.start"><code class="xref py py-obj docutils literal notranslate"><span class="pre">start</span></code></a></p></td>
+<td><p>Enable timestamps and <code class="docutils literal notranslate"><span class="pre">INIT</span></code> the scan.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.stop" title="instro.daq.drivers.keysight_34980a.Keysight34980A.stop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stop</span></code></a></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ABORt</span></code> any pending scan.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_analog_value" title="instro.daq.drivers.keysight_34980a.Keysight34980A.write_analog_value"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_analog_value</span></code></a></p></td>
+<td><p>Write <code class="docutils literal notranslate"><span class="pre">value</span></code> to AO <code class="docutils literal notranslate"><span class="pre">channel</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_line" title="instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_line"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_digital_line</span></code></a></p></td>
+<td><p>Drive a single DO line.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_port" title="instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_port"><code class="xref py py-obj docutils literal notranslate"><span class="pre">write_digital_port</span></code></a></p></td>
+<td><p>Drive a DO port as one N-bit integer.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open" title="Link to this definition">#</a></dt>
+<dd><p>Open the underlying transport (or verify the device is present, for handle-less SDKs).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close" title="Link to this definition">#</a></dt>
+<dd><p>Close every task/handle owned by the driver. Idempotent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_channel">
+<span class="sig-name descname"><span class="pre">configure_ai_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><span class="pre">AnalogChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_ai_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_channel" title="Link to this definition">#</a></dt>
+<dd><p>Deprecated: use <code class="docutils literal notranslate"><span class="pre">configure_ai_voltage_channel</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_voltage_channel">
+<span class="sig-name descname"><span class="pre">configure_ai_voltage_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><span class="pre">AnalogVoltageChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_ai_voltage_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_voltage_channel" title="Link to this definition">#</a></dt>
+<dd><p>Configure an AI voltage channel: <code class="docutils literal notranslate"><span class="pre">CONF:VOLT:DC</span></code> at computed range, then add to <code class="docutils literal notranslate"><span class="pre">ROUT:SCAN</span></code> and enable timestamps.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_hw_timing">
+<span class="sig-name descname"><span class="pre">configure_ai_hw_timing</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">hw_timing_config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><span class="pre">HWTimingConfig</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_ai_hw_timing"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_hw_timing" title="Link to this definition">#</a></dt>
+<dd><p>Configure <code class="docutils literal notranslate"><span class="pre">TRIG:SOUR</span> <span class="pre">TIMER</span></code> at the configured sample period and infinite count.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.start" title="Link to this definition">#</a></dt>
+<dd><p>Enable timestamps and <code class="docutils literal notranslate"><span class="pre">INIT</span></code> the scan.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.stop" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">ABORt</span></code> any pending scan.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.read_analog">
+<span class="sig-name descname"><span class="pre">read_analog</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">KeysightData</span></span></span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.read_analog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_analog" title="Link to this definition">#</a></dt>
+<dd><p>Software-timed read of every configured AI channel.</p>
+<p>Returns a vendor-specific payload that <code class="docutils literal notranslate"><span class="pre">_read_to_measurements</span></code> then
+unpacks into <code class="docutils literal notranslate"><span class="pre">Measurement``s.</span> <span class="pre">``response.dt</span></code> should be <code class="docutils literal notranslate"><span class="pre">None</span></code> so
+the wrapper timestamps with wall-clock time.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.fetch_analog">
+<span class="sig-name descname"><span class="pre">fetch_analog</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">KeysightData</span></span></span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.fetch_analog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.fetch_analog" title="Link to this definition">#</a></dt>
+<dd><p>Block until the buffer holds at least one full per-channel batch, then drain a channel-aligned chunk.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_line_channel">
+<span class="sig-name descname"><span class="pre">configure_di_line_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">physical_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.Logic/#instro.daq.types.Logic" title="instro.daq.types.Logic"><span class="pre">Logic</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_di_line_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_line_channel" title="Link to this definition">#</a></dt>
+<dd><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN/B</span></code> (slot/channel/bit), program the port for DI, and register the line.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_line_channel">
+<span class="sig-name descname"><span class="pre">configure_do_line_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">physical_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.Logic/#instro.daq.types.Logic" title="instro.daq.types.Logic"><span class="pre">Logic</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_do_line_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_line_channel" title="Link to this definition">#</a></dt>
+<dd><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN/B</span></code> (slot/channel/bit), program the port for DO, and register the line.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_port_channel">
+<span class="sig-name descname"><span class="pre">configure_di_port_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">physical_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.Logic/#instro.daq.types.Logic" title="instro.daq.types.Logic"><span class="pre">Logic</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">port_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalPortWidth/#instro.daq.types.DigitalPortWidth" title="instro.daq.types.DigitalPortWidth"><span class="pre">DigitalPortWidth</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_di_port_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_di_port_channel" title="Link to this definition">#</a></dt>
+<dd><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN</span></code> (slot/channel), program the port for DI, and register the port.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_port_channel">
+<span class="sig-name descname"><span class="pre">configure_do_port_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">physical_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.Logic/#instro.daq.types.Logic" title="instro.daq.types.Logic"><span class="pre">Logic</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">port_width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalPortWidth/#instro.daq.types.DigitalPortWidth" title="instro.daq.types.DigitalPortWidth"><span class="pre">DigitalPortWidth</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">logic_level</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.configure_do_port_channel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_do_port_channel" title="Link to this definition">#</a></dt>
+<dd><p>Parse <code class="docutils literal notranslate"><span class="pre">MNNN</span></code> (slot/channel), program the port for DO, and register the port.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_line">
+<span class="sig-name descname"><span class="pre">write_digital_line</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.write_digital_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_line" title="Link to this definition">#</a></dt>
+<dd><p>Drive a single DO line. <code class="docutils literal notranslate"><span class="pre">data</span></code> is 0 or 1 (active-low <code class="docutils literal notranslate"><span class="pre">channel.logic</span></code> is handled in the driver).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_line">
+<span class="sig-name descname"><span class="pre">read_digital_line</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.read_digital_line"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_line" title="Link to this definition">#</a></dt>
+<dd><p>Sample a single DI line. Returns 0 or 1 after applying <code class="docutils literal notranslate"><span class="pre">channel.logic</span></code>.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_port">
+<span class="sig-name descname"><span class="pre">write_digital_port</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.write_digital_port"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_digital_port" title="Link to this definition">#</a></dt>
+<dd><p>Drive a DO port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_port">
+<span class="sig-name descname"><span class="pre">read_digital_port</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.read_digital_port"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.read_digital_port" title="Link to this definition">#</a></dt>
+<dd><p>Sample a DI port as one N-bit integer. Active-low is applied in hardware via CONF:DIG:POL.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.close_relay">
+<span class="sig-name descname"><span class="pre">close_relay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.RelayChannel/#instro.daq.types.RelayChannel" title="instro.daq.types.RelayChannel"><span class="pre">RelayChannel</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.close_relay"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.close_relay" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">ROUTe:CLOSe</span></code> the relay.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.open_relay">
+<span class="sig-name descname"><span class="pre">open_relay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.RelayChannel/#instro.daq.types.RelayChannel" title="instro.daq.types.RelayChannel"><span class="pre">RelayChannel</span></a></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/daq/drivers/keysight_34980a/#Keysight34980A.open_relay"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.open_relay" title="Link to this definition">#</a></dt>
+<dd><p><code class="docutils literal notranslate"><span class="pre">ROUTe:OPEN</span></code> the relay.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.ai_channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ai_channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.15)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><span class="pre">AnalogChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><span class="pre">AnalogVoltageChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><span class="pre">AnalogCurrentChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogThermocoupleChannel/#instro.daq.types.AnalogThermocoupleChannel" title="instro.daq.types.AnalogThermocoupleChannel"><span class="pre">AnalogThermocoupleChannel</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of configured AI channels, keyed by alias.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.ai_hw_timing_config">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ai_hw_timing_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><span class="pre">HWTimingConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ai_hw_timing_config" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.ao_channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ao_channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.15)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><span class="pre">AnalogChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><span class="pre">AnalogVoltageChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><span class="pre">AnalogCurrentChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogThermocoupleChannel/#instro.daq.types.AnalogThermocoupleChannel" title="instro.daq.types.AnalogThermocoupleChannel"><span class="pre">AnalogThermocoupleChannel</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of configured AO channels, keyed by alias.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.ao_hw_timing_config">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">ao_hw_timing_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><span class="pre">HWTimingConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.ao_hw_timing_config" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../instro.daq.types.DAQChannel/#instro.daq.types.DAQChannel" title="instro.daq.types.DAQChannel"><span class="pre">DAQChannel</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of all configured AI/AO/DI/DO channels (excludes relays).</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_current_channel">
+<span class="sig-name descname"><span class="pre">configure_ai_current_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><span class="pre">AnalogCurrentChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_current_channel" title="Link to this definition">#</a></dt>
+<dd><p>Register an AI current channel. Override if the driver supports analog current input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_thermocouple_channel">
+<span class="sig-name descname"><span class="pre">configure_ai_thermocouple_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogThermocoupleChannel/#instro.daq.types.AnalogThermocoupleChannel" title="instro.daq.types.AnalogThermocoupleChannel"><span class="pre">AnalogThermocoupleChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ai_thermocouple_channel" title="Link to this definition">#</a></dt>
+<dd><p>Register an AI thermocouple channel. Override if the driver supports thermocouple input.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_channel">
+<span class="sig-name descname"><span class="pre">configure_ao_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><span class="pre">AnalogChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_channel" title="Link to this definition">#</a></dt>
+<dd><p>Deprecated: implement <code class="docutils literal notranslate"><span class="pre">configure_ao_voltage_channel</span></code> instead.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_current_channel">
+<span class="sig-name descname"><span class="pre">configure_ao_current_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><span class="pre">AnalogCurrentChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_current_channel" title="Link to this definition">#</a></dt>
+<dd><p>Register an AO current channel. Override if the driver supports analog current output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_voltage_channel">
+<span class="sig-name descname"><span class="pre">configure_ao_voltage_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><span class="pre">AnalogVoltageChannel</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.configure_ao_voltage_channel" title="Link to this definition">#</a></dt>
+<dd><p>Register an AO voltage channel. Override if the driver supports analog voltage output.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.define_relay_channel">
+<span class="sig-name descname"><span class="pre">define_relay_channel</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">physical_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">alias</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.daq.types.RelayChannel/#instro.daq.types.RelayChannel" title="instro.daq.types.RelayChannel"><span class="pre">RelayChannel</span></a></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.define_relay_channel" title="Link to this definition">#</a></dt>
+<dd><p>Build a <code class="docutils literal notranslate"><span class="pre">RelayChannel</span></code> for <code class="docutils literal notranslate"><span class="pre">physical_channel</span></code> (e.g. <code class="docutils literal notranslate"><span class="pre">&quot;3101&quot;</span></code> = slot 3 / channel 101).</p>
+<p>Default implementation suits the Keysight 34980A’s slot/channel
+addressing; override if the driver needs different parsing. Overrides
+must also record the resulting channel on <code class="docutils literal notranslate"><span class="pre">self._relay_channels</span></code>.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.di_channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">di_channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.15)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of configured DI channels, keyed by alias.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.di_hw_timing_config">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">di_hw_timing_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><span class="pre">HWTimingConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.di_hw_timing_config" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.do_channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">do_channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.15)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.DigitalChannel/#instro.daq.types.DigitalChannel" title="instro.daq.types.DigitalChannel"><span class="pre">DigitalChannel</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of configured DO channels, keyed by alias.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.do_hw_timing_config">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">do_hw_timing_config</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.HWTimingConfig/#instro.daq.types.HWTimingConfig" title="instro.daq.types.HWTimingConfig"><span class="pre">HWTimingConfig</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.do_hw_timing_config" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.get_actual_sample_rate">
+<span class="sig-name descname"><span class="pre">get_actual_sample_rate</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.get_actual_sample_rate" title="Link to this definition">#</a></dt>
+<dd><p>Actual hardware sample rate achieved after <code class="docutils literal notranslate"><span class="pre">start()</span></code>.</p>
+<p>Default returns <code class="docutils literal notranslate"><span class="pre">None</span></code> (driver doesn’t know or hasn’t started).
+Override on drivers whose SDK reports the effective rate (NI, MCC,
+LabJack T-series all do).</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.relay_channels">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">relay_channels</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.15)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.RelayChannel/#instro.daq.types.RelayChannel" title="instro.daq.types.RelayChannel"><span class="pre">RelayChannel</span></a><span class="p"><span class="pre">]</span></span></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.relay_channels" title="Link to this definition">#</a></dt>
+<dd><p>Frozen snapshot of configured relay channels, keyed by alias.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.write_analog_value">
+<span class="sig-name descname"><span class="pre">write_analog_value</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.daq.types.AnalogChannel/#instro.daq.types.AnalogChannel" title="instro.daq.types.AnalogChannel"><span class="pre">AnalogChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogVoltageChannel/#instro.daq.types.AnalogVoltageChannel" title="instro.daq.types.AnalogVoltageChannel"><span class="pre">AnalogVoltageChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogCurrentChannel/#instro.daq.types.AnalogCurrentChannel" title="instro.daq.types.AnalogCurrentChannel"><span class="pre">AnalogCurrentChannel</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.daq.types.AnalogThermocoupleChannel/#instro.daq.types.AnalogThermocoupleChannel" title="instro.daq.types.AnalogThermocoupleChannel"><span class="pre">AnalogThermocoupleChannel</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.write_analog_value" title="Link to this definition">#</a></dt>
+<dd><p>Write <code class="docutils literal notranslate"><span class="pre">value</span></code> to AO <code class="docutils literal notranslate"><span class="pre">channel</span></code>. Override if the driver supports analog output.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="instro.daq.drivers.keysight_34980a.Keysight34980A.points_in_buffer">
+<span class="sig-name descname"><span class="pre">points_in_buffer</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span><a class="headerlink" href="#instro.daq.drivers.keysight_34980a.Keysight34980A.points_in_buffer" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../instro.daq.drivers.HWTimestamper/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">HWTimestamper</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../instro.daq.drivers.ni.nidaq.NIDAQDriver/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">NIDAQDriver</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>instro.unstable.daq.drivers.dewesoftx - instro</title><link rel="shortcut icon" href="../../../../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../../../../genindex/" /><link rel="search" title="Search" href="../../../../../../search/" />
+      <link rel="canonical" href="https://instro.nominal.io/_modules/instro/unstable/daq/drivers/dewesoftx/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/_modules/instro/unstable/daq/drivers/dewesoftx/"/>
+  <meta property="og:title" content="instro.unstable.daq.drivers.dewesoftx"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../../../../">
+      <img class="light-logo" src="../../../../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../../../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../../../../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../../../../../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../instruments/">Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../scope/">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/transports/overview/">Transports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/config-files/">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../library/exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../../"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">instro.unstable.daq.drivers.dewesoftx</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for instro.unstable.daq.drivers.dewesoftx</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="sd">&quot;&quot;&quot;DewesoftX DCOM DAQ driver: streams live sync and async channels from a running DewesoftX instance.&quot;&quot;&quot;</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="4"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="5"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+</span><span data-line="7"><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Mapping</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.daq</span><span class="w"> </span><span class="kn">import</span> <span class="n">DAQDriverBase</span><span class="p">,</span> <span class="n">HWTimingException</span>
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.daq.types</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="12">    <span class="n">AnalogChannel</span><span class="p">,</span>
+</span><span data-line="13">    <span class="n">AnalogChannelUnion</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">AnalogCurrentChannel</span><span class="p">,</span>
+</span><span data-line="15">    <span class="n">AnalogThermocoupleChannel</span><span class="p">,</span>
+</span><span data-line="16">    <span class="n">AnalogVoltageChannel</span><span class="p">,</span>
+</span><span data-line="17">    <span class="n">DAQChannel</span><span class="p">,</span>
+</span><span data-line="18">    <span class="n">DigitalChannel</span><span class="p">,</span>
+</span><span data-line="19">    <span class="n">HWTimingConfig</span><span class="p">,</span>
+</span><span data-line="20">    <span class="n">Logic</span><span class="p">,</span>
+</span><span data-line="21"><span class="p">)</span>
+</span><span data-line="22"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">Measurement</span>
+</span><span data-line="23">
+</span><span data-line="24"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="n">_PROG_ID</span> <span class="o">=</span> <span class="s2">&quot;Dewesoft.App&quot;</span>
+</span><span data-line="27"><span class="n">_CT_NEW</span> <span class="o">=</span> <span class="mi">3</span>  <span class="c1"># IChannelConnection.AType: each read returns only samples not read yet</span>
+</span><span data-line="28">
+</span><span data-line="29">
+</span><span data-line="30"><span class="nd">@dataclass</span>
+</span><span data-line="31"><span class="k">class</span><span class="w"> </span><span class="nc">_SyncChannelCursor</span><span class="p">:</span>
+</span><span data-line="32"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read cursor for one bound synchronous DewesoftX channel.&quot;&quot;&quot;</span>
+</span><span data-line="33">
+</span><span data-line="34">    <span class="n">com_channel</span><span class="p">:</span> <span class="n">Any</span>
+</span><span data-line="35">    <span class="c1"># Cursors are per-channel in DCOM (IChannel.CreateConnection); each tracks its channel&#39;s own unread position</span>
+</span><span data-line="36">    <span class="n">connection</span><span class="p">:</span> <span class="n">Any</span>
+</span><span data-line="37">    <span class="n">buf_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="38">    <span class="c1"># Samples consumed since store start; times each batch as anchor + total * dt_ns</span>
+</span><span data-line="39">    <span class="n">total</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="40">    <span class="n">dt_ns</span><span class="p">:</span> <span class="nb">float</span>
+</span><span data-line="41">
+</span><span data-line="42">
+</span><span data-line="43"><span class="nd">@dataclass</span>
+</span><span data-line="44"><span class="k">class</span><span class="w"> </span><span class="nc">_AsyncChannelCursor</span><span class="p">:</span>
+</span><span data-line="45"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read cursor for one bound asynchronous DewesoftX channel (per-sample timestamps, no fixed rate).&quot;&quot;&quot;</span>
+</span><span data-line="46">
+</span><span data-line="47">    <span class="n">com_channel</span><span class="p">:</span> <span class="n">Any</span>
+</span><span data-line="48">    <span class="n">connection</span><span class="p">:</span> <span class="n">Any</span>
+</span><span data-line="49">    <span class="n">buf_size</span><span class="p">:</span> <span class="nb">int</span>
+</span><span data-line="50">
+</span><span data-line="51">
+</span><span data-line="52"><span class="nd">@dataclass</span>
+</span><span data-line="53"><span class="k">class</span><span class="w"> </span><span class="nc">DewesoftXData</span><span class="p">:</span>
+</span><span data-line="54"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Per-alias ``(values, timestamps_ns)`` drained from the DewesoftX ring buffers.&quot;&quot;&quot;</span>
+</span><span data-line="55">
+</span><span data-line="56">    <span class="n">channels</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span>
+</span><span data-line="57">
+</span><span data-line="58">
+<div class="viewcode-block" id="DewesoftX">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX">[docs]</a>
+</span><span data-line="59"><span class="k">class</span><span class="w"> </span><span class="nc">DewesoftX</span><span class="p">(</span><span class="n">DAQDriverBase</span><span class="p">):</span>
+</span><span data-line="60"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Streams live sync and async channels from a running DewesoftX instance over DCOM.&quot;&quot;&quot;</span>
+</span><span data-line="61">
+</span><span data-line="62">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dxd_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="63">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+</span><span data-line="64">        <span class="c1"># The .dxd file start() stores to; None names it after the run time</span>
+</span><span data-line="65">        <span class="bp">self</span><span class="o">.</span><span class="n">_dxd_name</span> <span class="o">=</span> <span class="n">dxd_name</span>
+</span><span data-line="66">        <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="67">        <span class="c1"># Cache DCOM properties</span>
+</span><span data-line="68">        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="69">        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="70">        <span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="71">        <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">_SyncChannelCursor</span> <span class="o">|</span> <span class="n">_AsyncChannelCursor</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="72">        <span class="c1"># Thread that owns the COM proxies; COM refuses cross-thread calls (see _attach_current_thread)</span>
+</span><span data-line="73">        <span class="bp">self</span><span class="o">.</span><span class="n">_thread_id</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="74">        <span class="c1"># True once we have reported that storing is off; keeps that report to one line per outage</span>
+</span><span data-line="75">        <span class="bp">self</span><span class="o">.</span><span class="n">_storing_paused</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="76">
+</span><span data-line="77">    <span class="c1"># ====== Lifecycle ======</span>
+</span><span data-line="78">
+<div class="viewcode-block" id="DewesoftX.open">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.open">[docs]</a>
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="80"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Attach to the running DewesoftX instance.&quot;&quot;&quot;</span>
+</span><span data-line="81">        <span class="kn">import</span><span class="w"> </span><span class="nn">win32com.client</span>  <span class="c1"># type: ignore[import-untyped, import-not-found]</span>
+</span><span data-line="82">
+</span><span data-line="83">        <span class="c1"># Attach to Dewesoft app</span>
+</span><span data-line="84">        <span class="n">app</span> <span class="o">=</span> <span class="n">win32com</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">Dispatch</span><span class="p">(</span><span class="n">_PROG_ID</span><span class="p">)</span>
+</span><span data-line="85">        <span class="n">app</span><span class="o">.</span><span class="n">Init</span><span class="p">()</span>
+</span><span data-line="86">        <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="n">app</span>
+</span><span data-line="87">        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">Data</span>
+</span><span data-line="88">        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="n">app</span><span class="o">.</span><span class="n">StoreEngine</span>
+</span><span data-line="89">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_data</span><span class="p">()</span>
+</span><span data-line="90">
+</span><span data-line="91">        <span class="c1"># Debug full channel inventory</span>
+</span><span data-line="92">        <span class="k">if</span> <span class="n">logger</span><span class="o">.</span><span class="n">isEnabledFor</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">):</span>
+</span><span data-line="93">            <span class="n">channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">AllChannels</span>
+</span><span data-line="94">            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;All (</span><span class="si">%d</span><span class="s2">) channels exposed by DewesoftX&quot;</span><span class="p">,</span> <span class="n">channels</span><span class="o">.</span><span class="n">Count</span><span class="p">)</span>
+</span><span data-line="95">            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channels</span><span class="o">.</span><span class="n">Count</span><span class="p">):</span>
+</span><span data-line="96">                <span class="n">ch</span> <span class="o">=</span> <span class="n">channels</span><span class="o">.</span><span class="n">Item</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</span><span data-line="97">                <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+</span><span data-line="98">                    <span class="s2">&quot;  [</span><span class="si">%3d</span><span class="s2">] name=</span><span class="si">%r</span><span class="s2"> long=</span><span class="si">%r</span><span class="s2"> used=</span><span class="si">%s</span><span class="s2"> async=</span><span class="si">%s</span><span class="s2"> buf_size=</span><span class="si">%d</span><span class="s2"> sr_div=</span><span class="si">%d</span><span class="s2"> unit=</span><span class="si">%r</span><span class="s2"> type=</span><span class="si">%s</span><span class="s2">/</span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span data-line="99">                    <span class="n">i</span><span class="p">,</span>
+</span><span data-line="100">                    <span class="n">ch</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span>
+</span><span data-line="101">                    <span class="n">ch</span><span class="o">.</span><span class="n">LongName</span><span class="p">,</span>
+</span><span data-line="102">                    <span class="nb">bool</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">Used</span><span class="p">),</span>
+</span><span data-line="103">                    <span class="nb">bool</span><span class="p">(</span><span class="n">ch</span><span class="o">.</span><span class="n">Async</span><span class="p">),</span>
+</span><span data-line="104">                    <span class="n">ch</span><span class="o">.</span><span class="n">DBBufSize</span><span class="p">,</span>
+</span><span data-line="105">                    <span class="n">ch</span><span class="o">.</span><span class="n">SRDiv</span><span class="p">,</span>
+</span><span data-line="106">                    <span class="n">ch</span><span class="o">.</span><span class="n">Unit_</span><span class="p">,</span>
+</span><span data-line="107">                    <span class="n">ch</span><span class="o">.</span><span class="n">ChannelType</span><span class="p">,</span>
+</span><span data-line="108">                    <span class="n">ch</span><span class="o">.</span><span class="n">DataType</span><span class="p">,</span>
+</span><span data-line="109">                <span class="p">)</span>
+</span><span data-line="110">
+</span><span data-line="111">        <span class="c1"># Anchor absolute time axis if a storing session is running</span>
+</span><span data-line="112">        <span class="c1"># Dewesoft only gives us the session start time in absolute time. Rest is relative</span>
+</span><span data-line="113">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="o">.</span><span class="n">Storing</span><span class="p">:</span>
+</span><span data-line="114">            <span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">StartStoreTimeUTC</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span>
+</span><span data-line="115">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="116">            <span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="117">
+</span><span data-line="118">        <span class="bp">self</span><span class="o">.</span><span class="n">_thread_id</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">()</span>
+</span><span data-line="119">
+</span><span data-line="120">        <span class="c1"># Rebind to already configured channels when opening</span>
+</span><span data-line="121">        <span class="k">for</span> <span class="n">channel</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_channels</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+</span><span data-line="122">            <span class="bp">self</span><span class="o">.</span><span class="n">_bind_channel</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span></div>
+
+</span><span data-line="123">
+<div class="viewcode-block" id="DewesoftX.close">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.close">[docs]</a>
+</span><span data-line="124">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="125"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drop the COM references; the configured channels survive, and the next open() rebinds them.&quot;&quot;&quot;</span>
+</span><span data-line="126">        <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</span><span data-line="127">        <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="128">        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="129">        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+</span><span data-line="130">
+<div class="viewcode-block" id="DewesoftX.start">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.start">[docs]</a>
+</span><span data-line="131">    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="132"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Listen for a session an operator starts, or with ``start_storing_session=True`` start one here.&quot;&quot;&quot;</span>
+</span><span data-line="133">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="134">        <span class="c1"># Attach to exsiting storing session</span>
+</span><span data-line="135">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="o">.</span><span class="n">Storing</span><span class="p">:</span>
+</span><span data-line="136">            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;DewesoftX already storing to &#39;</span><span class="si">%s</span><span class="s2">&#39;; attaching to that session&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="o">.</span><span class="n">UsedDatafile</span><span class="p">)</span>
+</span><span data-line="137">        <span class="k">elif</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;start_storing_session&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="138">            <span class="c1"># Start a storing session, falling back to a run-time name when the caller gave none</span>
+</span><span data-line="139">            <span class="n">name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_dxd_name</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;run_</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">&#39;%Y-%m-</span><span class="si">%d</span><span class="s1">_%H-%M-%S&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">.dxd&quot;</span>
+</span><span data-line="140">            <span class="c1"># DewesoftX takes the name verbatim, so a caller&#39;s name without the extension needs one</span>
+</span><span data-line="141">            <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.dxd&quot;</span><span class="p">):</span>
+</span><span data-line="142">                <span class="n">name</span> <span class="o">+=</span> <span class="s2">&quot;.dxd&quot;</span>
+</span><span data-line="143">            <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="o">.</span><span class="n">StartStoring</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="144">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="o">.</span><span class="n">Storing</span><span class="p">:</span>
+</span><span data-line="145">                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DewesoftX failed to start storing session &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;; check the DewesoftX setup.&quot;</span><span class="p">)</span>
+</span><span data-line="146">            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started DewesoftX stored session &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+</span><span data-line="147">        <span class="k">else</span><span class="p">:</span>
+</span><span data-line="148">            <span class="c1"># Reads stay empty until an operator starts storing; _check_session attaches and logs then</span>
+</span><span data-line="149">            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;DewesoftX storing session not started; listening for a storing session to start&quot;</span><span class="p">)</span>
+</span><span data-line="150">            <span class="c1"># This line already reported that storing is off, so keep _check_session from warning about it too</span>
+</span><span data-line="151">            <span class="bp">self</span><span class="o">.</span><span class="n">_storing_paused</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="152">
+</span><span data-line="153">        <span class="bp">self</span><span class="o">.</span><span class="n">_check_session</span><span class="p">()</span></div>
+
+</span><span data-line="154">
+<div class="viewcode-block" id="DewesoftX.stop">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.stop">[docs]</a>
+</span><span data-line="155">    <span class="k">def</span><span class="w"> </span><span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="156"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Leave the running session alone, or with ``stop_storing_session=True`` stop it.&quot;&quot;&quot;</span>
+</span><span data-line="157">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;stop_storing_session&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
+</span><span data-line="158">            <span class="k">return</span>
+</span><span data-line="159">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="160">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="o">.</span><span class="n">Storing</span><span class="p">:</span>
+</span><span data-line="161">            <span class="k">return</span>
+</span><span data-line="162">        <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="o">.</span><span class="n">StopStoring</span><span class="p">()</span>
+</span><span data-line="163">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Stopped DewesoftX stored session&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="164">
+</span><span data-line="165">    <span class="c1"># ====== Configuration ======</span>
+</span><span data-line="166">
+<div class="viewcode-block" id="DewesoftX.configure_ai_voltage_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_ai_voltage_channel">[docs]</a>
+</span><span data-line="167">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_ai_voltage_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">AnalogVoltageChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="168"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Bind an existing DewesoftX channel by name; DewesoftX owns all channel setup.&quot;&quot;&quot;</span>
+</span><span data-line="169">        <span class="bp">self</span><span class="o">.</span><span class="n">_bind_channel</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span></div>
+
+</span><span data-line="170">
+<div class="viewcode-block" id="DewesoftX.configure_ai_current_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_ai_current_channel">[docs]</a>
+</span><span data-line="171">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_ai_current_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">AnalogCurrentChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="172"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Same binding as voltage: DewesoftX channels carry their own units, so the HAL type only labels the alias.&quot;&quot;&quot;</span>
+</span><span data-line="173">        <span class="bp">self</span><span class="o">.</span><span class="n">_bind_channel</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span></div>
+
+</span><span data-line="174">
+<div class="viewcode-block" id="DewesoftX.configure_ai_thermocouple_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_ai_thermocouple_channel">[docs]</a>
+</span><span data-line="175">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_ai_thermocouple_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">AnalogThermocoupleChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="176"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Same binding as voltage; tc_type and CJC settings are ignored because DewesoftX owns sensor setup.&quot;&quot;&quot;</span>
+</span><span data-line="177">        <span class="bp">self</span><span class="o">.</span><span class="n">_bind_channel</span><span class="p">(</span><span class="n">channel</span><span class="p">)</span></div>
+
+</span><span data-line="178">
+<div class="viewcode-block" id="DewesoftX.configure_ai_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_ai_channel">[docs]</a>
+</span><span data-line="179">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_ai_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">AnalogChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="180">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;configure_analog_channel is deprecated; use configure_voltage_input instead&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="181">
+<div class="viewcode-block" id="DewesoftX.configure_ai_hw_timing">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_ai_hw_timing">[docs]</a>
+</span><span data-line="182">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_ai_hw_timing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hw_timing_config</span><span class="p">:</span> <span class="n">HWTimingConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="183"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Require the requested rate to be DewesoftX&#39;s own: InstroDAQ derives the batch size and buffer from it.&quot;&quot;&quot;</span>
+</span><span data-line="184">        <span class="c1"># A background run leaves the COM proxies on the daemon thread, so reclaim them before reading the rate</span>
+</span><span data-line="185">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="186">        <span class="n">rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">SampleRate</span>
+</span><span data-line="187">        <span class="k">if</span> <span class="n">hw_timing_config</span><span class="o">.</span><span class="n">sample_rate</span> <span class="o">!=</span> <span class="n">rate</span><span class="p">:</span>
+</span><span data-line="188">            <span class="k">raise</span> <span class="n">HWTimingException</span><span class="p">(</span>
+</span><span data-line="189">                <span class="sa">f</span><span class="s2">&quot;DewesoftX owns the sample clock and is running at </span><span class="si">{</span><span class="n">rate</span><span class="si">}</span><span class="s2"> Hz, but </span><span class="si">{</span><span class="n">hw_timing_config</span><span class="o">.</span><span class="n">sample_rate</span><span class="si">}</span><span class="s2"> Hz &quot;</span>
+</span><span data-line="190">                <span class="sa">f</span><span class="s2">&quot;was requested. Call configure_ai_hw_sample_rate(sample_rate=</span><span class="si">{</span><span class="n">rate</span><span class="si">}</span><span class="s2">) instead.&quot;</span>
+</span><span data-line="191">            <span class="p">)</span>
+</span><span data-line="192">        <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span> <span class="o">=</span> <span class="n">hw_timing_config</span></div>
+
+</span><span data-line="193">
+<div class="viewcode-block" id="DewesoftX.get_actual_sample_rate">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.get_actual_sample_rate">[docs]</a>
+</span><span data-line="194">    <span class="k">def</span><span class="w"> </span><span class="nf">get_actual_sample_rate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="195"><span class="w">        </span><span class="sd">&quot;&quot;&quot;The device&#39;s rate captured at configure time; None before configure_ai_sample_rate().&quot;&quot;&quot;</span>
+</span><span data-line="196">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span><span class="o">.</span><span class="n">sample_rate</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span> <span class="k">else</span> <span class="kc">None</span></div>
+
+</span><span data-line="197">
+</span><span data-line="198">    <span class="c1"># ====== Reading ======</span>
+</span><span data-line="199">
+<div class="viewcode-block" id="DewesoftX.read_analog">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.read_analog">[docs]</a>
+</span><span data-line="200">    <span class="k">def</span><span class="w"> </span><span class="nf">read_analog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DewesoftXData</span><span class="p">:</span>
+</span><span data-line="201"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Drain every new sample from each bound channel.&quot;&quot;&quot;</span>
+</span><span data-line="202">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="203">        <span class="c1"># Re-anchor (and skip this batch) when the store session changed under us</span>
+</span><span data-line="204">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_session</span><span class="p">():</span>
+</span><span data-line="205">            <span class="k">return</span> <span class="n">DewesoftXData</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="p">{})</span>
+</span><span data-line="206">        <span class="n">drained</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="207">
+</span><span data-line="208">        <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="n">cursor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="209">            <span class="n">read_start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+</span><span data-line="210">            <span class="c1"># The server-side cursor tracks the exact unread count for sync and async channels alike</span>
+</span><span data-line="211">            <span class="n">pending</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">NumValues</span>
+</span><span data-line="212">            <span class="k">if</span> <span class="n">pending</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="213">                <span class="k">continue</span>
+</span><span data-line="214">            <span class="c1"># A full ring means the oldest unread samples were (or are about to be) overwritten</span>
+</span><span data-line="215">            <span class="k">if</span> <span class="n">pending</span> <span class="o">&gt;=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">buf_size</span><span class="p">:</span>
+</span><span data-line="216">                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;DewesoftX channel &#39;</span><span class="si">%s</span><span class="s2">&#39; overran its buffer; dropping </span><span class="si">%d</span><span class="s2"> pending samples&quot;</span><span class="p">,</span> <span class="n">alias</span><span class="p">,</span> <span class="n">pending</span><span class="p">)</span>
+</span><span data-line="217">                <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed_cursor</span><span class="p">(</span><span class="n">cursor</span><span class="o">.</span><span class="n">com_channel</span><span class="p">)</span>
+</span><span data-line="218">                <span class="k">continue</span>
+</span><span data-line="219">            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cursor</span><span class="p">,</span> <span class="n">_AsyncChannelCursor</span><span class="p">):</span>
+</span><span data-line="220">                <span class="c1"># GetTSValues peeks the oldest samples; GetDataValues consumes them, so timestamps read first</span>
+</span><span data-line="221">                <span class="c1"># Both calls are all-or-None on a count they can&#39;t satisfy, so their lengths can&#39;t diverge</span>
+</span><span data-line="222">                <span class="n">rel_ts</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">GetTSValues</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span>
+</span><span data-line="223">                <span class="n">data</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">GetDataValues</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span>
+</span><span data-line="224">                <span class="k">if</span> <span class="n">rel_ts</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="225">                    <span class="k">continue</span>
+</span><span data-line="226">                <span class="c1"># Async timestamps are seconds since store start, the same epoch as the anchor</span>
+</span><span data-line="227">                <span class="n">drained</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="p">),</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">+</span> <span class="nb">round</span><span class="p">(</span><span class="n">t</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">rel_ts</span><span class="p">])</span>
+</span><span data-line="228">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="229">                <span class="n">data</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">GetDataValues</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span>
+</span><span data-line="230">                <span class="k">if</span> <span class="n">data</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="231">                    <span class="k">continue</span>
+</span><span data-line="232">                <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+</span><span data-line="233">                <span class="c1"># Sync channels store no timestamps; time is implicit from the consumed-sample index and the rate</span>
+</span><span data-line="234">                <span class="n">timestamps</span> <span class="o">=</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">+</span> <span class="nb">round</span><span class="p">((</span><span class="n">cursor</span><span class="o">.</span><span class="n">total</span> <span class="o">+</span> <span class="n">k</span><span class="p">)</span> <span class="o">*</span> <span class="n">cursor</span><span class="o">.</span><span class="n">dt_ns</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">))]</span>
+</span><span data-line="235">                <span class="n">drained</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span>
+</span><span data-line="236">                <span class="n">cursor</span><span class="o">.</span><span class="n">total</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+</span><span data-line="237">            <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;channel </span><span class="si">%s</span><span class="s2"> read took </span><span class="si">%.6f</span><span class="s2">s&quot;</span><span class="p">,</span> <span class="n">alias</span><span class="p">,</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">read_start</span><span class="p">)</span>
+</span><span data-line="238">        <span class="c1"># Discard a batch that straddles a store restart: a cursor from before the restart returns garbage</span>
+</span><span data-line="239">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_session</span><span class="p">():</span>
+</span><span data-line="240">            <span class="k">return</span> <span class="n">DewesoftXData</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="p">{})</span>
+</span><span data-line="241">        <span class="k">return</span> <span class="n">DewesoftXData</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="n">drained</span><span class="p">)</span></div>
+
+</span><span data-line="242">
+<div class="viewcode-block" id="DewesoftX.fetch_analog">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.fetch_analog">[docs]</a>
+</span><span data-line="243">    <span class="k">def</span><span class="w"> </span><span class="nf">fetch_analog</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DewesoftXData</span><span class="p">:</span>
+</span><span data-line="244"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Block until ``samples_per_channel`` new samples arrive on every sync channel, then drain.&quot;&quot;&quot;</span>
+</span><span data-line="245">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="246">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;configure_ai_sample_rate() must be called before fetching analog data.&quot;</span><span class="p">)</span>
+</span><span data-line="247">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="248">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">:</span>
+</span><span data-line="249">            <span class="k">return</span> <span class="n">DewesoftXData</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="p">{})</span>
+</span><span data-line="250">        <span class="c1"># Wait until every bound sync channel has a full batch pending; async channels have no rate to pace on</span>
+</span><span data-line="251">        <span class="n">target</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span><span class="o">.</span><span class="n">samples_per_channel</span>
+</span><span data-line="252">        <span class="n">rate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_ai_hw_timing_config</span><span class="o">.</span><span class="n">sample_rate</span>
+</span><span data-line="253">        <span class="n">sync_cursors</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="o">.</span><span class="n">values</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">_SyncChannelCursor</span><span class="p">)]</span>
+</span><span data-line="254">        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+</span><span data-line="255">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_session</span><span class="p">():</span>
+</span><span data-line="256">                <span class="c1"># Pace the empty return so the daemon regains control (and its stop event) without spinning</span>
+</span><span data-line="257">                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+</span><span data-line="258">                <span class="k">return</span> <span class="n">DewesoftXData</span><span class="p">(</span><span class="n">channels</span><span class="o">=</span><span class="p">{})</span>
+</span><span data-line="259">            <span class="c1"># With only async channels bound, drain once per batch period instead</span>
+</span><span data-line="260">            <span class="k">if</span> <span class="ow">not</span> <span class="n">sync_cursors</span><span class="p">:</span>
+</span><span data-line="261">                <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">target</span> <span class="o">/</span> <span class="n">rate</span><span class="p">))</span>
+</span><span data-line="262">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_analog</span><span class="p">()</span>
+</span><span data-line="263">            <span class="n">available</span> <span class="o">=</span> <span class="p">[</span><span class="n">c</span><span class="o">.</span><span class="n">connection</span><span class="o">.</span><span class="n">NumValues</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">sync_cursors</span><span class="p">]</span>
+</span><span data-line="264">            <span class="bp">self</span><span class="o">.</span><span class="n">points_in_buffer</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">available</span><span class="p">)</span>
+</span><span data-line="265">            <span class="k">if</span> <span class="nb">min</span><span class="p">(</span><span class="n">available</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">target</span><span class="p">:</span>
+</span><span data-line="266">                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">read_analog</span><span class="p">()</span>
+</span><span data-line="267">            <span class="c1"># Sleep at most 0.5s to fetch pace loop</span>
+</span><span data-line="268">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.001</span><span class="p">,</span> <span class="p">(</span><span class="n">target</span> <span class="o">-</span> <span class="nb">min</span><span class="p">(</span><span class="n">available</span><span class="p">))</span> <span class="o">/</span> <span class="n">rate</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)))</span></div>
+
+</span><span data-line="269">
+</span><span data-line="270">    <span class="k">def</span><span class="w"> </span><span class="nf">_read_to_measurements</span><span class="p">(</span>
+</span><span data-line="271">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="272">        <span class="n">response</span><span class="p">:</span> <span class="n">DewesoftXData</span><span class="p">,</span>
+</span><span data-line="273">        <span class="n">channel_list</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">DAQChannel</span><span class="p">],</span>
+</span><span data-line="274">        <span class="n">daq_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span data-line="275">        <span class="n">default_tags</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+</span><span data-line="276">        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+</span><span data-line="277">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Measurement</span><span class="p">]:</span>
+</span><span data-line="278">        <span class="c1"># One Measurement per channel: cursors drain independently, so lengths differ across channels</span>
+</span><span data-line="279">        <span class="k">return</span> <span class="p">[</span>
+</span><span data-line="280">            <span class="n">Measurement</span><span class="p">(</span>
+</span><span data-line="281">                <span class="n">channel_data</span><span class="o">=</span><span class="p">{</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">daq_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">alias</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">:</span> <span class="n">values</span><span class="p">},</span>
+</span><span data-line="282">                <span class="n">timestamps</span><span class="o">=</span><span class="n">timestamps</span><span class="p">,</span>
+</span><span data-line="283">                <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">default_tags</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{})},</span>
+</span><span data-line="284">            <span class="p">)</span>
+</span><span data-line="285">            <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">timestamps</span><span class="p">)</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">channels</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span data-line="286">        <span class="p">]</span>
+</span><span data-line="287">
+</span><span data-line="288">    <span class="c1"># ====== Internals ======</span>
+</span><span data-line="289">
+</span><span data-line="290">    <span class="k">def</span><span class="w"> </span><span class="nf">_seed_cursor</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">com_channel</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">_SyncChannelCursor</span> <span class="o">|</span> <span class="n">_AsyncChannelCursor</span><span class="p">:</span>
+</span><span data-line="291"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a channel&#39;s read cursor: a server-side connection plus wrap-proof sample indexing.&quot;&quot;&quot;</span>
+</span><span data-line="292">        <span class="c1"># Ring-index bulk reads slide with acquisition, so all data flows through a server-side cursor</span>
+</span><span data-line="293">        <span class="n">connection</span> <span class="o">=</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">CreateConnection</span><span class="p">()</span>
+</span><span data-line="294">        <span class="n">connection</span><span class="o">.</span><span class="n">AType</span> <span class="o">=</span> <span class="n">_CT_NEW</span>
+</span><span data-line="295">        <span class="c1"># A fresh ctNew connection starts at &quot;now&quot;, so an async cursor needs no position seeding</span>
+</span><span data-line="296">        <span class="k">if</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">Async</span><span class="p">:</span>
+</span><span data-line="297">            <span class="k">return</span> <span class="n">_AsyncChannelCursor</span><span class="p">(</span><span class="n">com_channel</span><span class="o">=</span><span class="n">com_channel</span><span class="p">,</span> <span class="n">connection</span><span class="o">=</span><span class="n">connection</span><span class="p">,</span> <span class="n">buf_size</span><span class="o">=</span><span class="n">com_channel</span><span class="o">.</span><span class="n">DBBufSize</span><span class="p">)</span>
+</span><span data-line="298">        <span class="c1"># The device&#39;s own sample count since store start; DBPos alone loses count at every wrap</span>
+</span><span data-line="299">        <span class="n">acquired</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_samples_acquired</span><span class="p">()</span> <span class="o">/</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">SRDiv</span>
+</span><span data-line="300">        <span class="c1"># Snap that count onto the ring position</span>
+</span><span data-line="301">        <span class="n">pos</span> <span class="o">=</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">DBPos</span>
+</span><span data-line="302">        <span class="n">total</span> <span class="o">=</span> <span class="n">pos</span> <span class="o">+</span> <span class="nb">round</span><span class="p">((</span><span class="n">acquired</span> <span class="o">-</span> <span class="n">pos</span><span class="p">)</span> <span class="o">/</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">DBBufSize</span><span class="p">)</span> <span class="o">*</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">DBBufSize</span>
+</span><span data-line="303">        <span class="k">return</span> <span class="n">_SyncChannelCursor</span><span class="p">(</span>
+</span><span data-line="304">            <span class="n">com_channel</span><span class="o">=</span><span class="n">com_channel</span><span class="p">,</span>
+</span><span data-line="305">            <span class="n">connection</span><span class="o">=</span><span class="n">connection</span><span class="p">,</span>
+</span><span data-line="306">            <span class="n">buf_size</span><span class="o">=</span><span class="n">com_channel</span><span class="o">.</span><span class="n">DBBufSize</span><span class="p">,</span>
+</span><span data-line="307">            <span class="n">total</span><span class="o">=</span><span class="n">total</span><span class="p">,</span>
+</span><span data-line="308">            <span class="n">dt_ns</span><span class="o">=</span><span class="mf">1e9</span> <span class="o">*</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">SRDiv</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">SampleRate</span><span class="p">,</span>
+</span><span data-line="309">        <span class="p">)</span>
+</span><span data-line="310">
+</span><span data-line="311">    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="312"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Reject a DewesoftX data object with no sample clock; every sync timestamp divides by its rate.&quot;&quot;&quot;</span>
+</span><span data-line="313">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">SampleRate</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="314">            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;DewesoftX reports a sample rate of 0, which isn&#39;t valid.&quot;</span><span class="p">)</span>
+</span><span data-line="315">
+</span><span data-line="316">    <span class="k">def</span><span class="w"> </span><span class="nf">_samples_acquired</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="317"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Master-rate sample count acquired since store start.&quot;&quot;&quot;</span>
+</span><span data-line="318">        <span class="n">blocks</span><span class="p">,</span> <span class="n">partial</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">GetSamplesAcquired</span><span class="p">()</span>
+</span><span data-line="319">        <span class="k">return</span> <span class="n">blocks</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">Samples</span> <span class="o">+</span> <span class="n">partial</span>
+</span><span data-line="320">
+</span><span data-line="321">    <span class="k">def</span><span class="w"> </span><span class="nf">_check_session</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span data-line="322"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True while the store session is unchanged; False (skip the batch) when storing is off or restarted.&quot;&quot;&quot;</span>
+</span><span data-line="323">        <span class="c1"># StartStoreTimeUTC keeps its stale value after a stop; Storing is the reliable signal</span>
+</span><span data-line="324">        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_store</span><span class="o">.</span><span class="n">Storing</span><span class="p">:</span>
+</span><span data-line="325">            <span class="c1"># Warn once; reads return empty batches until storing resumes and the anchor change below re-anchors</span>
+</span><span data-line="326">            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_storing_paused</span><span class="p">:</span>
+</span><span data-line="327">                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;DewesoftX stopped storing; discarding samples until storing resumes&quot;</span><span class="p">)</span>
+</span><span data-line="328">                <span class="bp">self</span><span class="o">.</span><span class="n">_storing_paused</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="329">            <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="330">        <span class="bp">self</span><span class="o">.</span><span class="n">_storing_paused</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="331">        <span class="c1"># A changed store-start anchor means the session restarted</span>
+</span><span data-line="332">        <span class="n">anchor</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">StartStoreTimeUTC</span>
+</span><span data-line="333">        <span class="n">t0_ns</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">anchor</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span>
+</span><span data-line="334">        <span class="k">if</span> <span class="n">t0_ns</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span><span class="p">:</span>
+</span><span data-line="335">            <span class="k">return</span> <span class="kc">True</span>
+</span><span data-line="336">        <span class="c1"># Reseed every cursor on the new anchor</span>
+</span><span data-line="337">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+</span><span data-line="338">            <span class="s2">&quot;Attached to DewesoftX store session started at </span><span class="si">%s</span><span class="s2">; anchoring </span><span class="si">%d</span><span class="s2"> channel(s)&quot;</span><span class="p">,</span> <span class="n">anchor</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">)</span>
+</span><span data-line="339">        <span class="p">)</span>
+</span><span data-line="340">        <span class="bp">self</span><span class="o">.</span><span class="n">_t0_ns</span> <span class="o">=</span> <span class="n">t0_ns</span>
+</span><span data-line="341">        <span class="k">for</span> <span class="n">alias</span><span class="p">,</span> <span class="n">cursor</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="342">            <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed_cursor</span><span class="p">(</span><span class="n">cursor</span><span class="o">.</span><span class="n">com_channel</span><span class="p">)</span>
+</span><span data-line="343">        <span class="k">return</span> <span class="kc">False</span>
+</span><span data-line="344">
+</span><span data-line="345">    <span class="k">def</span><span class="w"> </span><span class="nf">_attach_current_thread</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="346"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Rebuild every COM reference on the calling thread; no-op when already attached.&quot;&quot;&quot;</span>
+</span><span data-line="347">        <span class="k">if</span> <span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">()</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_thread_id</span><span class="p">:</span>
+</span><span data-line="348">            <span class="k">return</span>
+</span><span data-line="349">        <span class="kn">import</span><span class="w"> </span><span class="nn">pythoncom</span>  <span class="c1"># type: ignore[import-untyped, import-not-found]</span>
+</span><span data-line="350">        <span class="kn">import</span><span class="w"> </span><span class="nn">win32com.client</span>  <span class="c1"># type: ignore[import-untyped, import-not-found]</span>
+</span><span data-line="351">
+</span><span data-line="352">        <span class="c1"># Quirk: COM proxies refuse cross-thread calls, and the InstroDAQ daemon reads from its own thread</span>
+</span><span data-line="353">        <span class="n">pythoncom</span><span class="o">.</span><span class="n">CoInitialize</span><span class="p">()</span>
+</span><span data-line="354">        <span class="bp">self</span><span class="o">.</span><span class="n">_app</span> <span class="o">=</span> <span class="n">win32com</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">Dispatch</span><span class="p">(</span><span class="n">_PROG_ID</span><span class="p">)</span>
+</span><span data-line="355">        <span class="bp">self</span><span class="o">.</span><span class="n">_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="o">.</span><span class="n">Data</span>
+</span><span data-line="356">        <span class="bp">self</span><span class="o">.</span><span class="n">_store</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_app</span><span class="o">.</span><span class="n">StoreEngine</span>
+</span><span data-line="357">        <span class="bp">self</span><span class="o">.</span><span class="n">_thread_id</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">get_ident</span><span class="p">()</span>
+</span><span data-line="358">        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_data</span><span class="p">()</span>
+</span><span data-line="359">        <span class="k">for</span> <span class="n">alias</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">:</span>
+</span><span data-line="360">            <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed_cursor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_find_used_channel</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_ai_channels</span><span class="p">[</span><span class="n">alias</span><span class="p">]</span><span class="o">.</span><span class="n">physical_channel</span><span class="p">))</span>
+</span><span data-line="361">
+</span><span data-line="362">    <span class="k">def</span><span class="w"> </span><span class="nf">_bind_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">AnalogChannelUnion</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="363">        <span class="c1"># A background run leaves the COM proxies on the daemon thread, so reclaim them before the lookup below</span>
+</span><span data-line="364">        <span class="bp">self</span><span class="o">.</span><span class="n">_attach_current_thread</span><span class="p">()</span>
+</span><span data-line="365">        <span class="c1"># range_min/range_max are ignored, and a scaler is unsupported: DewesoftX owns the scaling</span>
+</span><span data-line="366">        <span class="n">com_channel</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_find_used_channel</span><span class="p">(</span><span class="n">channel</span><span class="o">.</span><span class="n">physical_channel</span><span class="p">)</span>
+</span><span data-line="367">        <span class="c1"># A zero-size direct buffer means the channel is not acquiring</span>
+</span><span data-line="368">        <span class="k">if</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">DBBufSize</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="369">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="370">                <span class="sa">f</span><span class="s2">&quot;DewesoftX channel &#39;</span><span class="si">{</span><span class="n">channel</span><span class="o">.</span><span class="n">physical_channel</span><span class="si">}</span><span class="s2">&#39; has no live buffer; check that DewesoftX is acquiring.&quot;</span>
+</span><span data-line="371">            <span class="p">)</span>
+</span><span data-line="372">        <span class="c1"># Seed the read cursor so that we record timestamps from the right index</span>
+</span><span data-line="373">        <span class="bp">self</span><span class="o">.</span><span class="n">_cursors</span><span class="p">[</span><span class="n">channel</span><span class="o">.</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_seed_cursor</span><span class="p">(</span><span class="n">com_channel</span><span class="p">)</span>
+</span><span data-line="374">        <span class="bp">self</span><span class="o">.</span><span class="n">_ai_channels</span><span class="p">[</span><span class="n">channel</span><span class="o">.</span><span class="n">alias</span><span class="p">]</span> <span class="o">=</span> <span class="n">channel</span>
+</span><span data-line="375">
+</span><span data-line="376">    <span class="k">def</span><span class="w"> </span><span class="nf">_find_used_channel</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+</span><span data-line="377"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Find a channel by Name or LongName among the ones set to &quot;Used&quot; in DewesoftX.&quot;&quot;&quot;</span>
+</span><span data-line="378">        <span class="n">channels</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_data</span><span class="o">.</span><span class="n">UsedChannels</span>
+</span><span data-line="379">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">channels</span><span class="o">.</span><span class="n">Count</span><span class="p">):</span>
+</span><span data-line="380">            <span class="n">com_channel</span> <span class="o">=</span> <span class="n">channels</span><span class="o">.</span><span class="n">Item</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+</span><span data-line="381">            <span class="c1"># CAN channels share a generic Name (&#39;Message&#39;, &#39;Channel&#39;); LongName carries the full path</span>
+</span><span data-line="382">            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="n">com_channel</span><span class="o">.</span><span class="n">Name</span><span class="p">,</span> <span class="n">com_channel</span><span class="o">.</span><span class="n">LongName</span><span class="p">):</span>
+</span><span data-line="383">                <span class="k">return</span> <span class="n">com_channel</span>
+</span><span data-line="384">        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;DewesoftX has no used channel named &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+</span><span data-line="385">
+</span><span data-line="386">    <span class="c1"># ====== Unsupported: DewesoftX owns channel setup ======</span>
+</span><span data-line="387">
+<div class="viewcode-block" id="DewesoftX.configure_di_line_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_di_line_channel">[docs]</a>
+</span><span data-line="388">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_di_line_channel</span><span class="p">(</span>
+</span><span data-line="389">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="390">        <span class="n">physical_channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span data-line="391">        <span class="n">logic</span><span class="p">:</span> <span class="n">Logic</span><span class="p">,</span>
+</span><span data-line="392">        <span class="n">logic_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="393">        <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="394">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="395">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital input has not been configured for this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="396">
+<div class="viewcode-block" id="DewesoftX.configure_do_line_channel">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.configure_do_line_channel">[docs]</a>
+</span><span data-line="397">    <span class="k">def</span><span class="w"> </span><span class="nf">configure_do_line_channel</span><span class="p">(</span>
+</span><span data-line="398">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="399">        <span class="n">physical_channel</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+</span><span data-line="400">        <span class="n">logic</span><span class="p">:</span> <span class="n">Logic</span><span class="p">,</span>
+</span><span data-line="401">        <span class="n">logic_level</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="402">        <span class="n">alias</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="403">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="404">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital output has not been configured for this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="405">
+<div class="viewcode-block" id="DewesoftX.write_digital_line">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.write_digital_line">[docs]</a>
+</span><span data-line="406">    <span class="k">def</span><span class="w"> </span><span class="nf">write_digital_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">DigitalChannel</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="407">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital output has not been configured for this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="408">
+<div class="viewcode-block" id="DewesoftX.read_digital_line">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.read_digital_line">[docs]</a>
+</span><span data-line="409">    <span class="k">def</span><span class="w"> </span><span class="nf">read_digital_line</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">DigitalChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="410">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital input has not been configured for this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="411">
+<div class="viewcode-block" id="DewesoftX.write_digital_port">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.write_digital_port">[docs]</a>
+</span><span data-line="412">    <span class="k">def</span><span class="w"> </span><span class="nf">write_digital_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">DigitalChannel</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="413">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital output has not been configured for this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="414">
+<div class="viewcode-block" id="DewesoftX.read_digital_port">
+<a class="viewcode-back" href="../../../../../../sdk/instruments/instro.unstable.daq.drivers.dewesoftx.DewesoftX/#instro.unstable.daq.drivers.dewesoftx.DewesoftX.read_digital_port">[docs]</a>
+</span><span data-line="415">    <span class="k">def</span><span class="w"> </span><span class="nf">read_digital_port</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">channel</span><span class="p">:</span> <span class="n">DigitalChannel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span data-line="416">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;Digital input has not been configured for this driver&quot;</span><span class="p">)</span></div>
+</div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

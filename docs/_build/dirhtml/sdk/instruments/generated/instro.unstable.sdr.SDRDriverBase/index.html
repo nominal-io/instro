@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>SDRDriverBase (instro.unstable.sdr) - instro Python API</title><link rel="shortcut icon" href="../../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../../genindex/" /><link rel="search" title="Search" href="../../../../search/" /><link rel="next" title="IQCapture" href="../instro.unstable.sdr.sdr.IQCapture/" /><link rel="prev" title="InstroSDR" href="../instro.unstable.sdr.InstroSDR/" />
+      <link rel="canonical" href="https://instro.nominal.io/sdk/instruments/generated/instro.unstable.sdr.SDRDriverBase/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/sdk/instruments/generated/instro.unstable.sdr.SDRDriverBase/"/>
+  <meta property="og:title" content="SDRDriverBase"/>
+    <meta name="description" content="Contract every vendor SDR driver implements."/>
+    <meta property="og:description" content="Contract every vendor SDR driver implements."/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../../">
+      <img class="light-logo" src="../../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../"><span>Guides</span></a></li><li class="link"><a href="../../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../../" class="current" aria-current="page"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">SDK</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../">Overview</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../daq/">DAQ (Data Acquisition)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../dmm/">DMM (Digital Multimeter)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../psu/">PSU (Power Supply Unit)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../eload/">Electronic Load</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../scope/">Scope (Oscilloscope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../i2c/">I2C</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/instrument/">Instrument</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/types/">Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/config/">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/registry/">Registry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/exceptions/">Exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/discover/">Discover</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../library/transports/">Transports</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Protocols</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../protocols/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../protocols/modbus/">Modbus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../protocols/ethernetip/">EtherNet/IP</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Changelog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../changelog/">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase"><code class="docutils literal notranslate"><span class="pre">SDRDriverBase</span></code></a><ul>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.close"><code class="docutils literal notranslate"><span class="pre">close()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_center_freq"><code class="docutils literal notranslate"><span class="pre">set_center_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_center_freq"><code class="docutils literal notranslate"><span class="pre">get_center_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_sample_rate"><code class="docutils literal notranslate"><span class="pre">set_sample_rate()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate"><code class="docutils literal notranslate"><span class="pre">get_sample_rate()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.read_iq"><code class="docutils literal notranslate"><span class="pre">read_iq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_gain"><code class="docutils literal notranslate"><span class="pre">set_gain()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain"><code class="docutils literal notranslate"><span class="pre">get_gain()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_gain_mode"><code class="docutils literal notranslate"><span class="pre">set_gain_mode()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain_mode"><code class="docutils literal notranslate"><span class="pre">get_gain_mode()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain_range"><code class="docutils literal notranslate"><span class="pre">get_gain_range()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_bandwidth"><code class="docutils literal notranslate"><span class="pre">set_bandwidth()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_bandwidth"><code class="docutils literal notranslate"><span class="pre">get_bandwidth()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_freq_correction"><code class="docutils literal notranslate"><span class="pre">set_freq_correction()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_freq_correction"><code class="docutils literal notranslate"><span class="pre">get_freq_correction()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.list_antennas"><code class="docutils literal notranslate"><span class="pre">list_antennas()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_antenna"><code class="docutils literal notranslate"><span class="pre">set_antenna()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_antenna"><code class="docutils literal notranslate"><span class="pre">get_antenna()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.start"><code class="docutils literal notranslate"><span class="pre">start()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.stop"><code class="docutils literal notranslate"><span class="pre">stop()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.fetch_iq"><code class="docutils literal notranslate"><span class="pre">fetch_iq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_backlog"><code class="docutils literal notranslate"><span class="pre">get_backlog()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_num_channels"><code class="docutils literal notranslate"><span class="pre">get_num_channels()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_frequency_range"><code class="docutils literal notranslate"><span class="pre">get_frequency_range()</span></code></a></li>
+<li><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate_range"><code class="docutils literal notranslate"><span class="pre">get_sample_rate_range()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../sdr/"><span itemprop="name">Software Defined Radio (SDR)</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">SDRDriverBase</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="sdrdriverbase">
+<h1>SDRDriverBase<a class="headerlink" href="#sdrdriverbase" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">SDRDriverBase</span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.15)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Contract every vendor SDR driver implements.</p>
+<p>Abstract methods cover what every radio can do: open, tune, set a rate, and return samples.
+The rest raise <a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NotImplementedError</span></code></a> by default, and a driver overrides only those its
+hardware supports. A driver owns its own transport and holds no reference back to
+<a class="reference internal" href="../instro.unstable.sdr.InstroSDR/#instro.unstable.sdr.InstroSDR" title="instro.unstable.sdr.InstroSDR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstroSDR</span></code></a>.</p>
+<p>Configuration methods take keyword-only <code class="docutils literal notranslate"><span class="pre">direction</span></code> and <code class="docutils literal notranslate"><span class="pre">channel</span></code>, defaulting to the
+first receive path. Acquisition (<a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.read_iq" title="instro.unstable.sdr.SDRDriverBase.read_iq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_iq</span></code></a>, <a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.fetch_iq" title="instro.unstable.sdr.SDRDriverBase.fetch_iq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fetch_iq</span></code></a>, <a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_backlog" title="instro.unstable.sdr.SDRDriverBase.get_backlog"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_backlog</span></code></a>) is receive-only.</p>
+<p class="rubric">Example</p>
+<p>A receive-only, single-channel driver over a vendor SDK:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">class</span><span class="w"> </span><span class="nc">MyVendorSDR</span><span class="p">(</span><span class="n">SDRDriverBase</span><span class="p">):</span>
+</span><span data-line="2">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device_index</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
+</span><span data-line="3">        <span class="bp">self</span><span class="o">.</span><span class="n">_device_index</span> <span class="o">=</span> <span class="n">device_index</span>
+</span><span data-line="4">        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="5">
+</span><span data-line="6">    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="7">        <span class="kn">from</span><span class="w"> </span><span class="nn">vendor_sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">Radio</span>  <span class="c1"># keeps the SDK optional at import time</span>
+</span><span data-line="8">
+</span><span data-line="9">        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">Radio</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device_index</span><span class="p">)</span>
+</span><span data-line="10">
+</span><span data-line="11">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="12">        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="13">
+</span><span data-line="14">    <span class="k">def</span><span class="w"> </span><span class="nf">set_center_freq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">frequency_hz</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="n">Direction</span><span class="o">.</span><span class="n">RX</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;0&quot;</span><span class="p">):</span>
+</span><span data-line="15">        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">center_freq</span> <span class="o">=</span> <span class="n">frequency_hz</span>
+</span><span data-line="16">
+</span><span data-line="17">    <span class="o">...</span>  <span class="c1"># get_center_freq, set_sample_rate, get_sample_rate</span>
+</span><span data-line="18">
+</span><span data-line="19">    <span class="k">def</span><span class="w"> </span><span class="nf">read_iq</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,))</span> <span class="o">-&gt;</span> <span class="n">IQCapture</span><span class="p">:</span>
+</span><span data-line="20">        <span class="n">samples</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">read_samples</span><span class="p">(</span><span class="n">n_samples</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">complex128</span><span class="p">)</span>
+</span><span data-line="21">        <span class="k">return</span> <span class="n">IQCapture</span><span class="p">(</span>
+</span><span data-line="22">            <span class="n">samples</span><span class="o">=</span><span class="n">samples</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span>
+</span><span data-line="23">            <span class="n">sample_period_ns</span><span class="o">=</span><span class="mf">1e9</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">sample_rate</span><span class="p">,</span>
+</span><span data-line="24">            <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;0&quot;</span><span class="p">,),</span>
+</span><span data-line="25">            <span class="n">center_freq_hz</span><span class="o">=</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">center_freq</span><span class="p">,),</span>
+</span><span data-line="26">        <span class="p">)</span>
+</span></pre></div>
+</div>
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.close" title="instro.unstable.sdr.SDRDriverBase.close"><code class="xref py py-obj docutils literal notranslate"><span class="pre">close</span></code></a></p></td>
+<td><p>Close the underlying transport or SDR handle.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.fetch_iq" title="instro.unstable.sdr.SDRDriverBase.fetch_iq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fetch_iq</span></code></a></p></td>
+<td><p>Return the next contiguous block from the receive stream, blocking until it is available.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_antenna" title="instro.unstable.sdr.SDRDriverBase.get_antenna"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_antenna</span></code></a></p></td>
+<td><p>Return the selected antenna port.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_backlog" title="instro.unstable.sdr.SDRDriverBase.get_backlog"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_backlog</span></code></a></p></td>
+<td><p>Return how many samples are waiting to be fetched from the receive stream.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_bandwidth" title="instro.unstable.sdr.SDRDriverBase.get_bandwidth"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_bandwidth</span></code></a></p></td>
+<td><p>Return the IF or filter bandwidth.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_center_freq" title="instro.unstable.sdr.SDRDriverBase.get_center_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_center_freq</span></code></a></p></td>
+<td><p>Return the RF center frequency the radio is tuned to.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_freq_correction" title="instro.unstable.sdr.SDRDriverBase.get_freq_correction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_freq_correction</span></code></a></p></td>
+<td><p>Return the reference oscillator correction.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_frequency_range" title="instro.unstable.sdr.SDRDriverBase.get_frequency_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_frequency_range</span></code></a></p></td>
+<td><p>Return the lowest and highest tunable center frequency.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain" title="instro.unstable.sdr.SDRDriverBase.get_gain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_gain</span></code></a></p></td>
+<td><p>Return the overall gain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain_mode" title="instro.unstable.sdr.SDRDriverBase.get_gain_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_gain_mode</span></code></a></p></td>
+<td><p>Report whether automatic gain control is in control.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_gain_range" title="instro.unstable.sdr.SDRDriverBase.get_gain_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_gain_range</span></code></a></p></td>
+<td><p>Return the lowest and highest settable gain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_num_channels" title="instro.unstable.sdr.SDRDriverBase.get_num_channels"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_num_channels</span></code></a></p></td>
+<td><p>Return the number of signal paths in a direction.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate" title="instro.unstable.sdr.SDRDriverBase.get_sample_rate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sample_rate</span></code></a></p></td>
+<td><p>Return the IQ sample rate the radio accepted.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate_range" title="instro.unstable.sdr.SDRDriverBase.get_sample_rate_range"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sample_rate_range</span></code></a></p></td>
+<td><p>Return the lowest and highest settable sample rate.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.list_antennas" title="instro.unstable.sdr.SDRDriverBase.list_antennas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_antennas</span></code></a></p></td>
+<td><p>List the selectable antenna ports.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.open" title="instro.unstable.sdr.SDRDriverBase.open"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open</span></code></a></p></td>
+<td><p>Open the underlying transport or SDR handle.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.read_iq" title="instro.unstable.sdr.SDRDriverBase.read_iq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_iq</span></code></a></p></td>
+<td><p>Read one time-aligned receive block, with the timebase it was taken on.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_antenna" title="instro.unstable.sdr.SDRDriverBase.set_antenna"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_antenna</span></code></a></p></td>
+<td><p>Select an antenna port.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_bandwidth" title="instro.unstable.sdr.SDRDriverBase.set_bandwidth"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_bandwidth</span></code></a></p></td>
+<td><p>Set the IF or filter bandwidth.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_center_freq" title="instro.unstable.sdr.SDRDriverBase.set_center_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_center_freq</span></code></a></p></td>
+<td><p>Tune the RF center frequency.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_freq_correction" title="instro.unstable.sdr.SDRDriverBase.set_freq_correction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_freq_correction</span></code></a></p></td>
+<td><p>Correct the reference oscillator's frequency error.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_gain" title="instro.unstable.sdr.SDRDriverBase.set_gain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_gain</span></code></a></p></td>
+<td><p>Set the overall gain.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_gain_mode" title="instro.unstable.sdr.SDRDriverBase.set_gain_mode"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_gain_mode</span></code></a></p></td>
+<td><p>Hand gain to the radio's automatic gain control, or take manual control.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.set_sample_rate" title="instro.unstable.sdr.SDRDriverBase.set_sample_rate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sample_rate</span></code></a></p></td>
+<td><p>Set the IQ sample rate.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.start" title="instro.unstable.sdr.SDRDriverBase.start"><code class="xref py py-obj docutils literal notranslate"><span class="pre">start</span></code></a></p></td>
+<td><p>Begin continuous acquisition.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.stop" title="instro.unstable.sdr.SDRDriverBase.stop"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stop</span></code></a></p></td>
+<td><p>End a direction's stream and release its buffers.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.open">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.open" title="Link to this definition">#</a></dt>
+<dd><p>Open the underlying transport or SDR handle.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.close">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.close" title="Link to this definition">#</a></dt>
+<dd><p>Close the underlying transport or SDR handle.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_center_freq">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">set_center_freq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">frequency_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_center_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_center_freq" title="Link to this definition">#</a></dt>
+<dd><p>Tune the RF center frequency.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>frequency_hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>)</p>
+<p class="nominal-param-desc">Center frequency in Hz.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_center_freq">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_center_freq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_center_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_center_freq" title="Link to this definition">#</a></dt>
+<dd><p>Return the RF center frequency the radio is tuned to.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>float</em> – Center frequency in Hz.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_sample_rate">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">set_sample_rate</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">sample_rate_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_sample_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_sample_rate" title="Link to this definition">#</a></dt>
+<dd><p>Set the IQ sample rate.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>sample_rate_hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>)</p>
+<p class="nominal-param-desc">Sample rate in samples per second.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_sample_rate">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_sample_rate</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_sample_rate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate" title="Link to this definition">#</a></dt>
+<dd><p>Return the IQ sample rate the radio accepted.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>float</em> – Sample rate in samples per second.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.read_iq">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">read_iq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.15)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">('0',)</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.unstable.sdr.sdr.IQCapture/#instro.unstable.sdr.sdr.IQCapture" title="instro.unstable.sdr.sdr.IQCapture"><span class="pre">IQCapture</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.read_iq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.read_iq" title="Link to this definition">#</a></dt>
+<dd><p>Read one time-aligned receive block, with the timebase it was taken on.</p>
+<p><code class="docutils literal notranslate"><span class="pre">sample_period_ns</span></code> on the result must describe the block returned, not the rate last
+requested: <a class="reference internal" href="../instro.unstable.sdr.InstroSDR/#instro.unstable.sdr.InstroSDR" title="instro.unstable.sdr.InstroSDR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstroSDR</span></code></a> derives every IQ timestamp from it.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>n_samples</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>)</p>
+<p class="nominal-param-desc">Samples to read per channel.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channels</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>]</em>)</p>
+<p class="nominal-param-desc">Receive channels to read, e.g. <code class="docutils literal notranslate"><span class="pre">(&quot;0&quot;,)</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>IQCapture</em> – One row per channel in <code class="docutils literal notranslate"><span class="pre">channels</span></code>.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_gain">
+<span class="sig-name descname"><span class="pre">set_gain</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">gain_db</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_gain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_gain" title="Link to this definition">#</a></dt>
+<dd><p>Set the overall gain.</p>
+<p>Override where the radio exposes a single gain figure.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>gain_db</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>)</p>
+<p class="nominal-param-desc">Gain in dB.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support gain control.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_gain">
+<span class="sig-name descname"><span class="pre">get_gain</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_gain"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_gain" title="Link to this definition">#</a></dt>
+<dd><p>Return the overall gain.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>float</em> – Gain in dB.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support gain control.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_gain_mode">
+<span class="sig-name descname"><span class="pre">set_gain_mode</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">automatic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_gain_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_gain_mode" title="Link to this definition">#</a></dt>
+<dd><p>Hand gain to the radio’s automatic gain control, or take manual control.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>automatic</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><em>bool</em></a>)</p>
+<p class="nominal-param-desc"><code class="docutils literal notranslate"><span class="pre">True</span></code> for AGC, <code class="docutils literal notranslate"><span class="pre">False</span></code> for manual gain.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support a gain mode.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_gain_mode">
+<span class="sig-name descname"><span class="pre">get_gain_mode</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_gain_mode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_gain_mode" title="Link to this definition">#</a></dt>
+<dd><p>Report whether automatic gain control is in control.</p>
+<p>Many radios cannot read this back.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>bool</em> – <code class="docutils literal notranslate"><span class="pre">True</span></code> when AGC is in control.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support gain mode readback.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_gain_range">
+<span class="sig-name descname"><span class="pre">get_gain_range</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_gain_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_gain_range" title="Link to this definition">#</a></dt>
+<dd><p>Return the lowest and highest settable gain.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>tuple[float, float]</em> – <code class="docutils literal notranslate"><span class="pre">(low,</span> <span class="pre">high)</span></code> in dB.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support reporting a gain range.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_bandwidth">
+<span class="sig-name descname"><span class="pre">set_bandwidth</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">bandwidth_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_bandwidth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_bandwidth" title="Link to this definition">#</a></dt>
+<dd><p>Set the IF or filter bandwidth.</p>
+<p>Some radios tie this to the sample rate.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>bandwidth_hz</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>)</p>
+<p class="nominal-param-desc">Bandwidth in Hz.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support bandwidth control.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_bandwidth">
+<span class="sig-name descname"><span class="pre">get_bandwidth</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_bandwidth"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_bandwidth" title="Link to this definition">#</a></dt>
+<dd><p>Return the IF or filter bandwidth.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>float</em> – Bandwidth in Hz.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support bandwidth control.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_freq_correction">
+<span class="sig-name descname"><span class="pre">set_freq_correction</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">ppm</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_freq_correction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_freq_correction" title="Link to this definition">#</a></dt>
+<dd><p>Correct the reference oscillator’s frequency error.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>ppm</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><em>float</em></a>)</p>
+<p class="nominal-param-desc">Correction in parts per million.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support frequency correction.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_freq_correction">
+<span class="sig-name descname"><span class="pre">get_freq_correction</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_freq_correction"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_freq_correction" title="Link to this definition">#</a></dt>
+<dd><p>Return the reference oscillator correction.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>float</em> – Correction in parts per million.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support frequency correction.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.list_antennas">
+<span class="sig-name descname"><span class="pre">list_antennas</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#list" title="(in Python v3.15)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.list_antennas"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.list_antennas" title="Link to this definition">#</a></dt>
+<dd><p>List the selectable antenna ports.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>list[str]</em> – Antenna port names.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support antenna selection.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.set_antenna">
+<span class="sig-name descname"><span class="pre">set_antenna</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">antenna</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.set_antenna"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.set_antenna" title="Link to this definition">#</a></dt>
+<dd><p>Select an antenna port.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>antenna</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Port name, one of <a class="reference internal" href="#instro.unstable.sdr.SDRDriverBase.list_antennas" title="instro.unstable.sdr.SDRDriverBase.list_antennas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_antennas</span></code></a>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support antenna selection.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_antenna">
+<span class="sig-name descname"><span class="pre">get_antenna</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_antenna"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_antenna" title="Link to this definition">#</a></dt>
+<dd><p>Return the selected antenna port.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>str</em> – Port name.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support antenna selection.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.start">
+<span class="sig-name descname"><span class="pre">start</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence" title="(in Python v3.15)"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">('0',)</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.start"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.start" title="Link to this definition">#</a></dt>
+<dd><p>Begin continuous acquisition.</p>
+<p>One stream covers one direction and its whole channel set, chosen here.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channels</strong> (<em>Sequence</em><em>[</em><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a><em>]</em>)</p>
+<p class="nominal-param-desc">Channels the stream covers.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support streaming.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.stop">
+<span class="sig-name descname"><span class="pre">stop</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.stop"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.stop" title="Link to this definition">#</a></dt>
+<dd><p>End a direction’s stream and release its buffers.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Stream to end.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support streaming.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.fetch_iq">
+<span class="sig-name descname"><span class="pre">fetch_iq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">n_samples</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.unstable.sdr.sdr.IQCapture/#instro.unstable.sdr.sdr.IQCapture" title="instro.unstable.sdr.sdr.IQCapture"><span class="pre">IQCapture</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.fetch_iq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.fetch_iq" title="Link to this definition">#</a></dt>
+<dd><p>Return the next contiguous block from the receive stream, blocking until it is available.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p class="nominal-param-head"><strong>n_samples</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><em>int</em></a>)</p>
+<p class="nominal-param-desc">Samples to return per channel.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>IQCapture</em> – One row per channel the stream covers.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError" title="(in Python v3.15)"><strong>ValueError</strong></a> – If <code class="docutils literal notranslate"><span class="pre">n_samples</span></code> exceeds what the stream can buffer.</p></li>
+<li><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support streaming.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_backlog">
+<span class="sig-name descname"><span class="pre">get_backlog</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_backlog"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_backlog" title="Link to this definition">#</a></dt>
+<dd><p>Return how many samples are waiting to be fetched from the receive stream.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><em>int</em> – Samples per channel.</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support streaming.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_num_channels">
+<span class="sig-name descname"><span class="pre">get_num_channels</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_num_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_num_channels" title="Link to this definition">#</a></dt>
+<dd><p>Return the number of signal paths in a direction.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Direction to count.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>int</em> – Signal paths. <code class="docutils literal notranslate"><span class="pre">0</span></code> means the radio cannot use that direction at all.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support reporting channel counts.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_frequency_range">
+<span class="sig-name descname"><span class="pre">get_frequency_range</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_frequency_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_frequency_range" title="Link to this definition">#</a></dt>
+<dd><p>Return the lowest and highest tunable center frequency.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>tuple[float, float]</em> – <code class="docutils literal notranslate"><span class="pre">(low,</span> <span class="pre">high)</span></code> in Hz.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support reporting a frequency range.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.unstable.sdr.SDRDriverBase.get_sample_rate_range">
+<span class="sig-name descname"><span class="pre">get_sample_rate_range</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.types.Direction"><span class="pre">Direction</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">Direction.RX</span></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'0'</span></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../../_modules/instro/unstable/sdr/sdr/#SDRDriverBase.get_sample_rate_range"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.unstable.sdr.SDRDriverBase.get_sample_rate_range" title="Link to this definition">#</a></dt>
+<dd><p>Return the lowest and highest settable sample rate.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="nominal-params">
+<li><p class="nominal-param-head"><strong>direction</strong> (<a class="reference internal" href="../instro.unstable.sdr.types.Direction/#instro.unstable.sdr.types.Direction" title="instro.unstable.sdr.Direction"><em>Direction</em></a>)</p>
+<p class="nominal-param-desc">Signal path, <code class="docutils literal notranslate"><span class="pre">Direction.RX</span></code> or <code class="docutils literal notranslate"><span class="pre">Direction.TX</span></code>.</p>
+</li>
+<li><p class="nominal-param-head"><strong>channel</strong> (<a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><em>str</em></a>)</p>
+<p class="nominal-param-desc">Channel on that path, e.g. <code class="docutils literal notranslate"><span class="pre">&quot;0&quot;</span></code>.</p>
+</li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>tuple[float, float]</em> – <code class="docutils literal notranslate"><span class="pre">(low,</span> <span class="pre">high)</span></code> in samples per second.</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/builtins/exceptions.html#NotImplementedError" title="(in Python v3.15)"><strong>NotImplementedError</strong></a> – If the driver does not support reporting a sample rate range.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../instro.unstable.sdr.InstroSDR/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">InstroSDR</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../instro.unstable.sdr.sdr.IQCapture/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">IQCapture</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

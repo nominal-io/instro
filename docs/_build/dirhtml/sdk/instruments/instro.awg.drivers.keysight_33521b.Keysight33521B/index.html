@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Keysight33521B (instro.awg.drivers.keysight_33521b) - instro Python API</title><link rel="shortcut icon" href="../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../genindex/" /><link rel="search" title="Search" href="../../../search/" /><link rel="next" title="RigolDG1022Z" href="../instro.awg.drivers.rigol_dg1022z.RigolDG1022Z/" /><link rel="prev" title="AWGDriverBase" href="../instro.awg.AWGDriverBase/" />
+      <link rel="canonical" href="https://instro.nominal.io/sdk/instruments/instro.awg.drivers.keysight_33521b.Keysight33521B/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/sdk/instruments/instro.awg.drivers.keysight_33521b.Keysight33521B/"/>
+  <meta property="og:title" content="Keysight33521B"/>
+    <meta name="description" content="SCPI driver for the Keysight 33521B arbitrary waveform generator."/>
+    <meta property="og:description" content="SCPI driver for the Keysight 33521B arbitrary waveform generator."/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../">
+      <img class="light-logo" src="../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../"><span>Guides</span></a></li><li class="link"><a href="../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../" class="current" aria-current="page"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">SDK</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../">Overview</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../daq/">DAQ (Data Acquisition)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../dmm/">DMM (Digital Multimeter)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../psu/">PSU (Power Supply Unit)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../eload/">Electronic Load</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../scope/">Scope (Oscilloscope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../i2c/">I2C</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../library/instrument/">Instrument</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/types/">Types</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/config/">Configuration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/registry/">Registry</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/exceptions/">Exceptions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/discover/">Discover</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../library/transports/">Transports</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Protocols</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/modbus/">Modbus</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../protocols/ethernetip/">EtherNet/IP</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Changelog</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../changelog/">Changelog</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B"><code class="docutils literal notranslate"><span class="pre">Keysight33521B</span></code></a><ul>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.open"><code class="docutils literal notranslate"><span class="pre">open()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.close"><code class="docutils literal notranslate"><span class="pre">close()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_waveform"><code class="docutils literal notranslate"><span class="pre">set_waveform()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_waveform"><code class="docutils literal notranslate"><span class="pre">get_waveform()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_amplitude"><code class="docutils literal notranslate"><span class="pre">set_amplitude()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_amplitude"><code class="docutils literal notranslate"><span class="pre">get_amplitude()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_offset"><code class="docutils literal notranslate"><span class="pre">set_offset()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_offset"><code class="docutils literal notranslate"><span class="pre">get_offset()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.output_enable"><code class="docutils literal notranslate"><span class="pre">output_enable()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_state"><code class="docutils literal notranslate"><span class="pre">get_output_state()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_output_load"><code class="docutils literal notranslate"><span class="pre">set_output_load()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_load"><code class="docutils literal notranslate"><span class="pre">get_output_load()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_modulation"><code class="docutils literal notranslate"><span class="pre">set_modulation()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.modulation_enable"><code class="docutils literal notranslate"><span class="pre">modulation_enable()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_type"><code class="docutils literal notranslate"><span class="pre">get_modulation_type()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_state"><code class="docutils literal notranslate"><span class="pre">get_modulation_state()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst"><code class="docutils literal notranslate"><span class="pre">set_burst()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_type"><code class="docutils literal notranslate"><span class="pre">get_burst_type()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.burst_enable"><code class="docutils literal notranslate"><span class="pre">burst_enable()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_state"><code class="docutils literal notranslate"><span class="pre">get_burst_state()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_trigger"><code class="docutils literal notranslate"><span class="pre">set_burst_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_trigger"><code class="docutils literal notranslate"><span class="pre">get_burst_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_burst_trigger"><code class="docutils literal notranslate"><span class="pre">fire_burst_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_delay"><code class="docutils literal notranslate"><span class="pre">set_burst_delay()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_delay"><code class="docutils literal notranslate"><span class="pre">get_burst_delay()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_gate_polarity"><code class="docutils literal notranslate"><span class="pre">set_burst_gate_polarity()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_gate_polarity"><code class="docutils literal notranslate"><span class="pre">get_burst_gate_polarity()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_ncycles"><code class="docutils literal notranslate"><span class="pre">set_burst_ncycles()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_ncycles"><code class="docutils literal notranslate"><span class="pre">get_burst_ncycles()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_period"><code class="docutils literal notranslate"><span class="pre">set_burst_period()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_period"><code class="docutils literal notranslate"><span class="pre">get_burst_period()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep"><code class="docutils literal notranslate"><span class="pre">set_sweep()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_type"><code class="docutils literal notranslate"><span class="pre">get_sweep_type()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.sweep_enable"><code class="docutils literal notranslate"><span class="pre">sweep_enable()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_state"><code class="docutils literal notranslate"><span class="pre">get_sweep_state()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_trigger"><code class="docutils literal notranslate"><span class="pre">set_sweep_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_trigger"><code class="docutils literal notranslate"><span class="pre">get_sweep_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_freq"><code class="docutils literal notranslate"><span class="pre">set_sweep_start_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_freq"><code class="docutils literal notranslate"><span class="pre">get_sweep_start_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_end_freq"><code class="docutils literal notranslate"><span class="pre">set_sweep_end_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_end_freq"><code class="docutils literal notranslate"><span class="pre">get_sweep_end_freq()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_time"><code class="docutils literal notranslate"><span class="pre">set_sweep_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_time"><code class="docutils literal notranslate"><span class="pre">get_sweep_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_stop_hold_time"><code class="docutils literal notranslate"><span class="pre">set_sweep_stop_hold_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_stop_hold_time"><code class="docutils literal notranslate"><span class="pre">get_sweep_stop_hold_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_return_time"><code class="docutils literal notranslate"><span class="pre">set_sweep_return_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_return_time"><code class="docutils literal notranslate"><span class="pre">get_sweep_return_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_sweep_trigger"><code class="docutils literal notranslate"><span class="pre">fire_sweep_trigger()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.align_phase"><code class="docutils literal notranslate"><span class="pre">align_phase()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_hold_time"><code class="docutils literal notranslate"><span class="pre">get_sweep_start_hold_time()</span></code></a></li>
+<li><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_hold_time"><code class="docutils literal notranslate"><span class="pre">set_sweep_start_hold_time()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../awg/"><span itemprop="name">Arbitrary Waveform Generator (AWG)</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">Keysight33521B</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <section id="keysight33521b">
+<h1>Keysight33521B<a class="headerlink" href="#keysight33521b" title="Link to this heading">#</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">Keysight33521B</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">visa_resource</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#str" title="(in Python v3.15)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../../library/instro.lib.transports.visa.VisaConfig/#instro.lib.transports.visa.VisaConfig" title="instro.lib.transports.visa.VisaConfig"><span class="pre">VisaConfig</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="../instro.awg.AWGDriverBase/#instro.awg.AWGDriverBase" title="instro.awg.awg.AWGDriverBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">AWGDriverBase</span></code></a></p>
+<p>SCPI driver for the Keysight 33521B arbitrary waveform generator.</p>
+<p class="rubric">Methods</p>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.align_phase" title="instro.awg.drivers.keysight_33521b.Keysight33521B.align_phase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">align_phase</span></code></a></p></td>
+<td><p>Sync the phase of all channels.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.burst_enable" title="instro.awg.drivers.keysight_33521b.Keysight33521B.burst_enable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">burst_enable</span></code></a></p></td>
+<td><p>Enable or disable burst mode on the given channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.close" title="instro.awg.drivers.keysight_33521b.Keysight33521B.close"><code class="xref py py-obj docutils literal notranslate"><span class="pre">close</span></code></a></p></td>
+<td><p>Close the underlying transport.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_burst_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.fire_burst_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fire_burst_trigger</span></code></a></p></td>
+<td><p>Fire a burst trigger on channel now; the trigger source must already be MANUAL.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_sweep_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.fire_sweep_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fire_sweep_trigger</span></code></a></p></td>
+<td><p>Fire a sweep trigger on channel now; the trigger source must already be MANUAL.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_amplitude" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_amplitude"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_amplitude</span></code></a></p></td>
+<td><p>Get the current output amplitude and voltage unit on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_delay" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_delay"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_delay</span></code></a></p></td>
+<td><p>Get the burst trigger delay (seconds) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_gate_polarity" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_gate_polarity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_gate_polarity</span></code></a></p></td>
+<td><p>Get the gate polarity for GATED bursts on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_ncycles" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_ncycles"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_ncycles</span></code></a></p></td>
+<td><p>Get the number of cycles per trigger for NCYCLE bursts on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_period" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_period</span></code></a></p></td>
+<td><p>Get the internal burst period (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_state" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_state</span></code></a></p></td>
+<td><p>Return True if burst mode is enabled on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_trigger</span></code></a></p></td>
+<td><p>Get the burst trigger source on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_type" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_burst_type</span></code></a></p></td>
+<td><p>NCYCLE reads back as INFINITE when BURS:NCYC is the hardware's high-water sentinel for INF.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_state" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_modulation_state</span></code></a></p></td>
+<td><p>Get the modulation enabled state currently active on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_type" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_modulation_type</span></code></a></p></td>
+<td><p>Returns modulation type currently enabled, or the last type set by the user when modulation is not enabled.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_offset" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_offset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_offset</span></code></a></p></td>
+<td><p>Get the DC offset (volts) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_load" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_load</span></code></a></p></td>
+<td><p>Get the output load impedance; None means high-Z.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_state" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_output_state</span></code></a></p></td>
+<td><p>Return True if the output on channel is enabled.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_end_freq" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_end_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_end_freq</span></code></a></p></td>
+<td><p>Get the sweep end frequency (Hz) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_return_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_return_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_return_time</span></code></a></p></td>
+<td><p>Get the sweep return time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_freq" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_start_freq</span></code></a></p></td>
+<td><p>Get the sweep start frequency (Hz) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_hold_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_hold_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_start_hold_time</span></code></a></p></td>
+<td><p>Get the sweep start hold time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_state" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_state"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_state</span></code></a></p></td>
+<td><p>Return True if sweep mode is enabled on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_stop_hold_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_stop_hold_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_stop_hold_time</span></code></a></p></td>
+<td><p>Get the sweep stop hold time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_time</span></code></a></p></td>
+<td><p>Get the sweep time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_trigger</span></code></a></p></td>
+<td><p>Get the sweep trigger source on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_type" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_type"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sweep_type</span></code></a></p></td>
+<td><p>Get the sweep type currently configured on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_waveform" title="instro.awg.drivers.keysight_33521b.Keysight33521B.get_waveform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_waveform</span></code></a></p></td>
+<td><p>Get the current waveform on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.modulation_enable" title="instro.awg.drivers.keysight_33521b.Keysight33521B.modulation_enable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">modulation_enable</span></code></a></p></td>
+<td><p>Enables the most recently configured modulation type, or disables modulation.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.open" title="instro.awg.drivers.keysight_33521b.Keysight33521B.open"><code class="xref py py-obj docutils literal notranslate"><span class="pre">open</span></code></a></p></td>
+<td><p>Open the underlying transport.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.output_enable" title="instro.awg.drivers.keysight_33521b.Keysight33521B.output_enable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">output_enable</span></code></a></p></td>
+<td><p>Enable or disable the output on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_amplitude" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_amplitude"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_amplitude</span></code></a></p></td>
+<td><p>Set the output amplitude on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst</span></code></a></p></td>
+<td><p>Configure channel's burst type.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_delay" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_delay"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst_delay</span></code></a></p></td>
+<td><p>Set the burst trigger delay (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_gate_polarity" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_gate_polarity"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst_gate_polarity</span></code></a></p></td>
+<td><p>Set the gate polarity for GATED bursts on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_ncycles" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_ncycles"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst_ncycles</span></code></a></p></td>
+<td><p>Set the number of cycles per trigger for NCYCLE bursts on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_period" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_period"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst_period</span></code></a></p></td>
+<td><p>Set the internal burst period (seconds) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_burst_trigger</span></code></a></p></td>
+<td><p>Set the burst trigger source on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_modulation" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_modulation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_modulation</span></code></a></p></td>
+<td><p>Configures modulation.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_offset" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_offset"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_offset</span></code></a></p></td>
+<td><p>Set the DC offset (volts) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_output_load" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_output_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_output_load</span></code></a></p></td>
+<td><p>Set the output load impedance; None means high-Z.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep</span></code></a></p></td>
+<td><p>Configure the sweep type on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_end_freq" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_end_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_end_freq</span></code></a></p></td>
+<td><p>Set the sweep end frequency (Hz) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_return_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_return_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_return_time</span></code></a></p></td>
+<td><p>Set the sweep return time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_freq" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_freq"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_start_freq</span></code></a></p></td>
+<td><p>Set the sweep start frequency (Hz) on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_hold_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_hold_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_start_hold_time</span></code></a></p></td>
+<td><p>Set the sweep start hold time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_stop_hold_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_stop_hold_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_stop_hold_time</span></code></a></p></td>
+<td><p>The 33521B has no SWEep:HTIMe:STARt; HTIMe only holds at the stop frequency.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_time" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_time"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_time</span></code></a></p></td>
+<td><p>Set the sweep time (seconds) on channel.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_trigger" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_trigger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_sweep_trigger</span></code></a></p></td>
+<td><p>Set the sweep trigger source on channel.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_waveform" title="instro.awg.drivers.keysight_33521b.Keysight33521B.set_waveform"><code class="xref py py-obj docutils literal notranslate"><span class="pre">set_waveform</span></code></a></p></td>
+<td><p>Program channel with the waveform definition.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.sweep_enable" title="instro.awg.drivers.keysight_33521b.Keysight33521B.sweep_enable"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sweep_enable</span></code></a></p></td>
+<td><p>Enable or disable sweep mode on channel.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.open"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.open" title="Link to this definition">#</a></dt>
+<dd><p>Open the underlying transport.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.close"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.close" title="Link to this definition">#</a></dt>
+<dd><p>Close the underlying transport.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_waveform">
+<span class="sig-name descname"><span class="pre">set_waveform</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">waveform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.Sine/#instro.awg.types.Sine" title="instro.awg.types.Sine"><span class="pre">Sine</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Square/#instro.awg.types.Square" title="instro.awg.types.Square"><span class="pre">Square</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Sawtooth/#instro.awg.types.Sawtooth" title="instro.awg.types.Sawtooth"><span class="pre">Sawtooth</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Triangle/#instro.awg.types.Triangle" title="instro.awg.types.Triangle"><span class="pre">Triangle</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Pulse/#instro.awg.types.Pulse" title="instro.awg.types.Pulse"><span class="pre">Pulse</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Arbitrary/#instro.awg.types.Arbitrary" title="instro.awg.types.Arbitrary"><span class="pre">Arbitrary</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.StaticValue/#instro.awg.types.StaticValue" title="instro.awg.types.StaticValue"><span class="pre">StaticValue</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_waveform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_waveform" title="Link to this definition">#</a></dt>
+<dd><p>Program channel with the waveform definition.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_waveform">
+<span class="sig-name descname"><span class="pre">get_waveform</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.Sine/#instro.awg.types.Sine" title="instro.awg.types.Sine"><span class="pre">Sine</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Square/#instro.awg.types.Square" title="instro.awg.types.Square"><span class="pre">Square</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Sawtooth/#instro.awg.types.Sawtooth" title="instro.awg.types.Sawtooth"><span class="pre">Sawtooth</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Triangle/#instro.awg.types.Triangle" title="instro.awg.types.Triangle"><span class="pre">Triangle</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Pulse/#instro.awg.types.Pulse" title="instro.awg.types.Pulse"><span class="pre">Pulse</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Arbitrary/#instro.awg.types.Arbitrary" title="instro.awg.types.Arbitrary"><span class="pre">Arbitrary</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.StaticValue/#instro.awg.types.StaticValue" title="instro.awg.types.StaticValue"><span class="pre">StaticValue</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_waveform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_waveform" title="Link to this definition">#</a></dt>
+<dd><p>Get the current waveform on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_amplitude">
+<span class="sig-name descname"><span class="pre">set_amplitude</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">amplitude</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">unit</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.AmplitudeMeasurementUnit/#instro.awg.types.AmplitudeMeasurementUnit" title="instro.awg.types.AmplitudeMeasurementUnit"><span class="pre">AmplitudeMeasurementUnit</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_amplitude" title="Link to this definition">#</a></dt>
+<dd><p>Set the output amplitude on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_amplitude">
+<span class="sig-name descname"><span class="pre">get_amplitude</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple" title="(in Python v3.15)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.AmplitudeMeasurementUnit/#instro.awg.types.AmplitudeMeasurementUnit" title="instro.awg.types.AmplitudeMeasurementUnit"><span class="pre">AmplitudeMeasurementUnit</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_amplitude"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_amplitude" title="Link to this definition">#</a></dt>
+<dd><p>Get the current output amplitude and voltage unit on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_offset">
+<span class="sig-name descname"><span class="pre">set_offset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">offset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_offset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_offset" title="Link to this definition">#</a></dt>
+<dd><p>Set the DC offset (volts) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_offset">
+<span class="sig-name descname"><span class="pre">get_offset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_offset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_offset" title="Link to this definition">#</a></dt>
+<dd><p>Get the DC offset (volts) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.output_enable">
+<span class="sig-name descname"><span class="pre">output_enable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.output_enable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.output_enable" title="Link to this definition">#</a></dt>
+<dd><p>Enable or disable the output on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_state">
+<span class="sig-name descname"><span class="pre">get_output_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_output_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_state" title="Link to this definition">#</a></dt>
+<dd><p>Return True if the output on channel is enabled.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_output_load">
+<span class="sig-name descname"><span class="pre">set_output_load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">load</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_output_load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_output_load" title="Link to this definition">#</a></dt>
+<dd><p>Set the output load impedance; None means high-Z.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_load">
+<span class="sig-name descname"><span class="pre">get_output_load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_output_load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_output_load" title="Link to this definition">#</a></dt>
+<dd><p>Get the output load impedance; None means high-Z.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_modulation">
+<span class="sig-name descname"><span class="pre">set_modulation</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">mod_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.ModulationType/#instro.awg.types.ModulationType" title="instro.awg.types.ModulationType"><span class="pre">ModulationType</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.Sine/#instro.awg.types.Sine" title="instro.awg.types.Sine"><span class="pre">Sine</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Square/#instro.awg.types.Square" title="instro.awg.types.Square"><span class="pre">Square</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Sawtooth/#instro.awg.types.Sawtooth" title="instro.awg.types.Sawtooth"><span class="pre">Sawtooth</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Triangle/#instro.awg.types.Triangle" title="instro.awg.types.Triangle"><span class="pre">Triangle</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Pulse/#instro.awg.types.Pulse" title="instro.awg.types.Pulse"><span class="pre">Pulse</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.Arbitrary/#instro.awg.types.Arbitrary" title="instro.awg.types.Arbitrary"><span class="pre">Arbitrary</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference internal" href="../instro.awg.types.StaticValue/#instro.awg.types.StaticValue" title="instro.awg.types.StaticValue"><span class="pre">StaticValue</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">magnitude</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_modulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_modulation" title="Link to this definition">#</a></dt>
+<dd><p>Configures modulation. Enabled state is persistent across set_modulation calls.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.modulation_enable">
+<span class="sig-name descname"><span class="pre">modulation_enable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.modulation_enable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.modulation_enable" title="Link to this definition">#</a></dt>
+<dd><p>Enables the most recently configured modulation type, or disables modulation.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_type">
+<span class="sig-name descname"><span class="pre">get_modulation_type</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.ModulationType/#instro.awg.types.ModulationType" title="instro.awg.types.ModulationType"><span class="pre">ModulationType</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_modulation_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_type" title="Link to this definition">#</a></dt>
+<dd><p>Returns modulation type currently enabled, or the last type set by the user when modulation is not enabled.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_state">
+<span class="sig-name descname"><span class="pre">get_modulation_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_modulation_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_modulation_state" title="Link to this definition">#</a></dt>
+<dd><p>Get the modulation enabled state currently active on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst">
+<span class="sig-name descname"><span class="pre">set_burst</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">burst_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.BurstType/#instro.awg.types.BurstType" title="instro.awg.types.BurstType"><span class="pre">BurstType</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst" title="Link to this definition">#</a></dt>
+<dd><p>Configure channel’s burst type.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_type">
+<span class="sig-name descname"><span class="pre">get_burst_type</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.BurstType/#instro.awg.types.BurstType" title="instro.awg.types.BurstType"><span class="pre">BurstType</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_type" title="Link to this definition">#</a></dt>
+<dd><p>NCYCLE reads back as INFINITE when BURS:NCYC is the hardware’s high-water sentinel for INF.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.burst_enable">
+<span class="sig-name descname"><span class="pre">burst_enable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.burst_enable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.burst_enable" title="Link to this definition">#</a></dt>
+<dd><p>Enable or disable burst mode on the given channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_state">
+<span class="sig-name descname"><span class="pre">get_burst_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_state" title="Link to this definition">#</a></dt>
+<dd><p>Return True if burst mode is enabled on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_trigger">
+<span class="sig-name descname"><span class="pre">set_burst_trigger</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.BurstTriggerSource/#instro.awg.types.BurstTriggerSource" title="instro.awg.types.BurstTriggerSource"><span class="pre">BurstTriggerSource</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Set the burst trigger source on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_trigger">
+<span class="sig-name descname"><span class="pre">get_burst_trigger</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.BurstTriggerSource/#instro.awg.types.BurstTriggerSource" title="instro.awg.types.BurstTriggerSource"><span class="pre">BurstTriggerSource</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Get the burst trigger source on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.fire_burst_trigger">
+<span class="sig-name descname"><span class="pre">fire_burst_trigger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.fire_burst_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_burst_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Fire a burst trigger on channel now; the trigger source must already be MANUAL.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_delay">
+<span class="sig-name descname"><span class="pre">set_burst_delay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">delay_s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst_delay"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_delay" title="Link to this definition">#</a></dt>
+<dd><p>Set the burst trigger delay (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_delay">
+<span class="sig-name descname"><span class="pre">get_burst_delay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_delay"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_delay" title="Link to this definition">#</a></dt>
+<dd><p>Get the burst trigger delay (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_gate_polarity">
+<span class="sig-name descname"><span class="pre">set_burst_gate_polarity</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">gate_polarity</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.GatePolarity/#instro.awg.types.GatePolarity" title="instro.awg.types.GatePolarity"><span class="pre">GatePolarity</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst_gate_polarity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_gate_polarity" title="Link to this definition">#</a></dt>
+<dd><p>Set the gate polarity for GATED bursts on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_gate_polarity">
+<span class="sig-name descname"><span class="pre">get_burst_gate_polarity</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.GatePolarity/#instro.awg.types.GatePolarity" title="instro.awg.types.GatePolarity"><span class="pre">GatePolarity</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_gate_polarity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_gate_polarity" title="Link to this definition">#</a></dt>
+<dd><p>Get the gate polarity for GATED bursts on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_ncycles">
+<span class="sig-name descname"><span class="pre">set_burst_ncycles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_cycles</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst_ncycles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_ncycles" title="Link to this definition">#</a></dt>
+<dd><p>Set the number of cycles per trigger for NCYCLE bursts on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_ncycles">
+<span class="sig-name descname"><span class="pre">get_burst_ncycles</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_ncycles"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_ncycles" title="Link to this definition">#</a></dt>
+<dd><p>Get the number of cycles per trigger for NCYCLE bursts on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_period">
+<span class="sig-name descname"><span class="pre">set_burst_period</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">period</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_burst_period"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_burst_period" title="Link to this definition">#</a></dt>
+<dd><p>Set the internal burst period (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_period">
+<span class="sig-name descname"><span class="pre">get_burst_period</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_burst_period"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_burst_period" title="Link to this definition">#</a></dt>
+<dd><p>Get the internal burst period (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep">
+<span class="sig-name descname"><span class="pre">set_sweep</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">sweep_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.SweepType/#instro.awg.types.SweepType" title="instro.awg.types.SweepType"><span class="pre">SweepType</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep" title="Link to this definition">#</a></dt>
+<dd><p>Configure the sweep type on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_type">
+<span class="sig-name descname"><span class="pre">get_sweep_type</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.SweepType/#instro.awg.types.SweepType" title="instro.awg.types.SweepType"><span class="pre">SweepType</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_type" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep type currently configured on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.sweep_enable">
+<span class="sig-name descname"><span class="pre">sweep_enable</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">enable</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.sweep_enable"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.sweep_enable" title="Link to this definition">#</a></dt>
+<dd><p>Enable or disable sweep mode on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_state">
+<span class="sig-name descname"><span class="pre">get_sweep_state</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#bool" title="(in Python v3.15)"><span class="pre">bool</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_state"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_state" title="Link to this definition">#</a></dt>
+<dd><p>Return True if sweep mode is enabled on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_trigger">
+<span class="sig-name descname"><span class="pre">set_sweep_trigger</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">source</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../instro.awg.types.SweepTriggerSource/#instro.awg.types.SweepTriggerSource" title="instro.awg.types.SweepTriggerSource"><span class="pre">SweepTriggerSource</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep trigger source on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_trigger">
+<span class="sig-name descname"><span class="pre">get_sweep_trigger</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../instro.awg.types.SweepTriggerSource/#instro.awg.types.SweepTriggerSource" title="instro.awg.types.SweepTriggerSource"><span class="pre">SweepTriggerSource</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep trigger source on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_freq">
+<span class="sig-name descname"><span class="pre">set_sweep_start_freq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">frequency_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_start_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_freq" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep start frequency (Hz) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_freq">
+<span class="sig-name descname"><span class="pre">get_sweep_start_freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_start_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_freq" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep start frequency (Hz) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_end_freq">
+<span class="sig-name descname"><span class="pre">set_sweep_end_freq</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">frequency_hz</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_end_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_end_freq" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep end frequency (Hz) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_end_freq">
+<span class="sig-name descname"><span class="pre">get_sweep_end_freq</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_end_freq"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_end_freq" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep end frequency (Hz) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_time">
+<span class="sig-name descname"><span class="pre">set_sweep_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sweep_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_time" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_time">
+<span class="sig-name descname"><span class="pre">get_sweep_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_time" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_stop_hold_time">
+<span class="sig-name descname"><span class="pre">set_sweep_stop_hold_time</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">hold_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_stop_hold_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_stop_hold_time" title="Link to this definition">#</a></dt>
+<dd><p>The 33521B has no SWEep:HTIMe:STARt; HTIMe only holds at the stop frequency.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_stop_hold_time">
+<span class="sig-name descname"><span class="pre">get_sweep_stop_hold_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_stop_hold_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_stop_hold_time" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep stop hold time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_return_time">
+<span class="sig-name descname"><span class="pre">set_sweep_return_time</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">return_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.set_sweep_return_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_return_time" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep return time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_return_time">
+<span class="sig-name descname"><span class="pre">get_sweep_return_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.get_sweep_return_time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_return_time" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep return time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.fire_sweep_trigger">
+<span class="sig-name descname"><span class="pre">fire_sweep_trigger</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../../_modules/instro/awg/drivers/keysight_33521b/#Keysight33521B.fire_sweep_trigger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.fire_sweep_trigger" title="Link to this definition">#</a></dt>
+<dd><p>Fire a sweep trigger on channel now; the trigger source must already be MANUAL.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.align_phase">
+<span class="sig-name descname"><span class="pre">align_phase</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.align_phase" title="Link to this definition">#</a></dt>
+<dd><p>Sync the phase of all channels.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_hold_time">
+<span class="sig-name descname"><span class="pre">get_sweep_start_hold_time</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></span><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.get_sweep_start_hold_time" title="Link to this definition">#</a></dt>
+<dd><p>Get the sweep start hold time (seconds) on channel.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_hold_time">
+<span class="sig-name descname"><span class="pre">set_sweep_start_hold_time</span></span><span class="sig-paren">(</span>
+
+<dl>
+<dd><em class="sig-param"><span class="n"><span class="pre">channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#int" title="(in Python v3.15)"><span class="pre">int</span></a></span></em>,</dd>
+<dd><em class="sig-param"><span class="n"><span class="pre">hold_time</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/builtins/functions.html#float" title="(in Python v3.15)"><span class="pre">float</span></a></span></em>,</dd>
+</dl>
+
+<span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/builtins/constants.html#None" title="(in Python v3.15)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#instro.awg.drivers.keysight_33521b.Keysight33521B.set_sweep_start_hold_time" title="Link to this definition">#</a></dt>
+<dd><p>Set the sweep start hold time (seconds) on channel.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../instro.awg.AWGDriverBase/">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">AWGDriverBase</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../instro.awg.drivers.rigol_dg1022z.RigolDG1022Z/">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">RigolDG1022Z</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>

@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="gray" data-content_root="../../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>instro.dmm.dmm - instro</title><link rel="shortcut icon" href="../../../../_static/favicon.png"/><link rel="index" title="Index" href="../../../../genindex/" /><link rel="search" title="Search" href="../../../../search/" />
+      <link rel="canonical" href="https://instro.nominal.io/_modules/instro/dmm/dmm/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=0a53e792" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/shibuya.css?v=2ceb65ce" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/autodoc_pydantic.css?v=a0a71c94" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nominal.css?v=25bff986" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/nominal-path.css?v=a5131301" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/custom.css?v=70612c26" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://instro.nominal.io/_modules/instro/dmm/dmm/"/>
+  <meta property="og:title" content="instro.dmm.dmm"/>
+    <meta name="twitter:card" content="summary"/>
+  </head>
+<body><div class="sy-head nominal-two-row">
+  <div class="sy-head-blur"></div>
+  <div class="sy-head-inner sy-container mx-auto">
+    <div class="nominal-hub">
+      <a class="nominal-home" href="https://nominal.io/" title="Nominal">
+        <img class="light-logo" src="../../../../_static/nominal-logo-black.svg" alt="Nominal" />
+        <img class="dark-logo" src="../../../../_static/nominal-logo-white.svg" alt="Nominal" />
+      </a>
+      <span class="nominal-path"><span class="nominal-path-sep" aria-hidden="true">/</span><a href="https://dev.nominal.io/" title="Nominal docs" target="_blank" rel="noopener noreferrer">Docs</a><span class="nominal-path-sep" aria-hidden="true">/</span><a href="../../../../../" title="Nominal developer docs">Developers</a></span>
+    </div>
+    <span class="nominal-hub-divider" aria-hidden="true">/</span>
+    <a class="sy-head-brand" href="../../../../">
+      <img class="light-logo" src="../../../../_static/logo/instro-logo-solid-black.svg" alt="instro" height="28" loading="lazy" />
+      <img class="dark-logo" src="../../../../_static/logo/instro-logo-solid-white.svg" alt="instro" height="28" loading="lazy" />
+      <strong>instro</strong>
+    </a>
+    <span class="nominal-hub-divider nominal-tabs-divider" aria-hidden="true">/</span>
+    <div class="sy-head-nav" id="head-nav">
+      <nav class="sy-head-links"><ul><li class="link"><a href="../../../../" class="current" aria-current="page"><span>Guides</span></a></li><li class="link"><a href="../../../../examples/"><span>Examples</span></a></li><li class="link"><a href="../../../../sdk/"><span>SDK</span></a></li><li class="link">
+          <a href="https://github.com/nominal-io/instro">
+            <span>GitHub</span></a>
+        </li></ul></nav>
+      <div class="sy-head-extra flex items-center print:hidden"><form class="searchbox flex items-center" action="../../../../search/" method="get">
+  <input type="text" name="q" placeholder="Search" />
+  <kbd>/</kbd>
+</form><div class="nominal-head-buttons flex items-center"><div class="sy-head-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://community.instro.nominal.io" aria-label="Forum">
+    <iconify-icon icon="lucide:messages-square"></iconify-icon>
+  </a></div>
+<a class="nominal-btn" href="https://docs.nominal.io/"><svg class="nominal-btn-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Product Guides</a>
+<a class="nominal-btn" href="https://nominal.io/request-demo">Request a demo</a>
+<a class="nominal-btn nominal-btn-filled" href="https://app.gov.nominal.io/home">Open app</a></div>
+      </div>
+    </div>
+    <div class="sy-head-actions flex items-center shrink-0 print:hidden"><button class="js-theme theme-switch flex items-center"
+data-aria-auto="Switch to light color mode"
+data-aria-light="Switch to dark color mode"
+data-aria-dark="Switch to auto color mode">
+<i class="i-lucide theme-icon"></i>
+</button><button class="md:hidden flex items-center js-menu" aria-label="Menu" type="button" aria-controls="head-nav" aria-expanded="false">
+        <div class="hamburger">
+          <span class="hamburger_1"></span>
+          <span class="hamburger_2"></span>
+          <span class="hamburger_3"></span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="0"><p class="caption" role="heading" aria-level="3"><span class="caption-text">Overview</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../">Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../quickstart/">Quickstart</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../installation/">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../cli/">CLI</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Instruments</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../instruments/">Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../scope/">Oscilloscope (Scope)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../psu/">Power Supply (PSU)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../dmm/">Digital Multimeter (DMM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../daq/">Data Acquisition (DAQ)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../awg/">Arbitrary Waveform Generator (AWG)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../eload/">Electronic Load (ELoad)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../flowcontroller/">Flow Controller</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../sdr/">Software Defined Radio (SDR)</a></li>
+</ul>
+<p class="caption" role="heading" aria-level="3"><span class="caption-text">Library</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/concepts/">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/library/">Library</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/publishers/">Publishers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/protocols/overview/">Protocols</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/transports/overview/">Transports</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/config-files/">Config Files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/simulated-instruments/">Simulated Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/custom-instruments/">Custom Instruments</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/contrib/">Contrib drivers</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../library/exceptions/">Exceptions</a></li>
+</ul>
+
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../../"><span itemprop="name">instro</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../"><span itemprop="name">Module code</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">instro.dmm.dmm</strong>
+        <meta itemprop="position" content="3" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <article class="yue" role="main">
+          <h1>Source code for instro.dmm.dmm</h1><div class="highlight"><pre>
+<span></span><span data-line="1"><span class="sd">&quot;&quot;&quot;Digital multimeter (DMM) instrument interface and driver contract.&quot;&quot;&quot;</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+</span><span data-line="6"><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+</span><span data-line="7"><span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+</span><span data-line="8"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">replace</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+</span><span data-line="11"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Callable</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.dmm.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">DMMConfig</span><span class="p">,</span> <span class="n">resolve_dmm_from_config</span>
+</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.dmm.types</span><span class="w"> </span><span class="kn">import</span> <span class="n">DMMMeasurementConfig</span><span class="p">,</span> <span class="n">MeasurementFunction</span><span class="p">,</span> <span class="n">RangeMode</span>
+</span><span data-line="15"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Command</span><span class="p">,</span> <span class="n">Instrument</span><span class="p">,</span> <span class="n">Measurement</span>
+</span><span data-line="16"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">load_config</span>
+</span><span data-line="17"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.instrument</span><span class="w"> </span><span class="kn">import</span> <span class="n">publish_command</span><span class="p">,</span> <span class="n">publish_measurement</span>
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">instro.lib.publishers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Publisher</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+</span><span data-line="21">
+</span><span data-line="22">
+<div class="viewcode-block" id="DMMDriverBase">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase">[docs]</a>
+</span><span data-line="23"><span class="k">class</span><span class="w"> </span><span class="nc">DMMDriverBase</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+</span><span data-line="24"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Vendor DMM driver contract. Concrete drivers own their transport and lifecycle.</span>
+</span><span data-line="25">
+</span><span data-line="26"><span class="sd">    Range and NPLC are split per function (``set_dc_voltage_range``,</span>
+</span><span data-line="27"><span class="sd">    ``set_ac_current_nplc``, …) so the driver never tracks the active</span>
+</span><span data-line="28"><span class="sd">    function — ``InstroDMM`` dispatches based on its own ``_measurement_config``.</span>
+</span><span data-line="29"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="30">
+<div class="viewcode-block" id="DMMDriverBase.open">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.open">[docs]</a>
+</span><span data-line="31">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="32">    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="33"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Open the underlying transport and put the instrument into a known state.</span>
+</span><span data-line="34">
+</span><span data-line="35"><span class="sd">        Concrete drivers also do one-shot setup here (e.g. ``*CLS`` to clear</span>
+</span><span data-line="36"><span class="sd">        the error queue, ``SYST:REM`` for remote control).</span>
+</span><span data-line="37"><span class="sd">        &quot;&quot;&quot;</span></div>
+
+</span><span data-line="38">
+<div class="viewcode-block" id="DMMDriverBase.close">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.close">[docs]</a>
+</span><span data-line="39">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="40">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="41"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the underlying transport. Idempotent.&quot;&quot;&quot;</span></div>
+
+</span><span data-line="42">
+<div class="viewcode-block" id="DMMDriverBase.set_measurement_function">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_measurement_function">[docs]</a>
+</span><span data-line="43">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="44">    <span class="k">def</span><span class="w"> </span><span class="nf">set_measurement_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="45"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure the DMM for ``function`` (DC voltage, AC current, 2-wire resistance, …).</span>
+</span><span data-line="46">
+</span><span data-line="47"><span class="sd">        Drivers may issue a dummy measurement to commit the mode change.</span>
+</span><span data-line="48"><span class="sd">        ``MeasurementFunction`` values the instrument doesn&#39;t support should</span>
+</span><span data-line="49"><span class="sd">        raise ``NotImplementedError``.</span>
+</span><span data-line="50"><span class="sd">        &quot;&quot;&quot;</span></div>
+
+</span><span data-line="51">
+<div class="viewcode-block" id="DMMDriverBase.set_digits">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_digits">[docs]</a>
+</span><span data-line="52">    <span class="k">def</span><span class="w"> </span><span class="nf">set_digits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="53"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set resolution to ``n`` digits.</span>
+</span><span data-line="54">
+</span><span data-line="55"><span class="sd">        Default raises ``NotImplementedError``; override on drivers whose</span>
+</span><span data-line="56"><span class="sd">        SCPI exposes a direct digits/resolution control. Instruments that</span>
+</span><span data-line="57"><span class="sd">        only expose integration time (e.g. Keithley 2400) should leave this</span>
+</span><span data-line="58"><span class="sd">        as a no-implementation and direct users to ``set_aperture_nplc``.</span>
+</span><span data-line="59"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="60">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_digits is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="61">
+<div class="viewcode-block" id="DMMDriverBase.set_aperture_seconds">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_aperture_seconds">[docs]</a>
+</span><span data-line="62">    <span class="k">def</span><span class="w"> </span><span class="nf">set_aperture_seconds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="63"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set integration time directly in seconds.</span>
+</span><span data-line="64">
+</span><span data-line="65"><span class="sd">        Default raises ``NotImplementedError``. Mutually exclusive with</span>
+</span><span data-line="66"><span class="sd">        ``set_aperture_nplc`` on a given driver — vendors typically expose</span>
+</span><span data-line="67"><span class="sd">        one or the other.</span>
+</span><span data-line="68"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="69">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_aperture_seconds is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="70">
+</span><span data-line="71">    <span class="c1"># --- Range, scoped per measurement function. Override per function. ---</span>
+</span><span data-line="72">    <span class="c1">#</span>
+</span><span data-line="73">    <span class="c1"># Range and NPLC are split per function so the driver never has to track</span>
+</span><span data-line="74">    <span class="c1"># which measurement mode is active. InstroDMM dispatches to the right</span>
+</span><span data-line="75">    <span class="c1"># method based on its tracked _measurement_config.function, which keeps</span>
+</span><span data-line="76">    <span class="c1"># the measurement function as a single source of truth on InstroDMM. Each</span>
+</span><span data-line="77">    <span class="c1"># method takes ``value: float | None``; ``None`` means auto-range.</span>
+</span><span data-line="78">
+<div class="viewcode-block" id="DMMDriverBase.set_dc_voltage_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_dc_voltage_range">[docs]</a>
+</span><span data-line="79">    <span class="k">def</span><span class="w"> </span><span class="nf">set_dc_voltage_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="80"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual DC-voltage range to ``value`` volts; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="81">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_dc_voltage_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="82">
+<div class="viewcode-block" id="DMMDriverBase.set_ac_voltage_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_ac_voltage_range">[docs]</a>
+</span><span data-line="83">    <span class="k">def</span><span class="w"> </span><span class="nf">set_ac_voltage_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="84"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual AC-voltage range to ``value`` volts; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="85">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_ac_voltage_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="86">
+<div class="viewcode-block" id="DMMDriverBase.set_dc_current_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_dc_current_range">[docs]</a>
+</span><span data-line="87">    <span class="k">def</span><span class="w"> </span><span class="nf">set_dc_current_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="88"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual DC-current range to ``value`` amperes; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="89">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_dc_current_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="90">
+<div class="viewcode-block" id="DMMDriverBase.set_ac_current_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_ac_current_range">[docs]</a>
+</span><span data-line="91">    <span class="k">def</span><span class="w"> </span><span class="nf">set_ac_current_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="92"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual AC-current range to ``value`` amperes; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="93">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_ac_current_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="94">
+<div class="viewcode-block" id="DMMDriverBase.set_two_wire_resistance_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_two_wire_resistance_range">[docs]</a>
+</span><span data-line="95">    <span class="k">def</span><span class="w"> </span><span class="nf">set_two_wire_resistance_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="96"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual 2-wire-resistance range to ``value`` ohms; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="97">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_two_wire_resistance_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="98">
+<div class="viewcode-block" id="DMMDriverBase.set_four_wire_resistance_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_four_wire_resistance_range">[docs]</a>
+</span><span data-line="99">    <span class="k">def</span><span class="w"> </span><span class="nf">set_four_wire_resistance_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="100"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual 4-wire-resistance range to ``value`` ohms; ``None`` selects auto-range.&quot;&quot;&quot;</span>
+</span><span data-line="101">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_four_wire_resistance_range is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="102">
+</span><span data-line="103">    <span class="c1"># --- Aperture (NPLC), scoped per measurement function. Override per function. ---</span>
+</span><span data-line="104">    <span class="c1">#</span>
+</span><span data-line="105">    <span class="c1"># NPLC = number of power-line cycles. Higher NPLC integrates over more AC</span>
+</span><span data-line="106">    <span class="c1"># mains noise (better DC accuracy) at the cost of measurement rate.</span>
+</span><span data-line="107">
+<div class="viewcode-block" id="DMMDriverBase.set_dc_voltage_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_dc_voltage_nplc">[docs]</a>
+</span><span data-line="108">    <span class="k">def</span><span class="w"> </span><span class="nf">set_dc_voltage_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="109"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set DC-voltage integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="110">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_dc_voltage_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="111">
+<div class="viewcode-block" id="DMMDriverBase.set_ac_voltage_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_ac_voltage_nplc">[docs]</a>
+</span><span data-line="112">    <span class="k">def</span><span class="w"> </span><span class="nf">set_ac_voltage_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="113"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set AC-voltage integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="114">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_ac_voltage_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="115">
+<div class="viewcode-block" id="DMMDriverBase.set_dc_current_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_dc_current_nplc">[docs]</a>
+</span><span data-line="116">    <span class="k">def</span><span class="w"> </span><span class="nf">set_dc_current_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="117"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set DC-current integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="118">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_dc_current_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="119">
+<div class="viewcode-block" id="DMMDriverBase.set_ac_current_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_ac_current_nplc">[docs]</a>
+</span><span data-line="120">    <span class="k">def</span><span class="w"> </span><span class="nf">set_ac_current_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="121"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set AC-current integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="122">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_ac_current_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="123">
+<div class="viewcode-block" id="DMMDriverBase.set_two_wire_resistance_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_two_wire_resistance_nplc">[docs]</a>
+</span><span data-line="124">    <span class="k">def</span><span class="w"> </span><span class="nf">set_two_wire_resistance_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="125"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set 2-wire-resistance integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="126">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_two_wire_resistance_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="127">
+<div class="viewcode-block" id="DMMDriverBase.set_four_wire_resistance_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.set_four_wire_resistance_nplc">[docs]</a>
+</span><span data-line="128">    <span class="k">def</span><span class="w"> </span><span class="nf">set_four_wire_resistance_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="129"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set 4-wire-resistance integration time to ``nplc`` power-line cycles.&quot;&quot;&quot;</span>
+</span><span data-line="130">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;set_four_wire_resistance_nplc is not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="131">
+</span><span data-line="132">    <span class="c1"># --- Measurements ---</span>
+</span><span data-line="133">
+<div class="viewcode-block" id="DMMDriverBase.measure_four_wire_resistance">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_four_wire_resistance">[docs]</a>
+</span><span data-line="134">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_four_wire_resistance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="135"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger a 4-wire-resistance measurement and return the value (ohms).</span>
+</span><span data-line="136">
+</span><span data-line="137"><span class="sd">        Default raises ``NotImplementedError``; override on drivers whose</span>
+</span><span data-line="138"><span class="sd">        instrument has dedicated sense leads (e.g. Agilent 34401A).</span>
+</span><span data-line="139"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="140">        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="s2">&quot;4-wire resistance not supported by this driver&quot;</span><span class="p">)</span></div>
+
+</span><span data-line="141">
+<div class="viewcode-block" id="DMMDriverBase.measure_dc_voltage">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_dc_voltage">[docs]</a>
+</span><span data-line="142">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="143">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_dc_voltage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="144"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger a DC-voltage measurement and return the value (volts).&quot;&quot;&quot;</span></div>
+
+</span><span data-line="145">
+<div class="viewcode-block" id="DMMDriverBase.measure_ac_voltage">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_ac_voltage">[docs]</a>
+</span><span data-line="146">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="147">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_ac_voltage</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="148"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger an AC-voltage measurement and return the value (volts RMS, vendor-dependent).&quot;&quot;&quot;</span></div>
+
+</span><span data-line="149">
+<div class="viewcode-block" id="DMMDriverBase.measure_resistance">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_resistance">[docs]</a>
+</span><span data-line="150">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="151">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_resistance</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="152"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger a 2-wire-resistance measurement and return the value (ohms).&quot;&quot;&quot;</span></div>
+
+</span><span data-line="153">
+<div class="viewcode-block" id="DMMDriverBase.measure_dc_current">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_dc_current">[docs]</a>
+</span><span data-line="154">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="155">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_dc_current</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="156"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger a DC-current measurement and return the value (amperes).&quot;&quot;&quot;</span></div>
+
+</span><span data-line="157">
+<div class="viewcode-block" id="DMMDriverBase.measure_ac_current">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.DMMDriverBase/#instro.unstable.dmm.drivers.fluke_8845a.DMMDriverBase.measure_ac_current">[docs]</a>
+</span><span data-line="158">    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+</span><span data-line="159">    <span class="k">def</span><span class="w"> </span><span class="nf">measure_ac_current</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+</span><span data-line="160"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger an AC-current measurement and return the value (amperes RMS, vendor-dependent).&quot;&quot;&quot;</span></div>
+</div>
+
+</span><span data-line="161">
+</span><span data-line="162">
+<div class="viewcode-block" id="InstroDMM">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM">[docs]</a>
+</span><span data-line="163"><span class="k">class</span><span class="w"> </span><span class="nc">InstroDMM</span><span class="p">(</span><span class="n">Instrument</span><span class="p">):</span>
+</span><span data-line="164"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Digital multimeter instrument. Call ``set_measurement_function`` then ``read``, or a single ``read_&lt;function&gt;``.&quot;&quot;&quot;</span>
+</span><span data-line="165">
+</span><span data-line="166">    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span data-line="167">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="168">        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="169">        <span class="n">driver</span><span class="p">:</span> <span class="n">DMMDriverBase</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="170">        <span class="n">publishers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Publisher</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="171">        <span class="n">config</span><span class="p">:</span> <span class="n">DMMConfig</span> <span class="o">|</span> <span class="nb">dict</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span data-line="172">        <span class="n">autostart</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span data-line="173">        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+</span><span data-line="174">    <span class="p">):</span>
+</span><span data-line="175"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize an InstroDMM.</span>
+</span><span data-line="176">
+</span><span data-line="177"><span class="sd">        Provide either ``config`` or ``driver``, not both.</span>
+</span><span data-line="178">
+</span><span data-line="179"><span class="sd">        Args:</span>
+</span><span data-line="180"><span class="sd">            name: Channel-name prefix for published data. Falls back to</span>
+</span><span data-line="181"><span class="sd">                ``config.device.name`` when ``config`` is given.</span>
+</span><span data-line="182"><span class="sd">            driver: Concrete DMM driver; owns its own transport::</span>
+</span><span data-line="183">
+</span><span data-line="184"><span class="sd">                dmm = InstroDMM(</span>
+</span><span data-line="185"><span class="sd">                    &quot;main&quot;,</span>
+</span><span data-line="186"><span class="sd">                    driver=Agilent34401A(&quot;ASRL3::INSTR&quot;),</span>
+</span><span data-line="187"><span class="sd">                )</span>
+</span><span data-line="188">
+</span><span data-line="189"><span class="sd">            publishers: Publishers that receive emitted Measurement/Command data.</span>
+</span><span data-line="190"><span class="sd">                Combined with any publishers declared in ``config``.</span>
+</span><span data-line="191"><span class="sd">            config: A ``DMMConfig``, a dict, or a path to a JSON config file. Its</span>
+</span><span data-line="192"><span class="sd">                ``measurement`` block is applied through the public setters on ``open()``.</span>
+</span><span data-line="193"><span class="sd">            autostart: When True, open the connection and start background polling.</span>
+</span><span data-line="194"><span class="sd">                Requires ``config`` with a ``measurement`` block, since polling cannot</span>
+</span><span data-line="195"><span class="sd">                start without a measurement function.</span>
+</span><span data-line="196"><span class="sd">            **kwargs: Default tags applied to every emitted Measurement/Command.</span>
+</span><span data-line="197"><span class="sd">                Pass ``dataset_rid=&quot;&lt;rid&gt;&quot;`` to auto-create a NominalCorePublisher</span>
+</span><span data-line="198"><span class="sd">                (uses the on-disk &#39;default&#39; Nominal credential).</span>
+</span><span data-line="199"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="200">        <span class="n">poll_interval</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="201">        <span class="n">resolved_config</span><span class="p">:</span> <span class="n">DMMConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="202">        <span class="n">config_publishers</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Publisher</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="203">        <span class="k">if</span> <span class="n">config</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="204">            <span class="k">if</span> <span class="n">driver</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="205">                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="206">                    <span class="s2">&quot;InstroDMM(config=...) cannot be combined with driver; use one construction style or the other.&quot;</span>
+</span><span data-line="207">                <span class="p">)</span>
+</span><span data-line="208">            <span class="n">resolved_config</span> <span class="o">=</span> <span class="n">load_config</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">DMMConfig</span><span class="p">)</span>
+</span><span data-line="209">            <span class="n">resolved_name</span><span class="p">,</span> <span class="n">driver</span><span class="p">,</span> <span class="n">config_publishers</span><span class="p">,</span> <span class="n">poll_interval</span> <span class="o">=</span> <span class="n">resolve_dmm_from_config</span><span class="p">(</span><span class="n">resolved_config</span><span class="p">)</span>
+</span><span data-line="210">            <span class="n">publishers</span> <span class="o">=</span> <span class="p">[</span><span class="o">*</span><span class="p">(</span><span class="n">publishers</span> <span class="ow">or</span> <span class="p">[]),</span> <span class="o">*</span><span class="n">config_publishers</span><span class="p">]</span> <span class="ow">or</span> <span class="kc">None</span>
+</span><span data-line="211">            <span class="k">if</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="212">                <span class="n">name</span> <span class="o">=</span> <span class="n">resolved_name</span>
+</span><span data-line="213">        <span class="k">elif</span> <span class="n">name</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">driver</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="214">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;InstroDMM requires either config=..., or name and driver together.&quot;</span><span class="p">)</span>
+</span><span data-line="215">
+</span><span data-line="216">        <span class="k">if</span> <span class="n">autostart</span> <span class="ow">and</span> <span class="p">(</span><span class="n">resolved_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">resolved_config</span><span class="o">.</span><span class="n">measurement</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+</span><span data-line="217">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span data-line="218">                <span class="s2">&quot;autostart=True requires a config with a measurement block; &quot;</span>
+</span><span data-line="219">                <span class="s2">&quot;background polling cannot start without a measurement function.&quot;</span>
+</span><span data-line="220">            <span class="p">)</span>
+</span><span data-line="221">
+</span><span data-line="222">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">publishers</span><span class="o">=</span><span class="n">publishers</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="223">
+</span><span data-line="224">        <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span> <span class="o">=</span> <span class="n">driver</span>
+</span><span data-line="225">        <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="o">=</span> <span class="n">resolved_config</span>
+</span><span data-line="226">        <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+</span><span data-line="227">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">:</span> <span class="n">DMMMeasurementConfig</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="228">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config_applied</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="229">
+</span><span data-line="230">        <span class="bp">self</span><span class="o">.</span><span class="n">_define_background_daemon</span><span class="p">()</span>
+</span><span data-line="231">
+</span><span data-line="232">        <span class="k">if</span> <span class="n">poll_interval</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="233">            <span class="bp">self</span><span class="o">.</span><span class="n">background_interval</span> <span class="o">=</span> <span class="n">poll_interval</span>
+</span><span data-line="234">
+</span><span data-line="235">        <span class="k">if</span> <span class="n">autostart</span><span class="p">:</span>
+</span><span data-line="236">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="237">                <span class="bp">self</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+</span><span data-line="238">                <span class="bp">self</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="239">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="240">                <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="241">                <span class="k">for</span> <span class="n">publisher</span> <span class="ow">in</span> <span class="n">config_publishers</span><span class="p">:</span>
+</span><span data-line="242">                    <span class="n">publisher</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="243">                <span class="k">raise</span>
+</span><span data-line="244">
+<div class="viewcode-block" id="InstroDMM.start">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.start">[docs]</a>
+</span><span data-line="245">    <span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="246"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Start the background daemon thread.</span>
+</span><span data-line="247">
+</span><span data-line="248"><span class="sd">        Raises:</span>
+</span><span data-line="249"><span class="sd">            ValueError: ``set_measurement_function`` has not been called.</span>
+</span><span data-line="250"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="251">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="252">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before starting background collection&quot;</span><span class="p">)</span>
+</span><span data-line="253">
+</span><span data-line="254">        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">start</span><span class="p">()</span></div>
+
+</span><span data-line="255">
+<div class="viewcode-block" id="InstroDMM.open">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.open">[docs]</a>
+</span><span data-line="256">    <span class="k">def</span><span class="w"> </span><span class="nf">open</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="257"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Open the underlying driver and apply any configured measurement state.&quot;&quot;&quot;</span>
+</span><span data-line="258">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Opening DMM &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="259">        <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+</span><span data-line="260">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="261">            <span class="bp">self</span><span class="o">.</span><span class="n">_apply_measurement_config</span><span class="p">()</span>
+</span><span data-line="262">        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="263">            <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="264">            <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config_applied</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="265">            <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="266">            <span class="k">raise</span>
+</span><span data-line="267">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Opened DMM &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+</span><span data-line="268">
+</span><span data-line="269">    <span class="k">def</span><span class="w"> </span><span class="nf">_apply_measurement_config</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="270"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply the config&#39;s ``measurement`` block through the public setters, once per open, in the order the API requires.&quot;&quot;&quot;</span>
+</span><span data-line="271">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">measurement</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config_applied</span><span class="p">:</span>
+</span><span data-line="272">            <span class="k">return</span>
+</span><span data-line="273">        <span class="n">measurement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_config</span><span class="o">.</span><span class="n">measurement</span>
+</span><span data-line="274">        <span class="bp">self</span><span class="o">.</span><span class="n">set_measurement_function</span><span class="p">(</span><span class="n">measurement</span><span class="o">.</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="275">        <span class="k">if</span> <span class="n">measurement</span><span class="o">.</span><span class="n">digits</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="276">            <span class="bp">self</span><span class="o">.</span><span class="n">set_digits</span><span class="p">(</span><span class="n">measurement</span><span class="o">.</span><span class="n">digits</span><span class="p">)</span>
+</span><span data-line="277">        <span class="k">if</span> <span class="n">measurement</span><span class="o">.</span><span class="n">aperture_nplc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="278">            <span class="bp">self</span><span class="o">.</span><span class="n">set_aperture_nplc</span><span class="p">(</span><span class="n">measurement</span><span class="o">.</span><span class="n">aperture_nplc</span><span class="p">)</span>
+</span><span data-line="279">        <span class="k">if</span> <span class="n">measurement</span><span class="o">.</span><span class="n">aperture_seconds</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="280">            <span class="bp">self</span><span class="o">.</span><span class="n">set_aperture_seconds</span><span class="p">(</span><span class="n">measurement</span><span class="o">.</span><span class="n">aperture_seconds</span><span class="p">)</span>
+</span><span data-line="281">        <span class="k">if</span> <span class="n">measurement</span><span class="o">.</span><span class="n">range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="282">            <span class="bp">self</span><span class="o">.</span><span class="n">set_range</span><span class="p">(</span><span class="kc">None</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">measurement</span><span class="o">.</span><span class="n">range</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">measurement</span><span class="o">.</span><span class="n">range</span><span class="p">)</span>
+</span><span data-line="283">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config_applied</span> <span class="o">=</span> <span class="kc">True</span>
+</span><span data-line="284">
+<div class="viewcode-block" id="InstroDMM.close">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.close">[docs]</a>
+</span><span data-line="285">    <span class="k">def</span><span class="w"> </span><span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="286"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Close the underlying driver and stop the daemon.&quot;&quot;&quot;</span>
+</span><span data-line="287">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Closing DMM &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="288">        <span class="c1"># Reset before teardown: a failing publisher close must not strand the flag,</span>
+</span><span data-line="289">        <span class="c1"># or a later reopen would silently skip re-applying the configured measurement state.</span>
+</span><span data-line="290">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config_applied</span> <span class="o">=</span> <span class="kc">False</span>
+</span><span data-line="291">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="292">            <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="293">        <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="294">            <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="295">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Closed DMM &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+</span><span data-line="296">
+<div class="viewcode-block" id="InstroDMM.set_measurement_function">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.set_measurement_function">[docs]</a>
+</span><span data-line="297">    <span class="nd">@publish_command</span>
+</span><span data-line="298">    <span class="k">def</span><span class="w"> </span><span class="nf">set_measurement_function</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Command</span><span class="p">:</span>
+</span><span data-line="299"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Configure the DMM for ``function`` (DC voltage, resistance, etc.).&quot;&quot;&quot;</span>
+</span><span data-line="300">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending DMM set_measurement_function command to &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="301">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="302">            <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_measurement_function</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="303">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="304">
+</span><span data-line="305">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="306">                <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">DMMMeasurementConfig</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="307">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="308">                <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="n">function</span><span class="o">=</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="309">
+</span><span data-line="310">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_command</span><span class="p">(</span><span class="s2">&quot;set_measurement_function.cmd&quot;</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="311">
+<div class="viewcode-block" id="InstroDMM.set_digits">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.set_digits">[docs]</a>
+</span><span data-line="312">    <span class="nd">@publish_command</span>
+</span><span data-line="313">    <span class="k">def</span><span class="w"> </span><span class="nf">set_digits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Command</span><span class="p">:</span>
+</span><span data-line="314"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set resolution in digits. Requires set_measurement_function() to have been called.&quot;&quot;&quot;</span>
+</span><span data-line="315">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="316">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before set_digits&quot;</span><span class="p">)</span>
+</span><span data-line="317">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending DMM set_digits command to &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="318">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="319">            <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_digits</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="320">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="321">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="n">digits</span><span class="o">=</span><span class="n">n</span><span class="p">)</span>
+</span><span data-line="322">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_command</span><span class="p">(</span><span class="s2">&quot;digits.cmd&quot;</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="323">
+<div class="viewcode-block" id="InstroDMM.set_aperture_seconds">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.set_aperture_seconds">[docs]</a>
+</span><span data-line="324">    <span class="nd">@publish_command</span>
+</span><span data-line="325">    <span class="k">def</span><span class="w"> </span><span class="nf">set_aperture_seconds</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Command</span><span class="p">:</span>
+</span><span data-line="326"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set integration time (aperture) in seconds. Requires set_measurement_function() first.&quot;&quot;&quot;</span>
+</span><span data-line="327">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="328">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before setting the aperture&quot;</span><span class="p">)</span>
+</span><span data-line="329">
+</span><span data-line="330">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending DMM set_aperture_seconds command to &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="331">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="332">            <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_aperture_seconds</span><span class="p">(</span><span class="n">seconds</span><span class="p">)</span>
+</span><span data-line="333">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="334">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="n">aperture_seconds</span><span class="o">=</span><span class="n">seconds</span><span class="p">,</span> <span class="n">aperture_nplc</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span data-line="335">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_command</span><span class="p">(</span><span class="s2">&quot;aperture_seconds.cmd&quot;</span><span class="p">,</span> <span class="n">seconds</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="336">
+<div class="viewcode-block" id="InstroDMM.set_aperture_nplc">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.set_aperture_nplc">[docs]</a>
+</span><span data-line="337">    <span class="nd">@publish_command</span>
+</span><span data-line="338">    <span class="k">def</span><span class="w"> </span><span class="nf">set_aperture_nplc</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">nplc</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Command</span><span class="p">:</span>
+</span><span data-line="339"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set integration time as a number of power-line cycles.</span>
+</span><span data-line="340">
+</span><span data-line="341"><span class="sd">        Higher NPLC integrates over more AC noise (better DC/DCI/resistance</span>
+</span><span data-line="342"><span class="sd">        accuracy) at the cost of measurement rate. NPLC=100 is the typical</span>
+</span><span data-line="343"><span class="sd">        highest-accuracy setting. Requires ``set_measurement_function`` first.</span>
+</span><span data-line="344"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="345">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="346">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before setting the aperture&quot;</span><span class="p">)</span>
+</span><span data-line="347">
+</span><span data-line="348">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending DMM set_aperture_nplc command to &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="349">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="350">            <span class="bp">self</span><span class="o">.</span><span class="n">_get_driver_set_nplc_method</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="o">.</span><span class="n">function</span><span class="p">)(</span><span class="n">nplc</span><span class="p">)</span>
+</span><span data-line="351">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="352">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="n">aperture_seconds</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">aperture_nplc</span><span class="o">=</span><span class="n">nplc</span><span class="p">)</span>
+</span><span data-line="353">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_command</span><span class="p">(</span><span class="s2">&quot;aperture_nplc.cmd&quot;</span><span class="p">,</span> <span class="n">nplc</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="354">
+<div class="viewcode-block" id="InstroDMM.set_range">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.set_range">[docs]</a>
+</span><span data-line="355">    <span class="nd">@publish_command</span>
+</span><span data-line="356">    <span class="k">def</span><span class="w"> </span><span class="nf">set_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Command</span><span class="p">:</span>
+</span><span data-line="357"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Set manual range; ``None`` selects auto-range. Requires ``set_measurement_function`` first.</span>
+</span><span data-line="358">
+</span><span data-line="359"><span class="sd">        Publishes ``range_mode.cmd`` (``&quot;AUTO&quot;``/``&quot;MANUAL&quot;``) on every call and</span>
+</span><span data-line="360"><span class="sd">        ``range.cmd`` (float) only when a manual range is supplied — splitting them</span>
+</span><span data-line="361"><span class="sd">        keeps each channel single-typed, which the Nominal streaming backend requires.</span>
+</span><span data-line="362"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="363">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="364">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before set_range&quot;</span><span class="p">)</span>
+</span><span data-line="365">        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Sending DMM set_range command to &#39;</span><span class="si">%s</span><span class="s2">&#39;&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+</span><span data-line="366">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="367">            <span class="bp">self</span><span class="o">.</span><span class="n">_get_driver_set_range_method</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="o">.</span><span class="n">function</span><span class="p">)(</span><span class="n">value</span><span class="p">)</span>
+</span><span data-line="368">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="369">        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="nb">range</span><span class="o">=</span><span class="n">value</span><span class="p">)</span>
+</span><span data-line="370">        <span class="n">range_mode</span> <span class="o">=</span> <span class="n">RangeMode</span><span class="o">.</span><span class="n">MANUAL</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">RangeMode</span><span class="o">.</span><span class="n">AUTO</span>
+</span><span data-line="371">        <span class="n">channel_data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span> <span class="o">|</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="372">            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.range_mode.cmd&quot;</span><span class="p">:</span> <span class="n">range_mode</span><span class="o">.</span><span class="n">value</span><span class="p">,</span>
+</span><span data-line="373">        <span class="p">}</span>
+</span><span data-line="374">        <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="375">            <span class="n">channel_data</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">.range.cmd&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+</span><span data-line="376">        <span class="k">return</span> <span class="n">Command</span><span class="p">(</span>
+</span><span data-line="377">            <span class="n">channel_data</span><span class="o">=</span><span class="n">channel_data</span><span class="p">,</span>
+</span><span data-line="378">            <span class="n">timestamp</span><span class="o">=</span><span class="n">timestamp</span><span class="p">,</span>
+</span><span data-line="379">            <span class="n">tags</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">default_tags</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">kwargs</span> <span class="ow">or</span> <span class="p">{})},</span>
+</span><span data-line="380">        <span class="p">)</span></div>
+
+</span><span data-line="381">
+<div class="viewcode-block" id="InstroDMM.read">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read">[docs]</a>
+</span><span data-line="382">    <span class="nd">@publish_measurement</span>
+</span><span data-line="383">    <span class="k">def</span><span class="w"> </span><span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="384"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Trigger a measurement under the configured function and return it. Requires ``set_measurement_function`` first.&quot;&quot;&quot;</span>
+</span><span data-line="385">        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="386">            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;set_measurement_function must be called before read&quot;</span><span class="p">)</span>
+</span><span data-line="387">
+</span><span data-line="388">        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="389">            <span class="n">read_method</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_driver_read_method</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="o">.</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="390">            <span class="n">response</span> <span class="o">=</span> <span class="n">read_method</span><span class="p">()</span>
+</span><span data-line="391">            <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="392">
+</span><span data-line="393">        <span class="n">channel_suffix</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="o">.</span><span class="n">function</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span data-line="394">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_measurement</span><span class="p">(</span><span class="n">channel_suffix</span><span class="p">,</span> <span class="n">response</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="395">
+</span><span data-line="396">    <span class="k">def</span><span class="w"> </span><span class="nf">_set_function_and_read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="397"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Select ``function`` when it isn&#39;t already active, then read, as one atomic sequence.</span>
+</span><span data-line="398">
+</span><span data-line="399"><span class="sd">        The lock spans the check as well as both driver calls: releasing it in between would</span>
+</span><span data-line="400"><span class="sd">        let another thread switch the function and hand this caller the wrong quantity. The</span>
+</span><span data-line="401"><span class="sd">        driver is called directly rather than through ``set_measurement_function``/``read`` so</span>
+</span><span data-line="402"><span class="sd">        publishing stays outside the lock, as it is for every other method here.</span>
+</span><span data-line="403"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="404">        <span class="n">command</span><span class="p">:</span> <span class="n">Command</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span><span data-line="405">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="406">            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resource_lock</span><span class="p">:</span>
+</span><span data-line="407">                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="o">.</span><span class="n">function</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">function</span><span class="p">:</span>
+</span><span data-line="408">                    <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_measurement_function</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="409">                    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="410">                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="411">                        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">DMMMeasurementConfig</span><span class="p">(</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="412">                    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="413">                        <span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span> <span class="o">=</span> <span class="n">replace</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_measurement_config</span><span class="p">,</span> <span class="n">function</span><span class="o">=</span><span class="n">function</span><span class="p">)</span>
+</span><span data-line="414">                    <span class="n">command</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_command</span><span class="p">(</span><span class="s2">&quot;set_measurement_function.cmd&quot;</span><span class="p">,</span> <span class="n">function</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="415">                <span class="n">response</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_driver_read_method</span><span class="p">(</span><span class="n">function</span><span class="p">)()</span>
+</span><span data-line="416">                <span class="n">timestamp</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time_ns</span><span class="p">()</span>
+</span><span data-line="417">        <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="418">            <span class="c1"># A select that landed is recorded even if the read raised.</span>
+</span><span data-line="419">            <span class="k">if</span> <span class="n">command</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span data-line="420">                <span class="bp">self</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="n">command</span><span class="p">)</span>
+</span><span data-line="421">        <span class="n">measurement</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_package_measurement</span><span class="p">(</span><span class="n">function</span><span class="o">.</span><span class="n">value</span><span class="o">.</span><span class="n">lower</span><span class="p">(),</span> <span class="n">response</span><span class="p">,</span> <span class="n">timestamp</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span data-line="422">        <span class="bp">self</span><span class="o">.</span><span class="n">publish</span><span class="p">(</span><span class="n">measurement</span><span class="p">)</span>
+</span><span data-line="423">        <span class="k">return</span> <span class="n">measurement</span>
+</span><span data-line="424">
+<div class="viewcode-block" id="InstroDMM.read_dc_voltage">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_dc_voltage">[docs]</a>
+</span><span data-line="425">    <span class="k">def</span><span class="w"> </span><span class="nf">read_dc_voltage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="426"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read DC voltage (volts), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="427">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_VOLTAGE</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="428">
+<div class="viewcode-block" id="InstroDMM.read_ac_voltage">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_ac_voltage">[docs]</a>
+</span><span data-line="429">    <span class="k">def</span><span class="w"> </span><span class="nf">read_ac_voltage</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="430"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read AC voltage (volts), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="431">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_VOLTAGE</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="432">
+<div class="viewcode-block" id="InstroDMM.read_dc_current">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_dc_current">[docs]</a>
+</span><span data-line="433">    <span class="k">def</span><span class="w"> </span><span class="nf">read_dc_current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="434"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read DC current (amperes), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="435">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_CURRENT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="436">
+<div class="viewcode-block" id="InstroDMM.read_ac_current">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_ac_current">[docs]</a>
+</span><span data-line="437">    <span class="k">def</span><span class="w"> </span><span class="nf">read_ac_current</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="438"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read AC current (amperes), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="439">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_CURRENT</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="440">
+<div class="viewcode-block" id="InstroDMM.read_resistance">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_resistance">[docs]</a>
+</span><span data-line="441">    <span class="k">def</span><span class="w"> </span><span class="nf">read_resistance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="442"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read 2-wire resistance (ohms), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="443">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">TWO_WIRE_RESISTANCE</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="444">
+<div class="viewcode-block" id="InstroDMM.read_four_wire_resistance">
+<a class="viewcode-back" href="../../../../sdk/instruments/instro.dmm.InstroDMM/#instro.unstable.dmm.drivers.fluke_8845a.InstroDMM.read_four_wire_resistance">[docs]</a>
+</span><span data-line="445">    <span class="k">def</span><span class="w"> </span><span class="nf">read_four_wire_resistance</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Measurement</span><span class="p">:</span>
+</span><span data-line="446"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Read 4-wire resistance (ohms), selecting the function first if needed.&quot;&quot;&quot;</span>
+</span><span data-line="447">        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_set_function_and_read</span><span class="p">(</span><span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">FOUR_WIRE_RESISTANCE</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+</span><span data-line="448">
+</span><span data-line="449">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_driver_read_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+</span><span data-line="450">        <span class="k">return</span> <span class="p">{</span>
+</span><span data-line="451">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_dc_voltage</span><span class="p">,</span>
+</span><span data-line="452">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_ac_voltage</span><span class="p">,</span>
+</span><span data-line="453">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_dc_current</span><span class="p">,</span>
+</span><span data-line="454">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_ac_current</span><span class="p">,</span>
+</span><span data-line="455">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">TWO_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_resistance</span><span class="p">,</span>
+</span><span data-line="456">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">FOUR_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">measure_four_wire_resistance</span><span class="p">,</span>
+</span><span data-line="457">        <span class="p">}[</span><span class="n">function</span><span class="p">]</span>
+</span><span data-line="458">
+</span><span data-line="459">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_driver_set_range_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+</span><span data-line="460">        <span class="k">return</span> <span class="p">{</span>
+</span><span data-line="461">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_dc_voltage_range</span><span class="p">,</span>
+</span><span data-line="462">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_ac_voltage_range</span><span class="p">,</span>
+</span><span data-line="463">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_dc_current_range</span><span class="p">,</span>
+</span><span data-line="464">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_ac_current_range</span><span class="p">,</span>
+</span><span data-line="465">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">TWO_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_two_wire_resistance_range</span><span class="p">,</span>
+</span><span data-line="466">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">FOUR_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_four_wire_resistance_range</span><span class="p">,</span>
+</span><span data-line="467">        <span class="p">}[</span><span class="n">function</span><span class="p">]</span>
+</span><span data-line="468">
+</span><span data-line="469">    <span class="k">def</span><span class="w"> </span><span class="nf">_get_driver_set_nplc_method</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">function</span><span class="p">:</span> <span class="n">MeasurementFunction</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+</span><span data-line="470">        <span class="k">return</span> <span class="p">{</span>
+</span><span data-line="471">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_dc_voltage_nplc</span><span class="p">,</span>
+</span><span data-line="472">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_VOLTAGE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_ac_voltage_nplc</span><span class="p">,</span>
+</span><span data-line="473">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">DC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_dc_current_nplc</span><span class="p">,</span>
+</span><span data-line="474">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">AC_CURRENT</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_ac_current_nplc</span><span class="p">,</span>
+</span><span data-line="475">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">TWO_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_two_wire_resistance_nplc</span><span class="p">,</span>
+</span><span data-line="476">            <span class="n">MeasurementFunction</span><span class="o">.</span><span class="n">FOUR_WIRE_RESISTANCE</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_driver</span><span class="o">.</span><span class="n">set_four_wire_resistance_nplc</span><span class="p">,</span>
+</span><span data-line="477">        <span class="p">}[</span><span class="n">function</span><span class="p">]</span>
+</span><span data-line="478">
+</span><span data-line="479">    <span class="k">def</span><span class="w"> </span><span class="nf">_define_background_daemon</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span data-line="480"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Register the default background-daemon function (continuous read()).&quot;&quot;&quot;</span>
+</span><span data-line="481">        <span class="bp">self</span><span class="o">.</span><span class="n">add_background_daemon_function</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">)</span></div>
+
+</span></pre></div>
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>Nominal, Inc.</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://www.sphinx-doc.org/">Sphinx</a> and
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+  <a href="https://github.com/nominal-io/instro" aria-label="GitHub">
+    <iconify-icon icon="simple-icons:github"></iconify-icon>
+  </a>
+  <a href="https://x.com/nominal_io" aria-label="X (Twitter)">
+    <iconify-icon icon="simple-icons:x"></iconify-icon>
+  </a>
+  <a href="https://discord.gg/nN4RzhQkr" aria-label="Discord">
+    <iconify-icon icon="simple-icons:discord"></iconify-icon>
+  </a>
+  <a href="https://www.linkedin.com/company/nominal-inc/" aria-label="Linkedin">
+    <iconify-icon icon="simple-icons:linkedin"></iconify-icon>
+  </a></div>
+    </div>
+    <p class="nominal-theme-commit" data-commit="1adababc7a6522122dddf1a1b9424b832a499d99">
+      Theme <a href="https://github.com/nominal-io/nominal-sphinx-theme/commit/1adababc7a6522122dddf1a1b9424b832a499d99"><code>1adabab</code></a>
+    </p>
+  </div>
+</footer>
+      <script src="../../../../_static/documentation_options.js?v=a5603611"></script>
+      <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../../_static/nominal.js?v=92629581"></script>
+      <script src="../../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script async="async" src="https://www.googletagmanager.com/gtag/js?id=G-LR7QM29GGQ"></script>
+      <script>window.dataLayer = window.dataLayer || [];function gtag() { dataLayer.push(arguments); }gtag("js", new Date()); gtag("config", "G-LR7QM29GGQ");</script>
+      <script src="../../../../_static/shibuya.js?v=50760d75"></script></body>
+</html>
