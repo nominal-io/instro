@@ -79,26 +79,28 @@ Each publisher has its own card. `NominalCorePublisher` shows the dataset with a
 
 
 ```{code-cell} ipython3
+:tags: [hide-input]
+
+# An offline stand-in for a Nominal dataset, used when DATASET_RID is None,
+# so the card renders without a network. The docs page collapses this cell.
 from unittest.mock import MagicMock, create_autospec
 
 from nominal.core import Dataset
 from nominal_streaming import NominalDatasetStream
 
+stand_in = create_autospec(Dataset, instance=True)
+stand_in.rid = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"
+stand_in.name = "bench_psu run (offline stand-in)"
+stream = create_autospec(NominalDatasetStream, instance=True)
+stream._impl = MagicMock()
+stand_in.get_write_stream.return_value = stream
+type(stand_in).nominal_url = property(lambda _: "https://app.gov.nominal.io/")
+```
+
+```{code-cell} ipython3
 from instro.lib.publishers import NominalCorePublisher
 
-if DATASET_RID:
-    nominal = NominalCorePublisher(DATASET_RID)
-else:
-    # An offline stand-in for a Nominal dataset, so the card renders without a network.
-    stand_in = create_autospec(Dataset, instance=True)
-    stand_in.rid = "ri.catalog.main.dataset.00000000-0000-0000-0000-000000000000"
-    stand_in.name = "bench_psu run (offline stand-in)"
-    stream = create_autospec(NominalDatasetStream, instance=True)
-    stream._impl = MagicMock()
-    stand_in.get_write_stream.return_value = stream
-    type(stand_in).nominal_url = property(lambda _: "https://app.gov.nominal.io/")
-    nominal = NominalCorePublisher(dataset=stand_in)
-
+nominal = NominalCorePublisher(DATASET_RID) if DATASET_RID else NominalCorePublisher(dataset=stand_in)
 nominal
 ```
 
