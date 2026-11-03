@@ -7,8 +7,10 @@ import math
 import random
 import struct
 import zlib
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TypeAlias
 
 from instro.scope import ScopeDriverBase
 from instro.scope.types import (
@@ -37,17 +39,75 @@ _TRACE_COLORS = ((255, 230, 0), (0, 220, 255), (255, 0, 200), (60, 120, 255))
 
 @dataclass(frozen=True)
 class SineWave:
-    """The signal a `VirtualScope` channel sees at the probe tip.
+    """A sine wave at a `VirtualScope` channel's probe tip.
 
     Attributes:
-        frequency (float): Frequency in Hz. 0 gives a DC level.
-        amplitude (float): Peak amplitude in volts (half the peak-to-peak value).
+        frequency (float): Frequency in Hz, not negative. 0 gives a DC level.
+        amplitude (float): Peak amplitude in volts (half the peak-to-peak value), not negative.
         offset (float): DC offset in volts.
+
+    Raises:
+        ValueError: ``frequency`` or ``amplitude`` is negative or not finite.
     """
 
     frequency: float = 1e3
     amplitude: float = 1.0
     offset: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Reject a negative or non-finite frequency or amplitude."""
+        _check_signal(self.frequency, self.amplitude, self.offset)
+
+    def _at(self, t: float) -> float:
+        """Voltage about the offset at signal time ``t``, in seconds."""
+        return self.amplitude * math.sin(2 * math.pi * self.frequency * t)
+
+    def _trigger_phase(self, level: float, slope: TriggerSlope) -> float:
+        """Phase, in cycles, where the wave crosses ``level`` (relative to the offset) on ``slope``."""
+        crossing = math.asin(max(-1.0, min(1.0, level / self.amplitude))) / (2 * math.pi)
+        return 0.5 - crossing if slope == TriggerSlope.FALLING else crossing
+
+
+@dataclass(frozen=True)
+class SquareWave:
+    """A 50% duty-cycle square wave at a `VirtualScope` channel's probe tip.
+
+    Each cycle starts with a rising edge from ``offset - amplitude`` to ``offset + amplitude``.
+
+    Attributes:
+        frequency (float): Frequency in Hz, not negative. 0 gives a DC level.
+        amplitude (float): Peak amplitude in volts (half the peak-to-peak value), not negative.
+        offset (float): DC offset in volts.
+
+    Raises:
+        ValueError: ``frequency`` or ``amplitude`` is negative or not finite.
+    """
+
+    frequency: float = 1e3
+    amplitude: float = 1.0
+    offset: float = 0.0
+
+    def __post_init__(self) -> None:
+        """Reject a negative or non-finite frequency or amplitude."""
+        _check_signal(self.frequency, self.amplitude, self.offset)
+
+    def _at(self, t: float) -> float:
+        """Voltage about the offset at signal time ``t``, in seconds."""
+        if self.frequency == 0:
+            return self.amplitude
+        return self.amplitude if (self.frequency * t) % 1 < 0.5 else -self.amplitude
+
+    def _trigger_phase(self, level: float, slope: TriggerSlope) -> float:
+        """Phase, in cycles, of the edge on ``slope``; every edge crosses any level between the rails."""
+        return 0.5 if slope == TriggerSlope.FALLING else 0.0
+
+
+Signal: TypeAlias = SineWave | SquareWave
+
+
+def _default_signal(channel: int) -> Signal:
+    """The signal a `VirtualScope` channel sees unless told otherwise: a sine on odd channels, a square on even."""
+    return SineWave() if channel % 2 else SquareWave()
 
 
 @dataclass
@@ -79,22 +139,35 @@ class _Settings:
 class VirtualScope(ScopeDriverBase):
     """Oscilloscope simulated in-process: no transport, server, or hardware.
 
-    Each channel sees a `SineWave` (1 kHz, 1 V peak by default). A capture is 1000 points
-    across 10 horizontal divisions centered on the trigger, where the trigger source crosses
-    the trigger level on the configured slope (or reaches its nearest peak when the level is
-    out of range). Gaussian noise of 0.01 division is added, reduced by the square root of
-    the average count in ``AVERAGE`` mode, and AC coupling removes the signal's offset.
-    Voltage measurements are computed from the capture; frequency, period, and duty cycle
-    come from the signal. Every setting reads back as set, and setups saved with
-    ``to_instrument=True`` stay in memory for the life of the driver.
+    Every channel sees a signal from the start: a 1 kHz, 1 V peak `SineWave` on odd channels
+    (channel 1, 3, ...) and a 1 kHz, 1 V peak `SquareWave` on even channels (2, 4, ...). A
+    capture is 1000 points across 10 horizontal divisions centered on the trigger, where the
+    trigger source crosses the trigger level on the configured slope. A sine whose peaks miss the
+    level aligns to its nearest peak; a square triggers on its edges at any level. Gaussian noise
+    of 0.01 division is added, reduced by the square root of the average count in ``AVERAGE``
+    mode, and AC coupling removes the signal's offset.
+
+    While running, every fetch and measurement reads a fresh capture. ``stop``, ``single``, and
+    ``digitize`` capture every channel at once, as a real acquisition does, and later fetches and
+    measurements read that capture until the scope runs again, whatever settings or signals
+    change meanwhile. Voltage measurements are computed from the capture; frequency, period, and
+    duty cycle come from the signal it was taken from. Every setting reads back as set, and setups
+    saved with ``to_instrument=True`` stay in memory for the life of the driver.
     """
 
-    def __init__(self, signals: dict[int, SineWave] | None = None) -> None:
+    def __init__(self, num_channels: int = 4, signals: Mapping[int, Signal] | None = None) -> None:
         """Create a virtual scope.
 
         Args:
-            signals (dict[int, SineWave] | None): The signal on each 1-based channel. Channels
-                left out see the default ``SineWave()``: 1 kHz, 1 V peak, no offset.
+            num_channels (int): Number of analog-input channels, numbered from 1. Pass the same
+                count to `InstroScope`; a channel above it raises ``ValueError``.
+            signals (Mapping[int, SineWave | SquareWave] | None): The signal on each listed
+                channel. Channels left out see the default: a sine on odd channels, a square on
+                even ones. Change a channel's signal at any time with `set_signal`.
+
+        Raises:
+            ValueError: ``num_channels`` is less than 1, or ``signals`` names a channel that does
+                not exist.
 
         Example::
 
@@ -102,16 +175,41 @@ class VirtualScope(ScopeDriverBase):
             from instro.scope.drivers import VirtualScope
             from instro.scope.drivers.virtual import SineWave
 
-            driver = VirtualScope({2: SineWave(frequency=5e3, amplitude=0.5)})
-            with InstroScope(name="scope", driver=driver, num_channels=2) as scope:
-                waveform = scope.fetch_waveform(channel=1)
-                print(scope.measure(ScopeMeasurementType.FREQUENCY, channel=2).latest)  # 5000.0
+            driver = VirtualScope(num_channels=4, signals={3: SineWave(frequency=5e3, amplitude=0.5)})
+            with InstroScope(name="scope", driver=driver, num_channels=4) as scope:
+                scope.single()
+                print(scope.measure(ScopeMeasurementType.VRMS, channel=1).latest)  # about 0.71: sine
+                print(scope.measure(ScopeMeasurementType.VRMS, channel=2).latest)  # about 1.0: square
+                print(scope.measure(ScopeMeasurementType.FREQUENCY, channel=3).latest)  # 5000.0
         """
-        self.signals: dict[int, SineWave] = dict(signals or {})
-        self._settings = _Settings()
+        if num_channels < 1:
+            raise ValueError(f"num_channels must be at least 1, got {num_channels}")
+        self.num_channels = num_channels
+        self._signals: dict[int, Signal] = {channel: _default_signal(channel) for channel in self._channel_numbers()}
+        for channel, signal in (signals or {}).items():
+            self.set_signal(signal, channel)
+        self._settings = _Settings(channels={channel: _Channel() for channel in self._channel_numbers()})
         self._state = AcquisitionState.RUNNING
-        self._captures: dict[int, WaveformData] = {}
+        self._captures: dict[int, tuple[WaveformData, Signal]] = {}
         self._storage: dict[str, bytes] = {}
+
+    def set_signal(self, signal: Signal, channel: int) -> None:
+        """Set the signal ``channel`` sees; a stopped scope keeps showing its last capture.
+
+        Args:
+            signal (SineWave | SquareWave): The signal at the probe tip.
+            channel (int): Target channel (1-indexed).
+
+        Raises:
+            ValueError: ``channel`` does not exist.
+        """
+        self._check_channel(channel)
+        self._signals[channel] = signal
+
+    def get_signal(self, channel: int) -> Signal:
+        """Return the signal ``channel`` sees."""
+        self._check_channel(channel)
+        return self._signals[channel]
 
     def open(self) -> None:
         """Nothing to connect to."""
@@ -146,6 +244,8 @@ class VirtualScope(ScopeDriverBase):
 
     def set_probe_attenuation(self, factor: float, channel: int) -> None:
         """Accepted and read back; waveforms are already referred to the probe tip."""
+        if not factor > 0:
+            raise ValueError(f"probe attenuation must be positive, got {factor}")
         self._channel(channel).probe_attenuation = factor
 
     def get_probe_attenuation(self, channel: int) -> float:
@@ -184,16 +284,17 @@ class VirtualScope(ScopeDriverBase):
 
     def run(self) -> None:
         """Free-run: every fetch and measurement reads a fresh capture."""
+        self._captures.clear()
         self._state = AcquisitionState.RUNNING
 
     def stop(self) -> None:
-        """Freeze the last capture for later fetches and measurements."""
-        self._state = AcquisitionState.STOPPED
+        """Freeze every channel's capture for later fetches and measurements; a stopped scope keeps its own."""
+        if self._state == AcquisitionState.RUNNING:
+            self._acquire()
 
     def single(self) -> None:
-        """Take one capture and stop; the simulated signal always triggers."""
-        self._captures.clear()
-        self._state = AcquisitionState.STOPPED
+        """Capture every channel at once and stop; the simulated signal always triggers."""
+        self._acquire()
 
     def digitize(self, timeout: float) -> None:
         """Take one capture and stop; never times out, since the simulated signal always triggers."""
@@ -205,14 +306,14 @@ class VirtualScope(ScopeDriverBase):
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
-        return self._acquired(channel)
+        return self._acquired(channel)[0]
 
     # --- Measurements ---
 
     def measure(self, measurement_type: ScopeMeasurementType, channel: int) -> float:
         """Voltages from the capture; ``NaN`` for frequency, period, and duty cycle on a signal with no edges."""
-        voltages = self._acquired(channel).voltages
-        signal = self._signal(channel)
+        waveform, signal = self._acquired(channel)
+        voltages = waveform.voltages
         has_edges = signal.frequency > 0 and signal.amplitude > 0
         match measurement_type:
             case ScopeMeasurementType.VPP:
@@ -235,7 +336,7 @@ class VirtualScope(ScopeDriverBase):
     # --- Trigger ---
 
     def set_trigger_source(self, channel: int) -> None:
-        self._channel(channel)
+        self._check_channel(channel)
         self._settings.trigger.source = channel
 
     def set_trigger_type(self, trigger_type: TriggerType) -> None:
@@ -262,7 +363,7 @@ class VirtualScope(ScopeDriverBase):
     # --- File operations ---
 
     def save_screenshot(self, filepath: str, to_instrument: bool = False) -> bytes:
-        """Render a PNG of the screen: the graticule and a trace per channel used so far."""
+        """Render a PNG of the screen: the graticule and a trace per channel."""
         return self._save(filepath, self._render_png(), to_instrument)
 
     def save_settings(self, name: str, to_instrument: bool = False) -> bytes:
@@ -292,7 +393,12 @@ class VirtualScope(ScopeDriverBase):
         return self._save(name, json.dumps(setup, indent=2).encode(), to_instrument)
 
     def load_settings(self, name: str, from_instrument: bool = False) -> None:
-        """Restore settings saved by `save_settings`."""
+        """Restore settings saved by `save_settings`; channels the setup leaves out keep their defaults.
+
+        Raises:
+            FileNotFoundError: No setup named ``name`` was saved on the virtual scope.
+            ValueError: The setup names a channel or trigger source that does not exist.
+        """
         if from_instrument:
             if name not in self._storage:
                 raise FileNotFoundError(f"no setup named {name!r} saved on the virtual scope")
@@ -301,13 +407,15 @@ class VirtualScope(ScopeDriverBase):
             data = Path(name).read_bytes()
         setup = json.loads(data)
         trigger = setup["trigger"]
+        channels = {channel: _Channel() for channel in self._channel_numbers()}
+        for ch, c in setup["channels"].items():
+            self._check_channel(int(ch))
+            channels[int(ch)] = _Channel(
+                c["vertical_scale"], c["vertical_offset"], Coupling(c["coupling"]), c["probe_attenuation"]
+            )
+        self._check_channel(trigger["source"])
         self._settings = _Settings(
-            channels={
-                int(ch): _Channel(
-                    c["vertical_scale"], c["vertical_offset"], Coupling(c["coupling"]), c["probe_attenuation"]
-                )
-                for ch, c in setup["channels"].items()
-            },
+            channels=channels,
             horizontal_scale=setup["horizontal_scale"],
             acquisition_mode=AcquisitionMode(setup["acquisition_mode"]),
             average_count=setup["average_count"],
@@ -322,49 +430,53 @@ class VirtualScope(ScopeDriverBase):
 
     # --- Simulation ---
 
+    def _channel_numbers(self) -> range:
+        return range(1, self.num_channels + 1)
+
+    def _check_channel(self, channel: int) -> None:
+        if not 1 <= channel <= self.num_channels:
+            raise ValueError(f"VirtualScope has channels 1 to {self.num_channels}, got {channel}")
+
     def _channel(self, channel: int) -> _Channel:
-        if channel < 1:
-            raise ValueError(f"channel must be 1 or greater, got {channel}")
-        return self._settings.channels.setdefault(channel, _Channel())
+        self._check_channel(channel)
+        return self._settings.channels[channel]
 
-    def _signal(self, channel: int) -> SineWave:
-        return self.signals.get(channel, SineWave())
+    def _acquire(self) -> None:
+        """Capture every channel at once and stop, as a single acquisition does."""
+        self._captures = {
+            channel: (self._capture(channel), self._signals[channel]) for channel in self._channel_numbers()
+        }
+        self._state = AcquisitionState.STOPPED
 
-    def _acquired(self, channel: int) -> WaveformData:
-        if self._state == AcquisitionState.RUNNING or channel not in self._captures:
-            self._captures[channel] = self._capture(channel)
-        return self._captures[channel]
+    def _acquired(self, channel: int) -> tuple[WaveformData, Signal]:
+        """The capture to read: the frozen one when stopped, a fresh one while running."""
+        self._check_channel(channel)
+        if self._state == AcquisitionState.STOPPED:
+            return self._captures[channel]
+        return self._capture(channel), self._signals[channel]
 
     def _dc_level(self, channel: int) -> float:
-        return 0.0 if self._channel(channel).coupling == Coupling.AC else self._signal(channel).offset
+        return 0.0 if self._channel(channel).coupling == Coupling.AC else self._signals[channel].offset
 
     def _trigger_time(self) -> float:
         """Signal time, in seconds, at which the trigger source crosses the trigger level."""
         trigger = self._settings.trigger
-        signal = self._signal(trigger.source)
+        signal = self._signals[trigger.source]
         if signal.frequency <= 0 or signal.amplitude <= 0:
             return 0.0
-        crossing = (trigger.level - self._dc_level(trigger.source)) / signal.amplitude
-        phase = math.asin(max(-1.0, min(1.0, crossing)))
-        if trigger.slope == TriggerSlope.FALLING:
-            phase = math.pi - phase
-        return phase / (2 * math.pi * signal.frequency)
+        level = trigger.level - self._dc_level(trigger.source)
+        return signal._trigger_phase(level, trigger.slope) / signal.frequency
 
     def _capture(self, channel: int) -> WaveformData:
         settings = self._settings
-        signal = self._signal(channel)
+        signal = self._signals[channel]
         dc_level = self._dc_level(channel)
         averages = settings.average_count if settings.acquisition_mode == AcquisitionMode.AVERAGE else 1
         noise = _NOISE_DIVS * self._channel(channel).vertical_scale / math.sqrt(averages)
         t_trigger = self._trigger_time()
         dt = _HORIZONTAL_DIVS * settings.horizontal_scale / _RECORD_LENGTH
         times = [(i - _RECORD_LENGTH // 2) * dt for i in range(_RECORD_LENGTH)]
-        voltages = [
-            dc_level
-            + signal.amplitude * math.sin(2 * math.pi * signal.frequency * (t + t_trigger))
-            + random.gauss(0.0, noise)
-            for t in times
-        ]
+        voltages = [dc_level + signal._at(t + t_trigger) + random.gauss(0.0, noise) for t in times]
         return WaveformData(times=[round(t * 1e9) for t in times], voltages=voltages)
 
     def _save(self, name: str, data: bytes, to_instrument: bool) -> bytes:
@@ -380,10 +492,10 @@ class VirtualScope(ScopeDriverBase):
             [_GRATICULE if x % _DIV_PX == 0 or y % _DIV_PX == 0 else _BACKGROUND for x in range(width)]
             for y in range(height)
         ]
-        for channel in sorted(self._settings.channels.keys() | self.signals.keys()) or [1]:
+        for channel in self._channel_numbers():
             color = _TRACE_COLORS[(channel - 1) % len(_TRACE_COLORS)]
             settings = self._channel(channel)
-            voltages = self._acquired(channel).voltages
+            voltages = self._acquired(channel)[0].voltages
             previous_y: int | None = None
             for i, v in enumerate(voltages):
                 x = i * width // len(voltages)
@@ -400,6 +512,15 @@ class VirtualScope(ScopeDriverBase):
             + _png_chunk(b"IDAT", zlib.compress(raw))
             + _png_chunk(b"IEND", b"")
         )
+
+
+def _check_signal(frequency: float, amplitude: float, offset: float) -> None:
+    if not 0 <= frequency < math.inf:
+        raise ValueError(f"frequency must be finite and not negative, got {frequency}")
+    if not 0 <= amplitude < math.inf:
+        raise ValueError(f"amplitude must be finite and not negative, got {amplitude}")
+    if not math.isfinite(offset):
+        raise ValueError(f"offset must be finite, got {offset}")
 
 
 def _png_chunk(kind: bytes, data: bytes) -> bytes:

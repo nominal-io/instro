@@ -49,6 +49,7 @@ regardless, so the pages still appear in the sidebar. -->
 
    ~instro.scope.drivers.virtual.VirtualScope
    ~instro.scope.drivers.virtual.SineWave
+   ~instro.scope.drivers.virtual.SquareWave
 ```
 
 ## Types & Configuration
@@ -76,6 +77,7 @@ regardless, so the pages still appear in the sidebar. -->
    ~instro.scope.config.TriggerConfig
    ~instro.scope.config.VisaDriverConfig
    ~instro.scope.config.VirtualDriverConfig
+   ~instro.scope.config.SignalConfig
    ~instro.scope.config.resolve_scope_from_config
 ```
 

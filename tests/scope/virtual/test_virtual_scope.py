@@ -19,11 +19,11 @@ from instro.scope import (
     TriggerType,
 )
 from instro.scope.drivers import VirtualScope
-from instro.scope.drivers.virtual import SineWave
+from instro.scope.drivers.virtual import SineWave, SquareWave
 
 
 def test_waveform_follows_signal_timebase_and_trigger() -> None:
-    driver = VirtualScope({2: SineWave(frequency=5e3, amplitude=0.5, offset=1.0)})
+    driver = VirtualScope(num_channels=2, signals={2: SineWave(frequency=5e3, amplitude=0.5, offset=1.0)})
     with InstroScope(name="scope", driver=driver, num_channels=2) as scope:
         scope.set_horizontal_scale(100e-6)
         scope.set_trigger_source(2)
@@ -52,16 +52,54 @@ def test_waveform_follows_signal_timebase_and_trigger() -> None:
         assert scope.measure(ScopeMeasurementType.VAVG, channel=2).latest == pytest.approx(0.0, abs=0.02)
 
 
+def test_defaults_put_a_sine_on_channel_1_and_a_square_on_channel_2() -> None:
+    with InstroScope(name="scope", driver=VirtualScope(), num_channels=4) as scope:
+        scope.set_trigger_source(2)
+        scope.set_trigger_slope(TriggerSlope.FALLING)
+        scope.single()
+
+        assert scope.measure(ScopeMeasurementType.VRMS, channel=1).latest == pytest.approx(2**-0.5, rel=0.02)
+        assert scope.measure(ScopeMeasurementType.VRMS, channel=2).latest == pytest.approx(1.0, rel=0.02)
+        assert scope.measure(ScopeMeasurementType.VPP, channel=2).latest == pytest.approx(2.0, rel=0.05)
+        assert scope.measure(ScopeMeasurementType.FREQUENCY, channel=2).latest == 1e3
+
+        square = scope.fetch_waveform(channel=2).channel_data["scope.ch2.waveform"]
+        assert square[495] == pytest.approx(1.0, abs=0.05)
+        assert square[505] == pytest.approx(-1.0, abs=0.05)
+
+
 def test_stopped_scope_holds_its_capture_and_running_scope_refreshes() -> None:
-    with InstroScope(name="scope", driver=VirtualScope(), num_channels=1) as scope:
+    driver = VirtualScope(num_channels=1)
+    with InstroScope(name="scope", driver=driver, num_channels=1) as scope:
         assert scope.get_acquisition_state().latest == AcquisitionState.RUNNING.value
         running = [scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"] for _ in range(2)]
         assert running[0] != running[1]
 
         scope.stop_acquisition()
-        stopped = [scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"] for _ in range(2)]
-        assert stopped[0] == stopped[1]
+        stopped = scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"]
+        driver.set_signal(SineWave(amplitude=0.1), channel=1)
+        scope.set_vertical_scale(0.05, channel=1)
+        assert scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"] == stopped
+        assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(2.0, rel=0.05)
         assert scope.get_acquisition_state().latest == AcquisitionState.STOPPED.value
+
+        scope.single()
+        assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(0.2, rel=0.1)
+
+
+def test_rejects_invalid_signals_settings_and_channels() -> None:
+    with pytest.raises(ValueError, match="frequency must be finite and not negative"):
+        SineWave(frequency=-1.0)
+    with pytest.raises(ValueError, match="amplitude must be finite and not negative"):
+        SquareWave(amplitude=float("nan"))
+    with pytest.raises(ValueError, match="channels 1 to 2, got 3"):
+        VirtualScope(num_channels=2, signals={3: SineWave()})
+
+    driver = VirtualScope(num_channels=2)
+    with pytest.raises(ValueError, match="probe attenuation must be positive"):
+        driver.set_probe_attenuation(0.0, channel=1)
+    with pytest.raises(ValueError, match="channels 1 to 2, got 3"):
+        driver.fetch_waveform(channel=3)
 
 
 def test_every_setting_reads_back_and_round_trips_through_saved_settings(tmp_path: Path) -> None:

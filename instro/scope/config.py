@@ -36,6 +36,7 @@ __all__ = [
     "FilePublisherConfig",
     "NominalCorePublisherConfig",
     "ScopeConfig",
+    "SignalConfig",
     "TimingConfig",
     "TriggerConfig",
     "VirtualDriverConfig",
@@ -139,6 +140,16 @@ class VisaDriverConfig(BaseModel):
         return v
 
 
+class SignalConfig(BaseModel):
+    """A virtual scope channel's signal: built as a ``SineWave`` or ``SquareWave``."""
+
+    model_config = ConfigDict(extra="forbid")
+    shape: Literal["sine", "square"]
+    frequency: float = Field(default=1e3, ge=0, allow_inf_nan=False, description="Frequency in Hz.")
+    amplitude: float = Field(default=1.0, ge=0, allow_inf_nan=False, description="Peak amplitude in volts.")
+    offset: float = Field(default=0.0, allow_inf_nan=False, description="DC offset in volts.")
+
+
 class VirtualDriverConfig(BaseModel):
     """Driver config for a virtual scope: simulated in-process, with no connection."""
 
@@ -146,6 +157,10 @@ class VirtualDriverConfig(BaseModel):
     connection_type: Literal["virtual"]
     name: Literal["VirtualScope"] = Field(description="Virtual driver key.")
     num_channels: int = Field(ge=1, description="Number of analog-input channels.")
+    signals: dict[int, SignalConfig] = Field(
+        default_factory=dict,
+        description="Signal per 1-based channel; channels left out see a sine on odd channels, a square on even.",
+    )
 
 
 class ScopeConfig(BaseModel):
@@ -190,7 +205,15 @@ def resolve_scope_from_config(
     """Resolve a validated ScopeConfig into the ``(name, driver, num_channels, config_publishers, poll_interval)`` InstroScope needs."""
     driver_cls = SCOPE_VENDOR_REGISTRY[config.driver.name].load()
     if isinstance(config.driver, VirtualDriverConfig):
-        driver: ScopeDriverBase = driver_cls()
+        # deferred: instro.scope imports this module before its drivers exist
+        from instro.scope.drivers.virtual import SineWave, SquareWave
+
+        shapes = {"sine": SineWave, "square": SquareWave}
+        signals = {
+            channel: shapes[s.shape](frequency=s.frequency, amplitude=s.amplitude, offset=s.offset)
+            for channel, s in config.driver.signals.items()
+        }
+        driver: ScopeDriverBase = driver_cls(num_channels=config.driver.num_channels, signals=signals)
     else:
         driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
