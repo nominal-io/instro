@@ -4,6 +4,7 @@ Demonstrates publishing measurements to a local Avro file (FilePublisher).
 
 """
 
+import io
 import time
 
 from instro.daq import InstroDAQ
@@ -14,11 +15,18 @@ AO_CH0 = "DAC0"
 AO_CH1 = "DAC1"
 AI_CH0 = "AIN0"
 AI_CH1 = "AIN1"
+USE_FILE_LIKE_OBJECT = False  # True: publish to an in-memory stream instead of ./captures/test_file.avro
+
+if USE_FILE_LIKE_OBJECT:
+    stream = io.BytesIO()  # Avro needs a binary stream
+    file_publisher = FilePublisher(format="avro", file=stream)
+else:
+    file_publisher = FilePublisher(directory="./captures", format="avro", custom_file_name="test_file")
 
 daq = InstroDAQ(
     name="myDAQ",
     driver=LabJackTSeriesDriver(device_id="440023835"),
-    publishers=[FilePublisher(directory="./captures", format="avro", custom_file_name="test_file")],
+    publishers=[file_publisher],
 )
 
 with daq:
@@ -39,3 +47,7 @@ with daq:
         except KeyboardInterrupt:
             break
     daq.stop()
+
+# The publisher leaves a caller's stream open, so the data is still readable after close
+if USE_FILE_LIKE_OBJECT:
+    print(f"Captured {len(stream.getvalue())} bytes of Avro in memory")

@@ -115,12 +115,18 @@ def _read_records(format: str, data: bytes) -> list:
 
 
 @pytest.mark.parametrize("format", ["json", "jsonl", "csv", "avro"])
-@pytest.mark.parametrize("target", ["directory", "temporary", "stream"])
+@pytest.mark.parametrize("target", ["directory", "temporary", "in_memory_stream", "opened_file"])
 @pytest.mark.parametrize("publish_records", [False, True], ids=["empty", "records"])
 def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypatch, format, target, publish_records):
+    # Create the stream for the stream targets
+    if target == "opened_file":
+        binary = format == "avro"
+        stream = open(tmp_path / f"capture.{format}", "w+b" if binary else "w+", newline=None if binary else "")
+    else:
+        stream = io.BytesIO() if format == "avro" else io.StringIO()
+
     # Create the publisher for the target, with temporary directories under tmp_path
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    stream = io.BytesIO() if format == "avro" else io.StringIO()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         if target == "directory":
@@ -137,10 +143,12 @@ def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypat
     publisher.close()
 
     # Read the output back: the publisher closes files it opened and leaves a caller's stream open
-    if target == "stream":
+    if target in ("in_memory_stream", "opened_file"):
         assert publisher.file_path is None
         assert not stream.closed
-        value = stream.getvalue()
+        stream.seek(0)
+        value = stream.read()
+        stream.close()
         data = value.encode() if isinstance(value, str) else value
     else:
         assert publisher._file.closed
@@ -148,6 +156,24 @@ def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypat
         assert publisher.file_path.suffix == f".{format}"
         data = publisher.file_path.read_bytes()
     assert _read_records(format, data) == (_EXPECTED_RECORDS[format] if publish_records else [])
+
+
+@pytest.mark.parametrize("format", ["json", "jsonl", "csv", "avro"])
+def test_every_format_appends_to_a_stream_that_already_has_data(format):
+    # Publish the same records twice, each time with a new publisher on the same stream
+    stream = io.BytesIO() if format == "avro" else io.StringIO()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        for _ in range(2):
+            publisher = FilePublisher(file=stream, format=format)
+            publisher.publish(_measurement())
+            publisher.publish(_command())
+            publisher.close()
+
+    # The second publisher keeps the first one's records (and the single CSV header or Avro header)
+    value = stream.getvalue()
+    data = value.encode() if isinstance(value, str) else value
+    assert _read_records(format, data) == _EXPECTED_RECORDS[format] * 2
 
 
 def test_jsonl_close_closes_file_handle(tmp_path):
@@ -182,3 +208,9 @@ def test_jsonl_does_not_warn(tmp_path):
     with warnings.catch_warnings():
         warnings.simplefilter("error", DeprecationWarning)
         FilePublisher(directory=tmp_path, format="jsonl", custom_file_name="capture")
+
+
+@pytest.mark.parametrize("path_args", [{"directory": "out"}, {"custom_file_name": "capture"}])
+def test_file_cannot_be_combined_with_directory_or_custom_file_name(path_args):
+    with pytest.raises(ValueError, match="file cannot be combined"):
+        FilePublisher(file=io.StringIO(), format="jsonl", **path_args)
