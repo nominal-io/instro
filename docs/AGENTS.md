@@ -55,7 +55,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 
 1. Add `examples/notebooks/<name>.md`, a Jupytext MyST notebook: front matter with `jupytext: text_representation: format_name: myst` and a `kernelspec`, then a `#` title and a lead paragraph, which become its page title, card and meta description. Edit it in JupyterLab with `just notebook`.
 2. `_ext/examples.py` copies it to `docs/examples/notebooks/`, adds a card to the Examples page, and the **Notebooks** toctree in `index.md` lists it. myst-nb runs it on every build (`nb_execution_mode = "cache"` in `conf.py`), and a cell that raises fails the build.
-3. It must run in docs CI: no hardware, and no Nominal credentials (docs CI has none). Tag setup cells a reader doesn't need with `:tags: [hide-input]`.
+3. It must run in docs CI, which has no hardware and no Nominal credentials. A notebook may use the `default` profile when one exists, but needs an offline path without it (`notebook_display.md` falls back to a stand-in dataset). A local build with a `default` profile streams to that profile's workspace. Tag setup cells a reader doesn't need with `:tags: [hide-input]`.
 
 ### Add an instrument category
 
