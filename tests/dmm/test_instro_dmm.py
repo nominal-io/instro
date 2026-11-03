@@ -7,12 +7,14 @@ tests/dmm/keithley/test_keithley_2400_software.py).
 """
 
 import threading
+from dataclasses import replace
 from typing import Any, Callable
 from unittest.mock import MagicMock
 
 import pytest
 
 from instro.dmm import DMMDriverBase, InstroDMM
+from instro.dmm import dmm as dmm_module
 from instro.dmm.types import MeasurementFunction
 from instro.lib import Measurement
 
@@ -28,6 +30,8 @@ class _StubDMMDriver(DMMDriverBase):
         self.last_function: MeasurementFunction | None = None
         self.last_nplc_call: tuple[str, float] | None = None
         self.last_range_call: tuple[str, float | None] | None = None
+        self.last_digits: int | None = None
+        self.last_aperture_seconds: float | None = None
         self.measured = 0.0
 
     def open(self) -> None:
@@ -38,6 +42,12 @@ class _StubDMMDriver(DMMDriverBase):
 
     def set_measurement_function(self, function: MeasurementFunction) -> None:
         self.last_function = function
+
+    def set_digits(self, n: int) -> None:
+        self.last_digits = n
+
+    def set_aperture_seconds(self, seconds: float) -> None:
+        self.last_aperture_seconds = seconds
 
     # NPLC overrides — record (method_name, nplc).
     def set_dc_voltage_nplc(self, nplc: float) -> None:
@@ -258,3 +268,93 @@ def test_read_helper_is_atomic_against_concurrent_function_change(stub_driver: _
     switcher.join(timeout=5)
 
     assert "ut.dc_voltage" in readings[0].channel_data
+
+
+# --- _measurement_config access under the resource lock ---
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        lambda d: d.read(),
+        lambda d: d.set_digits(5),
+        lambda d: d.set_aperture_seconds(0.1),
+        lambda d: d.set_aperture_nplc(1.0),
+        lambda d: d.set_range(None),
+    ],
+)
+def test_unconfigured_access_checks_the_config_under_the_lock(
+    unconfigured_dmm: InstroDMM, action: Callable[[InstroDMM], Any]
+) -> None:
+    """The ``is None`` precondition must share the critical section with the state it guards."""
+    errors: list[str] = []
+
+    def call() -> None:
+        try:
+            action(unconfigured_dmm)
+        except ValueError as exc:
+            errors.append(str(exc))
+
+    unconfigured_dmm._resource_lock.acquire()
+    caller = threading.Thread(target=call)
+    caller.start()
+    try:
+        caller.join(timeout=0.2)
+        # A check taken before the lock raises here instead of waiting for it.
+        assert caller.is_alive()
+        assert errors == []
+    finally:
+        unconfigured_dmm._resource_lock.release()
+
+    caller.join(timeout=5)
+    assert len(errors) == 1
+    assert "set_measurement_function" in errors[0]
+
+
+@pytest.mark.parametrize(
+    "action",
+    [
+        lambda d: d.set_digits(5),
+        lambda d: d.set_aperture_seconds(0.1),
+        lambda d: d.set_aperture_nplc(2.0),
+        lambda d: d.set_range(10.0),
+    ],
+)
+def test_setter_replaces_the_config_under_the_lock(
+    stub_driver: _StubDMMDriver, monkeypatch: pytest.MonkeyPatch, action: Callable[[InstroDMM], Any]
+) -> None:
+    """The copy-on-write replace must be inside the lock, or concurrent setters drop fields."""
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+
+    lock_held: list[bool] = []
+    real_replace = dmm_module.replace
+
+    def recording_replace(config: Any, **changes: Any) -> Any:
+        lock_held.append(dmm._resource_lock.locked())
+        return real_replace(config, **changes)
+
+    monkeypatch.setattr(dmm_module, "replace", recording_replace)
+    action(dmm)
+
+    assert lock_held == [True]
+
+
+def test_read_publishes_the_function_it_dispatched_on(stub_driver: _StubDMMDriver) -> None:
+    """read() must not re-read the config after dropping the lock to name the channel."""
+    dmm = InstroDMM(name="ut", driver=stub_driver)
+    dmm.set_measurement_function(MeasurementFunction.DC_VOLTAGE)
+    stub_driver.measured = 1.0
+
+    def measure_after_function_switch() -> float:
+        # A concurrent set_measurement_function can land the instant read() drops the lock.
+        # Switching here forces that ordering rather than relying on the scheduler.
+        config = dmm._measurement_config
+        assert config is not None
+        dmm._measurement_config = replace(config, function=MeasurementFunction.AC_CURRENT)
+        return stub_driver.measured
+
+    stub_driver.measure_dc_voltage = measure_after_function_switch  # type: ignore[method-assign]
+    measurement = dmm.read()
+
+    assert "ut.dc_voltage" in measurement.channel_data
