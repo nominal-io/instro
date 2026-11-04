@@ -1,6 +1,7 @@
 """Publisher that streams Measurement/Command data to Nominal Core datasets."""
 
 import inspect
+import logging
 import pathlib
 from datetime import timedelta
 from typing import Literal
@@ -12,6 +13,8 @@ from instro.lib import _display
 from instro.lib.types import Command, Measurement
 
 from ..nominal import _resolve_nominal_client_and_dataset
+
+logger = logging.getLogger(__name__)
 
 
 class NominalCorePublisher:
@@ -80,6 +83,7 @@ class NominalCorePublisher:
                 dataset_rid, profile, api_key, client=client, base_url=base_url
             )
 
+        self._client_provided: bool = client is not None
         self.dataset_rid: str = self.dataset.rid
         self.profile: str | None = None if (dataset or client or api_key) else (profile or "default")
         """The on-disk profile the credentials came from, or `None` when they came from elsewhere."""
@@ -88,8 +92,8 @@ class NominalCorePublisher:
         self.closed: bool = False
 
         ws_signature = inspect.signature(self.dataset.get_write_stream)
-        self.batch_size: int = batch_size or ws_signature.parameters["batch_size"].default
-        self.max_wait: timedelta = max_wait or ws_signature.parameters["max_wait"].default
+        self.batch_size: int = batch_size if batch_size is not None else ws_signature.parameters["batch_size"].default
+        self.max_wait: timedelta = max_wait if max_wait is not None else ws_signature.parameters["max_wait"].default
 
         data_format: Literal["rust_experimental"] = "rust_experimental"
         self.write_stream: NominalDatasetStream
@@ -97,7 +101,9 @@ class NominalCorePublisher:
             batch_size=self.batch_size,
             max_wait=self.max_wait,
             data_format=data_format,
-            file_fallback=file_fallback or ws_signature.parameters["file_fallback"].default,
+            file_fallback=file_fallback
+            if file_fallback is not None
+            else ws_signature.parameters["file_fallback"].default,
         )
 
         # We need to open the stream manually here because we are using the "rust_experimental" data format
@@ -142,12 +148,20 @@ class NominalCorePublisher:
             )
 
     def close(self):
+        if self.closed:
+            logger.warning(
+                "Dropping close request because NominalCorePublisher is already closed (dataset_rid=%s)",
+                self.dataset_rid,
+            )
+            return
         self.write_stream.close()
         self.closed = True
 
     def _credentials(self) -> str:
         if self.profile is not None:
             return f"profile {self.profile!r}"
+        if self._client_provided:
+            return "provided client"
         if self.client is None:
             return "from the dataset passed in"
         return "API key" if self.base_url is None else f"API key, {self.base_url}"

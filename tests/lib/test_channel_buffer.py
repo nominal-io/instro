@@ -1,8 +1,9 @@
 """Unit tests for the in-memory channel buffer publishers."""
 
 import time
+from collections import deque
 
-from instro.lib.publishers.channel_buffer import NumpyInMemoryPublisher
+from instro.lib.publishers.channel_buffer import DequeInMemoryPublisher, NumpyInMemoryPublisher, _deque_tail
 from instro.lib.types import Measurement
 
 
@@ -55,3 +56,18 @@ def test_numpy_publisher_size_bytes_survives_a_values_timestamps_desync():
     del publisher._timestamps["ut.v"]  # simulate the desync directly
 
     assert publisher.size_bytes >= 0
+
+
+def test_deque_tail_returns_the_newest_items_oldest_first():
+    items = deque(range(10))
+
+    assert _deque_tail(items, 3) == [7, 8, 9]
+    assert _deque_tail(items, 20) == list(range(10))
+    assert _deque_tail(items, 0) == []
+
+
+def test_deque_publisher_latest_returns_each_channels_newest_sample():
+    publisher = DequeInMemoryPublisher(maxlen=10)
+    publisher.publish(Measurement(channel_data={"ut.v": [1.0, 2.0, 3.0]}, timestamps=[1, 2, 3]))
+
+    assert publisher.latest() == {"ut.v": (3, 3.0)}

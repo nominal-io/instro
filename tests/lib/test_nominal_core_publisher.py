@@ -1,3 +1,4 @@
+from datetime import timedelta
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
@@ -47,6 +48,25 @@ def test_client_fetches_the_dataset():
 
     client.get_dataset.assert_called_once_with(RID)
     assert publisher.client is client and publisher.profile is None
+    assert publisher._credentials() == "provided client"
+
+
+def test_close_is_idempotent():
+    publisher = NominalCorePublisher(dataset=_dataset())
+
+    publisher.close()
+    publisher.close()
+
+    publisher.write_stream.close.assert_called_once()
+    assert publisher.closed
+
+
+def test_explicit_falsy_stream_settings_are_kept():
+    """``max_wait=timedelta(0)`` means flush immediately, not "use the default"."""
+    publisher = NominalCorePublisher(dataset=_dataset(), max_wait=timedelta(0))
+
+    assert publisher.max_wait == timedelta(0)
+    assert publisher.dataset.get_write_stream.call_args.kwargs["max_wait"] == timedelta(0)
 
 
 @pytest.mark.parametrize(
