@@ -3,6 +3,7 @@
 import csv
 import io
 import json
+import os
 import tempfile
 import warnings
 
@@ -214,3 +215,22 @@ def test_jsonl_does_not_warn(tmp_path):
 def test_file_cannot_be_combined_with_directory_or_custom_file_name(path_args):
     with pytest.raises(ValueError, match="file cannot be combined"):
         FilePublisher(file=io.StringIO(), format="jsonl", **path_args)
+
+
+def test_read_only_stream_raises_clear_error(tmp_path):
+    (tmp_path / "capture.jsonl").write_text("")
+    with open(tmp_path / "capture.jsonl") as stream, pytest.raises(ValueError, match="writable stream"):
+        FilePublisher(file=stream, format="jsonl")
+
+
+def test_json_write_only_stream_raises_clear_error(tmp_path):
+    with open(tmp_path / "capture.json", "w") as stream, warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises(ValueError, match='format="json" needs a readable, seekable stream'):
+            FilePublisher(file=stream, format="json")
+
+
+def test_csv_pipe_raises_clear_error():
+    read_fd, write_fd = os.pipe()
+    with open(read_fd), open(write_fd, "w") as pipe, pytest.raises(ValueError, match='format="csv" needs a seekable'):
+        FilePublisher(file=pipe, format="csv")

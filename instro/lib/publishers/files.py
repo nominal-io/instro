@@ -16,7 +16,10 @@ from instro.lib.types import Command, Measurement
 
 
 class FileWriter(Generic[AnyStr], ABC):
-    """Base class for format writers. A writer writes records at the stream's current position.
+    """Base class for format writers.
+
+    Every writer needs a writable stream. The JSONL, CSV, and Avro writers write at the stream's
+    current position. `JsonFileWriter` rewrites the whole stream on each write.
 
     Attributes:
         mode (str): Mode `FilePublisher` uses to open this writer's file.
@@ -31,7 +34,12 @@ class FileWriter(Generic[AnyStr], ABC):
 
         Args:
             file (IO[AnyStr]): Stream that receives the records. Text or binary, per the format.
+
+        Raises:
+            ValueError: If the stream is not writable.
         """
+        if not file.writable():
+            raise ValueError("FilePublisher needs a writable stream")
         self._file: IO[AnyStr] = file
 
     @abstractmethod
@@ -54,12 +62,12 @@ class FilePublisher:
             directory: Output directory. Defaults to a new temporary directory.
             format: ``"jsonl"``, ``"csv"``, ``"avro"`` (default), or ``"json"`` (deprecated).
             custom_file_name: Filename without extension; defaults to ``measurements-<local-timestamp>``.
-            file: Open stream to write to instead of a file: text for ``"json"``, ``"jsonl"``, and ``"csv"``,
-                binary for ``"avro"``. Records go at the stream's current position, and ``close()`` leaves
-                the stream open. Cannot be combined with ``directory`` or ``custom_file_name``.
+            file: Open stream to write to instead of a file (binary for ``"avro"``, text otherwise); ``close()``
+                leaves it open. ``"csv"`` needs a seekable stream; ``"json"`` needs a readable, seekable one.
 
         Raises:
-            ValueError: If ``file`` is combined with ``directory`` or ``custom_file_name``, or the format is unknown.
+            ValueError: If ``file`` is combined with ``directory`` or ``custom_file_name``, the format is unknown,
+                or ``file`` does not support what the format needs.
         """
         # Check the arguments and pick the writer for the format
         if file is not None and (directory is not None or custom_file_name is not None):
@@ -121,14 +129,23 @@ class FilePublisher:
 
 
 class JsonFileWriter(FileWriter[str]):
-    """Write records as one JSON array. Each write reads and rewrites the whole stream."""
+    """Write records as one JSON array.
+
+    Each write reads the whole stream from position 0 and rewrites it. Content that is not valid JSON is erased.
+    """
 
     # "a+" creates a missing file, keeps existing records, and allows reads
     mode = "a+"
 
     def __init__(self, file: IO[str]) -> None:
-        """Wrap the stream and write an empty array if the stream is empty."""
+        """Wrap the stream and write an empty array if the stream is empty.
+
+        Raises:
+            ValueError: If the stream is not writable, readable, and seekable.
+        """
         super().__init__(file)
+        if not (file.readable() and file.seekable()):
+            raise ValueError('FilePublisher format="json" needs a readable, seekable stream, such as open(path, "w+")')
         self._file.seek(0, 2)
         if self._file.tell() == 0:
             self._file.write("[]")
@@ -185,8 +202,14 @@ class CsvFileWriter(FileWriter[str]):
     newline = ""
 
     def __init__(self, file: IO[str]) -> None:
-        """Wrap the stream and write the header if the stream is at its start."""
+        """Wrap the stream and write the header if the stream is at its start.
+
+        Raises:
+            ValueError: If the stream is not writable and seekable.
+        """
         super().__init__(file)
+        if not file.seekable():
+            raise ValueError('FilePublisher format="csv" needs a seekable stream to decide whether to write the header')
         self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
         if self._file.tell() == 0:
             self._writer.writeheader()
