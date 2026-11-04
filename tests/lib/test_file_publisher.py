@@ -3,7 +3,6 @@
 import csv
 import io
 import json
-import tempfile
 import warnings
 
 import fastavro
@@ -114,8 +113,18 @@ def _read_records(format: str, data: bytes) -> list:
     return list(fastavro.reader(io.BytesIO(data)))
 
 
-@pytest.mark.parametrize("format", ["json", "jsonl", "csv", "avro"])
-@pytest.mark.parametrize("target", ["directory", "temporary", "in_memory_stream", "opened_file"])
+_STREAM_TARGETS = ["in_memory_stream", "opened_file"]
+
+
+@pytest.mark.parametrize(
+    ("format", "target"),
+    [
+        (format, target)
+        for target in ["directory", "default_directory", *_STREAM_TARGETS]
+        for format in ["json", "jsonl", "csv", "avro"]
+        if not (format == "json" and target in _STREAM_TARGETS)
+    ],
+)
 @pytest.mark.parametrize("publish_records", [False, True], ids=["empty", "records"])
 def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypatch, format, target, publish_records):
     # Create the stream for the stream targets
@@ -125,13 +134,13 @@ def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypat
     else:
         stream = io.BytesIO() if format == "avro" else io.StringIO()
 
-    # Create the publisher for the target, with temporary directories under tmp_path
-    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    # Create the publisher for the target, with tmp_path as the working directory
+    monkeypatch.chdir(tmp_path)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         if target == "directory":
             publisher = FilePublisher(directory=tmp_path / "out", format=format, custom_file_name="capture")
-        elif target == "temporary":
+        elif target == "default_directory":
             publisher = FilePublisher(format=format)
         else:
             publisher = FilePublisher(file=stream, format=format)
@@ -143,7 +152,7 @@ def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypat
     publisher.close()
 
     # Read the output back: the publisher closes files it opened and leaves a caller's stream open
-    if target in ("in_memory_stream", "opened_file"):
+    if target in _STREAM_TARGETS:
         assert publisher.file_path is None
         assert not stream.closed
         stream.seek(0)
@@ -152,23 +161,22 @@ def test_every_format_writes_readable_output_to_every_target(tmp_path, monkeypat
         data = value.encode() if isinstance(value, str) else value
     else:
         assert publisher._file.closed
-        assert publisher.file_path.is_relative_to(tmp_path)
+        expected_directory = tmp_path / ("out" if target == "directory" else "instro-measurements")
+        assert publisher.file_path.parent.resolve() == expected_directory.resolve()
         assert publisher.file_path.suffix == f".{format}"
         data = publisher.file_path.read_bytes()
     assert _read_records(format, data) == (_EXPECTED_RECORDS[format] if publish_records else [])
 
 
-@pytest.mark.parametrize("format", ["json", "jsonl", "csv", "avro"])
+@pytest.mark.parametrize("format", ["jsonl", "csv", "avro"])
 def test_every_format_appends_to_a_stream_that_already_has_data(format):
     # Publish the same records twice, each time with a new publisher on the same stream
     stream = io.BytesIO() if format == "avro" else io.StringIO()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        for _ in range(2):
-            publisher = FilePublisher(file=stream, format=format)
-            publisher.publish(_measurement())
-            publisher.publish(_command())
-            publisher.close()
+    for _ in range(2):
+        publisher = FilePublisher(file=stream, format=format)
+        publisher.publish(_measurement())
+        publisher.publish(_command())
+        publisher.close()
 
     # The second publisher keeps the first one's records (and the single CSV header or Avro header)
     value = stream.getvalue()
@@ -222,11 +230,44 @@ def test_read_only_stream_raises_clear_error(tmp_path):
         FilePublisher(file=stream, format="jsonl")
 
 
-def test_json_write_only_stream_raises_clear_error(tmp_path):
-    with open(tmp_path / "capture.json", "w") as stream, warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        with pytest.raises(ValueError, match='format="json" needs a readable, seekable stream'):
-            FilePublisher(file=stream, format="json")
+def test_json_rejects_streams_and_suggests_jsonl():
+    with pytest.raises(ValueError, match='format="json" does not support file; use format="jsonl"'):
+        FilePublisher(file=io.StringIO(), format="json")
+
+
+def test_avro_rejects_text_streams():
+    with pytest.raises(ValueError, match="AvroFileWriter needs a binary stream"):
+        FilePublisher(file=io.StringIO(), format="avro")
+
+
+@pytest.mark.parametrize("format", ["jsonl", "csv"])
+@pytest.mark.parametrize("mode", ["wb", "ab"])
+def test_text_formats_reject_binary_streams(tmp_path, format, mode):
+    with open(tmp_path / f"capture.{format}", mode) as stream, pytest.raises(ValueError, match="needs a text stream"):
+        FilePublisher(file=stream, format=format)
+
+
+def test_avro_rejects_append_only_binary_stream_with_existing_data(tmp_path):
+    # Write one Avro file, then reopen it in "ab", which cannot read the existing header
+    publisher = FilePublisher(directory=tmp_path, format="avro", custom_file_name="capture")
+    publisher.publish(_command())
+    publisher.close()
+
+    with open(tmp_path / "capture.avro", "ab") as stream, pytest.raises(ValueError, match="'a\\+' mode"):
+        FilePublisher(file=stream, format="avro")
+
+
+def test_csv_writes_header_to_a_stream_that_cannot_seek():
+    class NonSeekableStream(io.StringIO):
+        def seekable(self) -> bool:
+            return False
+
+    stream = NonSeekableStream()
+    publisher = FilePublisher(file=stream, format="csv")
+    publisher.publish(_command())
+    publisher.close()
+
+    assert _read_records("csv", stream.getvalue().encode()) == _EXPECTED_RECORDS["csv"][2:]
 
 
 @pytest.mark.parametrize("pass_stream", [False, True], ids=["opened_by_publisher", "caller_stream"])
@@ -248,3 +289,13 @@ def test_writer_failure_closes_only_the_file_the_publisher_opened(tmp_path, monk
         else:
             FilePublisher(directory=tmp_path, format="avro", custom_file_name="capture")
     assert streams[0].closed is not pass_stream
+
+
+def test_avro_appends_across_publisher_instances(tmp_path):
+    for _ in range(2):
+        publisher = FilePublisher(directory=tmp_path, format="avro", custom_file_name="capture")
+        publisher.publish(_measurement())
+        publisher.publish(_command())
+        publisher.close()
+
+    assert _read_records("avro", (tmp_path / "capture.avro").read_bytes()) == _EXPECTED_RECORDS["avro"] * 2
