@@ -13,6 +13,7 @@ import pytest
 from instro.dmm.config import DMMConfig
 from instro.eload.config import ELoadConfig
 from instro.ethernetip import EtherNetIPConfig
+from instro.i2c import I2CConfig
 from instro.modbus import ModbusConfig
 from instro.psu.config import PSUConfig
 from instro.scope.config import ScopeConfig
@@ -33,6 +34,7 @@ ETHERNETIP_MYPY_PATHS = [
 CONFIG_LOADERS = {
     "modbus": ModbusConfig,
     "ethernetip": EtherNetIPConfig,
+    "i2c": I2CConfig,
 }
 INSTRUMENT_LOADERS = {
     "InstroPSU": PSUConfig,

@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "protocol": "i2c",
+  "device": {
+    "name": "sensor_bus",
+    "description": "PCA9506 GPIO expander and LTC2309 ADC via Aardvark adapter",
+    "manufacturer": "Total Phase",
+    "model": "Aardvark"
+  },
+  "timing": {
+    "poll_interval": 1.0
+  },
+  "connection": {
+    "interface": "aardvark",
+    "serial_number": "2239-764425"
+  },
+  "devices": [
+    {
+      "type": "register",
+      "name": "power_gpio",
+      "address": "0x21",
+      "addr_width_bytes": 1,
+      "registers": [
+        {
+          "alias": "LED_DIRECTION",
+          "register": "0x1C",
+          "default_value": "0x00",
+          "format": {"transfer_bits": 8}
+        },
+        {
+          "alias": "LED_OUTPUT_STATE",
+          "register": "0x0C",
+          "default_value": "0x00",
+          "format": {"transfer_bits": 8},
+          "fields": [
+            {"name": "led_1", "lsb": 0, "width_bits": 1},
+            {"name": "led_2", "lsb": 1, "width_bits": 1},
+            {"name": "led_3", "lsb": 2, "width_bits": 1},
+            {"name": "led_4", "lsb": 3, "width_bits": 1},
+            {"name": "led_5", "lsb": 4, "width_bits": 1}
+          ],
+          "poll": true
+        }
+      ]
+    },
+    {
+      "type": "command",
+      "name": "VOLTAGE_ADC",
+      "address": "0x09",
+      "endianness": "big",
+      "data_format": {
+        "transfer_bits": 16,
+        "data_width_bits": 12,
+        "data_lsb": 4,
+        "signed": false,
+        "scaling": {"type": "linear", "gain": 0.0087912088, "offset": 0.0},
+        "units": "V"
+      },
+      "commands": {
+        "channel": {"CH0": "0x80", "CH1": "0xC0", "CH2": "0x90"},
+        "sleep_mode": {"WAKE": "0x00", "SLEEP": "0x04"},
+        "polarity_mode": {"BIPOLAR": "0x00", "UNIPOLAR": "0x08"}
+      },
+      "batch_commands": [
+        {
+          "name": "ch0",
+          "commands": {"channel": "CH0", "polarity_mode": "UNIPOLAR", "sleep_mode": "WAKE"},
+          "poll": true
+        },
+        {
+          "name": "ch1",
+          "commands": {"channel": "CH1", "polarity_mode": "UNIPOLAR", "sleep_mode": "WAKE"}
+        }
+      ]
+    }
+  ]
+}

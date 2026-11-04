@@ -54,6 +54,8 @@ psu = InstroPSU(config=my_psu_config)
 
 Options the concrete driver doesn't support raise `NotImplementedError` when the config is applied, exactly as the equivalent runtime call would.
 
+The protocol clients take a different shape. A [Modbus](/library/protocols/modbus.md) or [I2C](/library/protocols/i2c/system-definition.md) config describes a device register map or command set rather than an instrument's initial state: `protocol` in place of `instrument`, an optional `connection` block in place of `driver`, no `publishers`, and the data map at the top level.
+
 ## Category-specific state blocks
 
 Beyond the shared shape above, some categories accept an optional block that sets initial instrument state through the same public setters a manual call would use, so it publishes the same `.cmd` channels.

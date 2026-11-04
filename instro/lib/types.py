@@ -118,6 +118,7 @@ class LinearScale(BaseModel):
     check the protocol-specific documentation.
     """
 
+    model_config = ConfigDict(extra="forbid")
     type: Literal["linear"] = "linear"
     gain: float = Field(default=1.0, description="Scale factor (must not be zero)")
     offset: float = 0.0
