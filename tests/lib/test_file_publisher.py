@@ -234,3 +234,24 @@ def test_csv_pipe_raises_clear_error():
     read_fd, write_fd = os.pipe()
     with open(read_fd), open(write_fd, "w") as pipe, pytest.raises(ValueError, match='format="csv" needs a seekable'):
         FilePublisher(file=pipe, format="csv")
+
+
+@pytest.mark.parametrize("pass_stream", [False, True], ids=["opened_by_publisher", "caller_stream"])
+def test_writer_failure_closes_only_the_file_the_publisher_opened(tmp_path, monkeypatch, pass_stream):
+    # Make the Avro writer fail after the stream is open, and keep the stream it got
+    streams = []
+
+    def failing_writer(stream, *args, **kwargs):
+        streams.append(stream)
+        raise RuntimeError("codec missing")
+
+    monkeypatch.setattr(fastavro.write, "Writer", failing_writer)
+
+    # The publisher closes its own file, and leaves a caller's stream open
+    caller_stream = io.BytesIO()
+    with pytest.raises(RuntimeError, match="codec missing"):
+        if pass_stream:
+            FilePublisher(file=caller_stream, format="avro")
+        else:
+            FilePublisher(directory=tmp_path, format="avro", custom_file_name="capture")
+    assert streams[0].closed is not pass_stream

@@ -96,29 +96,23 @@ class FilePublisher:
             self.file_path.parent.mkdir(parents=True, exist_ok=True)
             file = open(self.file_path, writer_class.mode, newline=writer_class.newline)
 
-        # Attach the writer to the stream
+        # Attach the writer to the stream, and close the file this publisher opened if that fails
         self._file = file
-        self._writer = writer_class(file)
+        try:
+            self._writer = writer_class(file)
+        except Exception:
+            self.close()
+            raise
 
-    def publish(self, data: Measurement | Command, **kwargs):
+    def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Publish data to file using the appropriate writer."""
-        SHARED_PUBLISHER_WARNING = (
-            "If you're attempting to publish from multiple instruments, consider using SharedPublisher."
-        )
-
         try:
             self._writer.write(data)
         except Exception as e:
-            add_note = getattr(e, "add_note", None)
-            if add_note:
-                add_note(SHARED_PUBLISHER_WARNING)
-
-            elif e.args:
-                e.args = (f"{e.args}\n\n{SHARED_PUBLISHER_WARNING}", *e.args[1:])
-
+            e.add_note("If you're attempting to publish from multiple instruments, consider using SharedPublisher.")
             raise
 
-    def open(self):
+    def open(self) -> None:
         # The file opens in __init__; kept so callers of open() do not break
         pass
 
