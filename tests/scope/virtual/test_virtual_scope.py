@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import pytest
 
 from instro.scope import (
@@ -66,6 +68,39 @@ def test_defaults_put_a_sine_on_channel_1_and_a_square_on_channel_2() -> None:
         assert square[505] == pytest.approx(-1.0, abs=0.05)
 
 
+@pytest.mark.parametrize("seconds_per_div", [0.1, 1.0])
+def test_slow_timebase_measures_true_levels_although_the_fetched_points_alias(seconds_per_div: float) -> None:
+    with InstroScope(name="scope", driver=VirtualScope(num_channels=2), num_channels=2) as scope:
+        scope.set_horizontal_scale(seconds_per_div)
+        scope.single()
+        assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(2.0, rel=0.05)
+        assert scope.measure(ScopeMeasurementType.VRMS, channel=1).latest == pytest.approx(2**-0.5, rel=0.02)
+        assert scope.measure(ScopeMeasurementType.VRMS, channel=2).latest == pytest.approx(1.0, rel=0.02)
+
+
+def test_capture_clips_at_the_screen_edges_around_the_vertical_offset() -> None:
+    with InstroScope(name="scope", driver=VirtualScope(num_channels=1), num_channels=1) as scope:
+        scope.set_vertical_scale(0.01, channel=1)
+        scope.single()
+        voltages = scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"]
+        assert (min(voltages), max(voltages)) == (-0.04, 0.04)
+        assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(0.08)
+
+        scope.set_vertical_offset(0.5, channel=1)
+        scope.single()
+        assert scope.measure(ScopeMeasurementType.VMIN, channel=1).latest == pytest.approx(0.46)
+        assert scope.measure(ScopeMeasurementType.VMAX, channel=1).latest == pytest.approx(0.54)
+
+
+def test_zero_frequency_sine_and_square_both_sit_at_their_offset() -> None:
+    signals = {1: SineWave(frequency=0, offset=0.25), 2: SquareWave(frequency=0, offset=0.25)}
+    with InstroScope(name="scope", driver=VirtualScope(num_channels=2, signals=signals), num_channels=2) as scope:
+        scope.single()
+        for channel in (1, 2):
+            assert scope.measure(ScopeMeasurementType.VAVG, channel=channel).latest == pytest.approx(0.25, abs=0.01)
+            assert math.isnan(scope.measure(ScopeMeasurementType.FREQUENCY, channel=channel).latest)
+
+
 def test_stopped_scope_holds_its_capture_and_running_scope_refreshes() -> None:
     driver = VirtualScope(num_channels=1)
     with InstroScope(name="scope", driver=driver, num_channels=1) as scope:
@@ -96,6 +131,12 @@ def test_rejects_invalid_signals_settings_and_channels() -> None:
     driver = VirtualScope(num_channels=2)
     with pytest.raises(ValueError, match="probe attenuation must be positive"):
         driver.set_probe_attenuation(0.0, channel=1)
+    with pytest.raises(ValueError, match="vertical scale must be positive and finite"):
+        driver.set_vertical_scale(float("nan"), channel=1)
+    with pytest.raises(ValueError, match="horizontal scale must be positive and finite"):
+        driver.set_horizontal_scale(float("inf"))
+    with pytest.raises(ValueError, match="trigger level must be finite"):
+        driver.set_trigger_level(float("nan"))
     with pytest.raises(ValueError, match="channels 1 to 2, got 3"):
         driver.fetch_waveform(channel=3)
 

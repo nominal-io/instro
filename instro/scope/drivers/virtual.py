@@ -23,6 +23,9 @@ from instro.scope.types import (
 
 _RECORD_LENGTH = 1000
 _HORIZONTAL_DIVS = 10
+_VERTICAL_DIVS = 8
+# a window spanning more cycles than this is measured over this many, so slow timebases don't alias
+_MEASURED_CYCLES = 10
 # noise standard deviation, in vertical divisions, before averaging
 _NOISE_DIVS = 0.01
 
@@ -63,6 +66,7 @@ class SquareWave:
     """A 50% duty-cycle square wave at a `VirtualScope` channel's probe tip.
 
     Each cycle starts with a rising edge from ``offset - amplitude`` to ``offset + amplitude``.
+    At 0 Hz it sits at ``offset``, as a 0 Hz `SineWave` does.
 
     Attributes:
         frequency (float): Frequency in Hz, not negative. 0 gives a DC level.
@@ -84,7 +88,7 @@ class SquareWave:
     def _at(self, t: float) -> float:
         """Voltage about the offset at signal time ``t``, in seconds."""
         if self.frequency == 0:
-            return self.amplitude
+            return 0.0
         return self.amplitude if (self.frequency * t) % 1 < 0.5 else -self.amplitude
 
     def _trigger_phase(self, level: float, slope: TriggerSlope) -> float:
@@ -117,6 +121,13 @@ class _Trigger:
     mode: TriggerMode = TriggerMode.AUTO
 
 
+@dataclass(frozen=True)
+class _Capture:
+    waveform: WaveformData
+    measured: list[float]
+    signal: Signal
+
+
 @dataclass
 class _Settings:
     channels: dict[int, _Channel] = field(default_factory=dict)
@@ -135,13 +146,18 @@ class VirtualScope(ScopeDriverBase):
     trigger source crosses the trigger level on the configured slope. A sine whose peaks miss the
     level aligns to its nearest peak; a square triggers on its edges at any level. Gaussian noise
     of 0.01 division is added, reduced by the square root of the average count in ``AVERAGE``
-    mode, and AC coupling removes the signal's offset.
+    mode, and AC coupling removes the signal's offset. Like an ADC, a capture clips at the screen
+    edges: the vertical offset is the voltage at screen center, and the screen spans 4 divisions
+    of the vertical scale above and below it.
 
     While running, every fetch and measurement reads a fresh capture. ``stop``, ``single``, and
     ``digitize`` capture every channel at once, as a real acquisition does, and later fetches and
     measurements read that capture until the scope runs again, whatever settings or signals
-    change meanwhile. Voltage measurements are computed from the capture; frequency, period, and
-    duty cycle come from the signal it was taken from. Every setting reads back as set.
+    change meanwhile. Voltage measurements come from the same acquisition, clipped the same way,
+    but sampled at 100 points per cycle over at most 10 cycles, so a slow timebase reads the
+    signal's true levels, as a real scope's full-resolution record does, even when the 1000
+    fetched points alias. Frequency, period, and duty cycle come from the signal the capture was
+    taken from. Every setting reads back as set.
 
     It simulates driving a scope from a script or notebook, so it has no screen or storage:
     `save_screenshot`, `save_settings`, and `load_settings` raise ``NotImplementedError``.
@@ -182,7 +198,7 @@ class VirtualScope(ScopeDriverBase):
             self.set_signal(signal, channel)
         self._settings = _Settings(channels={channel: _Channel() for channel in self._channel_numbers()})
         self._state = AcquisitionState.RUNNING
-        self._captures: dict[int, tuple[WaveformData, Signal]] = {}
+        self._captures: dict[int, _Capture] = {}
 
     def set_signal(self, signal: Signal, channel: int) -> None:
         """Set the signal ``channel`` sees; a stopped scope keeps showing its last capture.
@@ -209,20 +225,19 @@ class VirtualScope(ScopeDriverBase):
         """Nothing to disconnect."""
 
     def check_errors(self) -> None:
-        """No error queue; invalid settings raise ``ValueError`` when set."""
+        """No error queue; invalid settings, including NaN or infinite values, raise ``ValueError`` when set."""
 
     # --- Channel vertical settings ---
 
     def set_vertical_scale(self, volts_per_div: float, channel: int) -> None:
-        if volts_per_div <= 0:
-            raise ValueError(f"vertical scale must be positive, got {volts_per_div}")
-        self._channel(channel).vertical_scale = volts_per_div
+        self._channel(channel).vertical_scale = _check_positive("vertical scale", volts_per_div)
 
     def get_vertical_scale(self, channel: int) -> float:
         return self._channel(channel).vertical_scale
 
     def set_vertical_offset(self, offset: float, channel: int) -> None:
-        self._channel(channel).vertical_offset = offset
+        """Set the voltage at screen center; captures clip 4 divisions above and below it."""
+        self._channel(channel).vertical_offset = _check_finite("vertical offset", offset)
 
     def get_vertical_offset(self, channel: int) -> float:
         return self._channel(channel).vertical_offset
@@ -235,9 +250,7 @@ class VirtualScope(ScopeDriverBase):
 
     def set_probe_attenuation(self, factor: float, channel: int) -> None:
         """Accepted and read back; waveforms are already referred to the probe tip."""
-        if not factor > 0:
-            raise ValueError(f"probe attenuation must be positive, got {factor}")
-        self._channel(channel).probe_attenuation = factor
+        self._channel(channel).probe_attenuation = _check_positive("probe attenuation", factor)
 
     def get_probe_attenuation(self, channel: int) -> float:
         return self._channel(channel).probe_attenuation
@@ -245,9 +258,7 @@ class VirtualScope(ScopeDriverBase):
     # --- Horizontal (timebase) settings ---
 
     def set_horizontal_scale(self, seconds_per_div: float) -> None:
-        if seconds_per_div <= 0:
-            raise ValueError(f"horizontal scale must be positive, got {seconds_per_div}")
-        self._settings.horizontal_scale = seconds_per_div
+        self._settings.horizontal_scale = _check_positive("horizontal scale", seconds_per_div)
 
     def get_horizontal_scale(self) -> float:
         return self._settings.horizontal_scale
@@ -297,14 +308,14 @@ class VirtualScope(ScopeDriverBase):
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
-        return self._acquired(channel)[0]
+        return self._acquired(channel).waveform
 
     # --- Measurements ---
 
     def measure(self, measurement_type: ScopeMeasurementType, channel: int) -> float:
         """Voltages from the capture; ``NaN`` for frequency, period, and duty cycle on a signal with no edges."""
-        waveform, signal = self._acquired(channel)
-        voltages = waveform.voltages
+        capture = self._acquired(channel)
+        voltages, signal = capture.measured, capture.signal
         has_edges = signal.frequency > 0 and signal.amplitude > 0
         match measurement_type:
             case ScopeMeasurementType.VPP:
@@ -335,7 +346,7 @@ class VirtualScope(ScopeDriverBase):
         self._settings.trigger.type = trigger_type
 
     def set_trigger_level(self, level: float) -> None:
-        self._settings.trigger.level = level
+        self._settings.trigger.level = _check_finite("trigger level", level)
 
     def set_trigger_slope(self, slope: TriggerSlope) -> None:
         """``EITHER`` aligns on the rising edge."""
@@ -380,17 +391,15 @@ class VirtualScope(ScopeDriverBase):
 
     def _acquire(self) -> None:
         """Capture every channel at once and stop, as a single acquisition does."""
-        self._captures = {
-            channel: (self._capture(channel), self._signals[channel]) for channel in self._channel_numbers()
-        }
+        self._captures = {channel: self._capture(channel) for channel in self._channel_numbers()}
         self._state = AcquisitionState.STOPPED
 
-    def _acquired(self, channel: int) -> tuple[WaveformData, Signal]:
+    def _acquired(self, channel: int) -> _Capture:
         """The capture to read: the frozen one when stopped, a fresh one while running."""
         self._check_channel(channel)
         if self._state == AcquisitionState.STOPPED:
             return self._captures[channel]
-        return self._capture(channel), self._signals[channel]
+        return self._capture(channel)
 
     def _dc_level(self, channel: int) -> float:
         return 0.0 if self._channel(channel).coupling == Coupling.AC else self._signals[channel].offset
@@ -404,17 +413,34 @@ class VirtualScope(ScopeDriverBase):
         level = trigger.level - self._dc_level(trigger.source)
         return signal._trigger_phase(level, trigger.slope) / signal.frequency
 
-    def _capture(self, channel: int) -> WaveformData:
+    def _capture(self, channel: int) -> _Capture:
         settings = self._settings
         signal = self._signals[channel]
+        window = _HORIZONTAL_DIVS * settings.horizontal_scale
+        dt = window / _RECORD_LENGTH
+        times = [(i - _RECORD_LENGTH // 2) * dt for i in range(_RECORD_LENGTH)]
+        voltages = self._sample(channel, times)
+
+        cycles = window * signal.frequency
+        if cycles <= _MEASURED_CYCLES:
+            measured = voltages
+        else:
+            span = _MEASURED_CYCLES / signal.frequency
+            measured = self._sample(channel, [i * span / _RECORD_LENGTH for i in range(_RECORD_LENGTH)])
+        return _Capture(WaveformData(times=[round(t * 1e9) for t in times], voltages=voltages), measured, signal)
+
+    def _sample(self, channel: int, times: list[float]) -> list[float]:
+        """Voltages at ``times`` (seconds from the trigger), with noise, clipped at the screen edges."""
+        settings = self._settings
+        signal = self._signals[channel]
+        vertical = self._channel(channel)
         dc_level = self._dc_level(channel)
         averages = settings.average_count if settings.acquisition_mode == AcquisitionMode.AVERAGE else 1
-        noise = _NOISE_DIVS * self._channel(channel).vertical_scale / math.sqrt(averages)
+        noise = _NOISE_DIVS * vertical.vertical_scale / math.sqrt(averages)
+        half_screen = _VERTICAL_DIVS / 2 * vertical.vertical_scale
+        low, high = vertical.vertical_offset - half_screen, vertical.vertical_offset + half_screen
         t_trigger = self._trigger_time()
-        dt = _HORIZONTAL_DIVS * settings.horizontal_scale / _RECORD_LENGTH
-        times = [(i - _RECORD_LENGTH // 2) * dt for i in range(_RECORD_LENGTH)]
-        voltages = [dc_level + signal._at(t + t_trigger) + random.gauss(0.0, noise) for t in times]
-        return WaveformData(times=[round(t * 1e9) for t in times], voltages=voltages)
+        return [min(high, max(low, dc_level + signal._at(t + t_trigger) + random.gauss(0.0, noise))) for t in times]
 
 
 def _check_signal(frequency: float, amplitude: float, offset: float) -> None:
@@ -424,3 +450,15 @@ def _check_signal(frequency: float, amplitude: float, offset: float) -> None:
         raise ValueError(f"amplitude must be finite and not negative, got {amplitude}")
     if not math.isfinite(offset):
         raise ValueError(f"offset must be finite, got {offset}")
+
+
+def _check_positive(name: str, value: float) -> float:
+    if not 0 < value < math.inf:
+        raise ValueError(f"{name} must be positive and finite, got {value}")
+    return value
+
+
+def _check_finite(name: str, value: float) -> float:
+    if not math.isfinite(value):
+        raise ValueError(f"{name} must be finite, got {value}")
+    return value

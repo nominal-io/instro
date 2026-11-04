@@ -149,7 +149,7 @@ Where `bench_scope.json` contains:
 }
 ```
 
-To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualScope", "num_channels": 4}`. Odd channels see a 1 kHz sine and even channels a 1 kHz square; an optional `signals` map sets a channel's own, as in `"signals": {"1": {"shape": "square", "frequency": 2000, "amplitude": 0.5}}`.
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualScope", "num_channels": 4}`. Odd channels see a 1 kHz sine and even channels a 1 kHz square; an optional `signals` map sets a channel's own, as in `"signals": {"1": {"shape": "square", "frequency": 2000, "amplitude": 0.5}}`. As on a real scope, a capture clips at the screen edges, so set each channel's `vertical_scale` and `vertical_offset` to fit its signal.
 
 ### Measurements
 
