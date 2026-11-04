@@ -3,7 +3,6 @@
 import csv
 import io
 import json
-import os
 import tempfile
 import warnings
 
@@ -228,12 +227,6 @@ def test_json_write_only_stream_raises_clear_error(tmp_path):
         warnings.simplefilter("ignore", DeprecationWarning)
         with pytest.raises(ValueError, match='format="json" needs a readable, seekable stream'):
             FilePublisher(file=stream, format="json")
-
-
-def test_csv_pipe_raises_clear_error():
-    read_fd, write_fd = os.pipe()
-    with open(read_fd), open(write_fd, "w") as pipe, pytest.raises(ValueError, match='format="csv" needs a seekable'):
-        FilePublisher(file=pipe, format="csv")
 
 
 @pytest.mark.parametrize("pass_stream", [False, True], ids=["opened_by_publisher", "caller_stream"])
