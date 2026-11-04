@@ -40,7 +40,8 @@ class SineWave:
         offset (float): DC offset in volts.
 
     Raises:
-        ValueError: ``frequency`` or ``amplitude`` is negative or not finite.
+        ValueError: ``frequency`` or ``amplitude`` is negative or not finite, or ``offset`` is not
+            finite.
     """
 
     frequency: float = 1e3
@@ -48,7 +49,7 @@ class SineWave:
     offset: float = 0.0
 
     def __post_init__(self) -> None:
-        """Reject a negative or non-finite frequency or amplitude."""
+        """Reject a negative or non-finite frequency or amplitude, or a non-finite offset."""
         _check_signal(self.frequency, self.amplitude, self.offset)
 
     def _at(self, t: float) -> float:
@@ -74,7 +75,8 @@ class SquareWave:
         offset (float): DC offset in volts.
 
     Raises:
-        ValueError: ``frequency`` or ``amplitude`` is negative or not finite.
+        ValueError: ``frequency`` or ``amplitude`` is negative or not finite, or ``offset`` is not
+            finite.
     """
 
     frequency: float = 1e3
@@ -82,7 +84,7 @@ class SquareWave:
     offset: float = 0.0
 
     def __post_init__(self) -> None:
-        """Reject a negative or non-finite frequency or amplitude."""
+        """Reject a negative or non-finite frequency or amplitude, or a non-finite offset."""
         _check_signal(self.frequency, self.amplitude, self.offset)
 
     def _at(self, t: float) -> float:
@@ -199,6 +201,7 @@ class VirtualScope(ScopeDriverBase):
         self._settings = _Settings(channels={channel: _Channel() for channel in self._channel_numbers()})
         self._state = AcquisitionState.RUNNING
         self._captures: dict[int, _Capture] = {}
+        self._single_pending = False
 
     def set_signal(self, signal: Signal, channel: int) -> None:
         """Set the signal ``channel`` sees; a stopped scope keeps showing its last capture.
@@ -287,20 +290,30 @@ class VirtualScope(ScopeDriverBase):
     def run(self) -> None:
         """Free-run: every fetch and measurement reads a fresh capture."""
         self._captures.clear()
+        self._single_pending = False
         self._state = AcquisitionState.RUNNING
 
     def stop(self) -> None:
         """Freeze every channel's capture for later fetches and measurements; a stopped scope keeps its own."""
+        self._single_pending = False
         if self._state == AcquisitionState.RUNNING:
             self._acquire()
 
     def single(self) -> None:
         """Capture every channel at once and stop; the simulated signal always triggers."""
         self._acquire()
+        self._single_pending = True
 
     def digitize(self, timeout: float) -> None:
-        """Take one capture and stop; never times out, since the simulated signal always triggers."""
-        self.single()
+        """Take one capture and stop; never times out, since the simulated signal always triggers.
+
+        Right after `single`, completes that shot instead of taking another: `InstroScope` calls
+        ``digitize`` on the first read after ``single`` to wait for the armed shot.
+        """
+        if self._single_pending:
+            self._single_pending = False
+        else:
+            self._acquire()
 
     def get_acquisition_state(self) -> AcquisitionState:
         return self._state
@@ -308,7 +321,9 @@ class VirtualScope(ScopeDriverBase):
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
-        return self._acquired(channel).waveform
+        """A copy of the capture, so editing the returned samples leaves later reads unchanged."""
+        waveform = self._acquired(channel).waveform
+        return WaveformData(times=waveform.times.copy(), voltages=waveform.voltages.copy())
 
     # --- Measurements ---
 

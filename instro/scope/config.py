@@ -162,6 +162,13 @@ class VirtualDriverConfig(BaseModel):
         description="Signal per 1-based channel; channels left out see a sine on odd channels, a square on even.",
     )
 
+    @model_validator(mode="after")
+    def _signals_within_num_channels(self) -> VirtualDriverConfig:
+        out_of_range = sorted(ch for ch in self.signals if not 1 <= ch <= self.num_channels)
+        if out_of_range:
+            raise ValueError(f"signals {out_of_range} are outside 1..{self.num_channels} (num_channels)")
+        return self
+
 
 class ScopeConfig(BaseModel):
     """Validated config for constructing an InstroScope from JSON."""

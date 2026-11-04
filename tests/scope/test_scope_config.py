@@ -344,6 +344,17 @@ def test_init_with_virtual_driver_config_sets_channel_signals():
         assert scope.measure(ScopeMeasurementType.VRMS, channel=2).latest == pytest.approx(1.0, rel=0.02)
 
 
+def test_init_with_virtual_driver_config_signal_out_of_range_raises():
+    driver = {
+        "connection_type": "virtual",
+        "name": "VirtualScope",
+        "num_channels": 2,
+        "signals": {"5": {"shape": "sine"}},
+    }
+    with pytest.raises(Exception, match=r"signals \[5\] are outside 1..2"):
+        InstroScope(config={"device": {"name": "scope"}, "driver": driver})
+
+
 def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
     driver = {**valid_config["driver"], "name": "VirtualScope"}
     with pytest.raises(Exception, match='VirtualScope has no connection; use {"connection_type": "virtual"'):

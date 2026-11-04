@@ -120,6 +120,19 @@ def test_stopped_scope_holds_its_capture_and_running_scope_refreshes() -> None:
         assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(0.2, rel=0.1)
 
 
+def test_single_shot_survives_changes_before_the_first_read() -> None:
+    driver = VirtualScope(num_channels=1)
+    with InstroScope(name="scope", driver=driver, num_channels=1) as scope:
+        scope.single()
+        driver.set_signal(SineWave(amplitude=0.1), channel=1)
+        waveform = scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"]
+        assert max(waveform) - min(waveform) == pytest.approx(2.0, rel=0.05)
+
+        waveform[:] = [0.0] * len(waveform)
+        assert scope.fetch_waveform(channel=1).channel_data["scope.ch1.waveform"] != waveform
+        assert scope.measure(ScopeMeasurementType.VPP, channel=1).latest == pytest.approx(2.0, rel=0.05)
+
+
 def test_rejects_invalid_signals_settings_and_channels() -> None:
     with pytest.raises(ValueError, match="frequency must be finite and not negative"):
         SineWave(frequency=-1.0)
