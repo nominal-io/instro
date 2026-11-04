@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import random
 from collections.abc import Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TypeAlias
 
 from instro.scope import ScopeDriverBase
@@ -114,29 +114,11 @@ class _Channel:
     probe_attenuation: float = 1.0
 
 
-@dataclass
-class _Trigger:
-    source: int = 1
-    type: TriggerType = TriggerType.EDGE
-    level: float = 0.0
-    slope: TriggerSlope = TriggerSlope.RISING
-    mode: TriggerMode = TriggerMode.AUTO
-
-
 @dataclass(frozen=True)
 class _Capture:
     waveform: WaveformData
     measured: list[float]
     signal: Signal
-
-
-@dataclass
-class _Settings:
-    channels: dict[int, _Channel] = field(default_factory=dict)
-    horizontal_scale: float = 200e-6
-    acquisition_mode: AcquisitionMode = AcquisitionMode.NORMAL
-    average_count: int = 16
-    trigger: _Trigger = field(default_factory=_Trigger)
 
 
 class VirtualScope(ScopeDriverBase):
@@ -198,9 +180,16 @@ class VirtualScope(ScopeDriverBase):
         self._signals: dict[int, Signal] = {channel: _default_signal(channel) for channel in self._channel_numbers()}
         for channel, signal in (signals or {}).items():
             self.set_signal(signal, channel)
-        self._settings = _Settings(channels={channel: _Channel() for channel in self._channel_numbers()})
+        self._channels = {channel: _Channel() for channel in self._channel_numbers()}
+        self._horizontal_scale = 200e-6
+        self._acquisition_mode = AcquisitionMode.NORMAL
+        self._average_count = 16
+        self._trigger_source = 1
+        self._trigger_level = 0.0
+        self._trigger_slope = TriggerSlope.RISING
         self._state = AcquisitionState.RUNNING
         self._captures: dict[int, _Capture] = {}
+        # works around InstroScope calling digitize() on the first read after single() (#716)
         self._single_pending = False
 
     def set_signal(self, signal: Signal, channel: int) -> None:
@@ -261,31 +250,31 @@ class VirtualScope(ScopeDriverBase):
     # --- Horizontal (timebase) settings ---
 
     def set_horizontal_scale(self, seconds_per_div: float) -> None:
-        self._settings.horizontal_scale = _check_positive("horizontal scale", seconds_per_div)
+        self._horizontal_scale = _check_positive("horizontal scale", seconds_per_div)
 
     def get_horizontal_scale(self) -> float:
-        return self._settings.horizontal_scale
+        return self._horizontal_scale
 
     def get_sample_rate(self) -> float:
         """1000 points across the 10-division window."""
-        return _RECORD_LENGTH / (_HORIZONTAL_DIVS * self._settings.horizontal_scale)
+        return _RECORD_LENGTH / (_HORIZONTAL_DIVS * self._horizontal_scale)
 
     # --- Acquisition ---
 
     def set_acquisition_mode(self, mode: AcquisitionMode) -> None:
         """Accept any mode; only ``AVERAGE`` changes the capture, by reducing its noise."""
-        self._settings.acquisition_mode = mode
+        self._acquisition_mode = mode
 
     def get_acquisition_mode(self) -> AcquisitionMode:
-        return self._settings.acquisition_mode
+        return self._acquisition_mode
 
     def set_average_count(self, count: int) -> None:
         if count < 1:
             raise ValueError(f"average count must be at least 1, got {count}")
-        self._settings.average_count = count
+        self._average_count = count
 
     def get_average_count(self) -> int:
-        return self._settings.average_count
+        return self._average_count
 
     def run(self) -> None:
         """Free-run: every fetch and measurement reads a fresh capture."""
@@ -307,8 +296,8 @@ class VirtualScope(ScopeDriverBase):
     def digitize(self, timeout: float) -> None:
         """Take one capture and stop; never times out, since the simulated signal always triggers.
 
-        Right after `single`, completes that shot instead of taking another: `InstroScope` calls
-        ``digitize`` on the first read after ``single`` to wait for the armed shot.
+        Right after `single`, keeps that shot instead of taking another, to work around an
+        `InstroScope` bug (#716).
         """
         if self._single_pending:
             self._single_pending = False
@@ -354,22 +343,20 @@ class VirtualScope(ScopeDriverBase):
 
     def set_trigger_source(self, channel: int) -> None:
         self._check_channel(channel)
-        self._settings.trigger.source = channel
+        self._trigger_source = channel
 
     def set_trigger_type(self, trigger_type: TriggerType) -> None:
         """Accept any type; captures align as an edge trigger."""
-        self._settings.trigger.type = trigger_type
 
     def set_trigger_level(self, level: float) -> None:
-        self._settings.trigger.level = _check_finite("trigger level", level)
+        self._trigger_level = _check_finite("trigger level", level)
 
     def set_trigger_slope(self, slope: TriggerSlope) -> None:
         """``EITHER`` aligns on the rising edge."""
-        self._settings.trigger.slope = slope
+        self._trigger_slope = slope
 
     def set_trigger_mode(self, mode: TriggerMode) -> None:
         """Accept either mode; the simulated signal always triggers."""
-        self._settings.trigger.mode = mode
 
     def force_trigger(self) -> None:
         """Nothing to force: the simulated signal always triggers."""
@@ -402,7 +389,7 @@ class VirtualScope(ScopeDriverBase):
 
     def _channel(self, channel: int) -> _Channel:
         self._check_channel(channel)
-        return self._settings.channels[channel]
+        return self._channels[channel]
 
     def _acquire(self) -> None:
         """Capture every channel at once and stop, as a single acquisition does."""
@@ -421,17 +408,15 @@ class VirtualScope(ScopeDriverBase):
 
     def _trigger_time(self) -> float:
         """Signal time, in seconds, at which the trigger source crosses the trigger level."""
-        trigger = self._settings.trigger
-        signal = self._signals[trigger.source]
+        signal = self._signals[self._trigger_source]
         if signal.frequency <= 0 or signal.amplitude <= 0:
             return 0.0
-        level = trigger.level - self._dc_level(trigger.source)
-        return signal._trigger_phase(level, trigger.slope) / signal.frequency
+        level = self._trigger_level - self._dc_level(self._trigger_source)
+        return signal._trigger_phase(level, self._trigger_slope) / signal.frequency
 
     def _capture(self, channel: int) -> _Capture:
-        settings = self._settings
         signal = self._signals[channel]
-        window = _HORIZONTAL_DIVS * settings.horizontal_scale
+        window = _HORIZONTAL_DIVS * self._horizontal_scale
         dt = window / _RECORD_LENGTH
         times = [(i - _RECORD_LENGTH // 2) * dt for i in range(_RECORD_LENGTH)]
         voltages = self._sample(channel, times)
@@ -446,11 +431,10 @@ class VirtualScope(ScopeDriverBase):
 
     def _sample(self, channel: int, times: list[float]) -> list[float]:
         """Voltages at ``times`` (seconds from the trigger), with noise, clipped at the screen edges."""
-        settings = self._settings
         signal = self._signals[channel]
         vertical = self._channel(channel)
         dc_level = self._dc_level(channel)
-        averages = settings.average_count if settings.acquisition_mode == AcquisitionMode.AVERAGE else 1
+        averages = self._average_count if self._acquisition_mode == AcquisitionMode.AVERAGE else 1
         noise = _NOISE_DIVS * vertical.vertical_scale / math.sqrt(averages)
         half_screen = _VERTICAL_DIVS / 2 * vertical.vertical_scale
         low, high = vertical.vertical_offset - half_screen, vertical.vertical_offset + half_screen
