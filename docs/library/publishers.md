@@ -80,13 +80,31 @@ Sends measurement and command data to [Nominal Core](https://nominal.io/products
 
 ```python
 NominalCorePublisher(
-    dataset_rid: str,              # Required: RID of your Nominal Core dataset
-    batch_size: int | None = None, # Optional: Batch size before writing
+    dataset_rid: str | None = None,  # RID of your Nominal dataset (or pass dataset=)
+    batch_size: int | None = None,   # Optional: Batch size before writing
     max_wait: timedelta | None = None,  # Optional: Max time before flush
     file_fallback: pathlib.Path | None = None,  # Optional: Path of fallback file (.avro) used if network connectivity is lost.
-    profile: str | None = None,    # Optional: Nominal profile name
-    api_key: str | None = None     # Optional: API key for authentication
+    profile: str | None = None,      # Optional: Nominal profile name, "default" when omitted
+    api_key: str | None = None,      # Optional: API key for authentication
+    *,
+    dataset: Dataset | None = None,  # Optional: an already-fetched nominal.core.Dataset, instead of dataset_rid
+    client: NominalClient | None = None,  # Optional: an existing NominalClient, instead of profile or api_key
+    base_url: str | None = None,     # Optional: API base URL to use with api_key
 )
+```
+
+Pass exactly one of `dataset_rid` and `dataset`. Credentials come from `client`, `api_key` (with `base_url`), or the on-disk `profile`, and combining them raises `ValueError`.
+
+After construction, `dataset`, `dataset_rid`, `client`, `profile`, `batch_size`, `max_wait`, `file_fallback`, `write_stream` and `closed` are public attributes. The API key is not stored.
+
+**Reusing a client:**
+
+```python
+from nominal.core import NominalClient
+from instro.lib.publishers import NominalCorePublisher
+
+client = NominalClient.from_profile("staging")
+publisher = NominalCorePublisher(dataset=client.get_dataset("ri.catalog.main.dataset.abc123"))
 ```
 
 **Example:**
@@ -106,14 +124,16 @@ daq = InstroDAQ(
 ```
 
 :::{note}
-A shorthand method to add publishing to Nominal Core is to directly pass in a `dataset_rid` kwarg. This requires a default profile to have been configured on the system.
+As a shorthand, pass `dataset_rid` to the instrument to create a `NominalCorePublisher`. It uses the `default` profile, unless you also pass `nominal_profile="<name>"` or an existing `nominal_client=`.
 ```py
 daq = InstroDAQ(
     name="myDAQ",
     driver=LabJackTSeriesDriver(device_id="440020473"),
     dataset_rid="ri.catalog...",  # Automatically creates NominalCorePublisher
+    nominal_profile="staging",    # Optional: on-disk profile to use instead of "default"
 )
 ```
+`dataset_rid`, `nominal_profile` and `nominal_client` are not added as default tags.
 :::
 
 :::{note}

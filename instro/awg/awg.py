@@ -30,6 +30,7 @@ from instro.awg.types import (
     Waveform,
     convert_amplitude,
 )
+from instro.lib import _display
 from instro.lib.config import load_config
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -388,6 +389,9 @@ class InstroAWG(Instrument):
             )
 
         super().start()
+
+    def _display_fields(self) -> list[tuple[str, str | None]]:
+        return [("Channel count", _display.escape(self._num_channels))]
 
     def open(self) -> None:
         """Open the underlying driver and apply any configured channel state."""
