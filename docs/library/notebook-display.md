@@ -26,13 +26,15 @@ An instrument's card shows:
 
 - its driver, and category details such as the channel count
 - the background daemon: whether it runs, its interval, and the last loop time
-- its publishers, with a link to the Nominal dataset each one writes to
-- the latest value of every channel, once `start()` has been called
+- its publishers, each with its sent and error counts and a link to the Nominal dataset it writes to (see [publisher errors and stats](/library/publishers.md#publisher-errors-and-stats))
+- every channel published so far, commands included, with its latest value, rate, sample count and time
 - its default tags
 
 A card shows only what `instro` already holds in memory, so displaying an instrument is safe while the background daemon runs.
 
 Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card shows the dataset with an **Open in Nominal** link, its RID with a copy button, where the credentials came from, and the stream settings. It never shows an API key.
+
+The [example notebook](https://github.com/nominal-io/instro/blob/main/examples/notebooks/notebook_display.md) shows each card and needs no hardware or Nominal credentials. From a clone of the repository, `just notebook` opens it in JupyterLab: open `notebook_display.md` with **Open With → Jupytext Notebook**.
 
 ## Display options
 
