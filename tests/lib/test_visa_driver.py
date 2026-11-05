@@ -38,6 +38,7 @@ def _make_config(
     terminator: TerminatorConfig | None = None,
     timeout: TimeoutConfig | None = None,
     tcp_nodelay: bool = True,
+    query_delay: float = 0.0,
 ) -> VisaConfig:
     kwargs = {} if visa_backend is None else {"visa_backend": visa_backend}
     return VisaConfig(
@@ -46,6 +47,7 @@ def _make_config(
         terminator=terminator or TerminatorConfig(read="\n", write="\r\n"),
         timeout=timeout or TimeoutConfig(connect=30, recv=15, send=15),
         tcp_nodelay=tcp_nodelay,
+        query_delay=query_delay,
         **kwargs,
     )
 
@@ -109,6 +111,7 @@ def test_open_creates_resource_and_applies_config(mock_pyvisa):
     cfg = _make_config(
         terminator=TerminatorConfig(read="\r", write="\n"),
         timeout=TimeoutConfig(connect=10, recv=20, send=5),
+        query_delay=0.25,
     )
     driver = _make_driver(cfg)
 
@@ -120,6 +123,7 @@ def test_open_creates_resource_and_applies_config(mock_pyvisa):
     assert resource.read_termination == "\r"
     assert resource.write_termination == "\n"
     assert resource.timeout == 20 * 1000
+    assert resource.query_delay == 0.25
 
 
 def test_open_is_idempotent(mock_pyvisa):
@@ -503,6 +507,21 @@ def test_query_raw_writes_command_and_returns_raw_bytes(mock_pyvisa):
     resource.write.assert_called_once_with("CURVe?")
     resource.read_raw.assert_called_once()
     resource.query.assert_not_called()
+
+
+def test_query_raw_waits_query_delay_between_write_and_read(mock_pyvisa):
+    """query_raw bypasses pyvisa's query, so it must apply the configured delay itself."""
+    _, _, resource = mock_pyvisa
+    events: list[str] = []
+    resource.write.side_effect = lambda command: events.append("write")
+    resource.read_raw.side_effect = lambda: events.append("read") or b"#14data"
+    driver = _make_driver(_make_config(query_delay=0.25))
+    driver.open()
+
+    with patch("instro.lib.transports.visa.time.sleep", side_effect=lambda s: events.append(f"sleep {s}")):
+        assert driver.query_raw("CURVe?") == b"#14data"
+
+    assert events == ["write", "sleep 0.25", "read"]
 
 
 def test_lock_allows_same_thread_reentry(mock_pyvisa):
