@@ -26,4 +26,4 @@ scope = InstroScope(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keysight1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keysight1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>` can be found in the [Reference](/ref/index.md).

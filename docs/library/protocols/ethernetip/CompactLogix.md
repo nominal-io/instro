@@ -56,4 +56,4 @@ with EtherNetIPDevice(config="compactlogix.json", autostart=True) as plc:
     time.sleep(10)
 ```
 
-Parameters and methods specific to {py:obj}`EtherNetIPDevice <instro.ethernetip.EtherNetIPDevice>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`EtherNetIPDevice <instro.ethernetip.EtherNetIPDevice>` can be found in the [Reference](/ref/index.md).

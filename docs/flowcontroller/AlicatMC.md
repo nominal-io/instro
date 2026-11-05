@@ -33,4 +33,4 @@ fc = InstroFlowController(
 )
 ```
 
-Parameters and methods specific to {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` can be found in the [Reference](/ref/index.md).

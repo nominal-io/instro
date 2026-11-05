@@ -25,4 +25,4 @@ dmm = InstroDMM(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keysight34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keysight34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>` can be found in the [Reference](/ref/index.md).

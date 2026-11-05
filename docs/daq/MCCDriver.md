@@ -23,4 +23,4 @@ from instro.daq.drivers.mcc import MCCDriver
 daq = InstroDAQ(name="mccDAQ", driver=MCCDriver(device_id="344371:0"))
 ```
 
-Parameters and methods specific to {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>` can be found in the [Reference](/ref/index.md).

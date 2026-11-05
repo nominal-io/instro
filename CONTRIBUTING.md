@@ -243,9 +243,9 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 
 | Change type | Files to update |
 |------|------|
-| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
+| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/ref/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
 | New contrib driver | "Available drivers" section of `docs/library/contrib.md` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` and any affected guide pages in `docs/`; check with `just build-docs` |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/ref/` and any affected guide pages in `docs/`; check with `just build-docs` |
 | New feature, behavior change, or new install extra | Guide pages in `docs/`; also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus the sidebar toctrees in `docs/index.md` |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and [`AGENTS.md`](./AGENTS.md) |

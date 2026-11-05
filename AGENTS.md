@@ -80,7 +80,7 @@ Docs live in this repo and ship in the same PR as the code change.
 ### Overview
 There are several kinds of docs:
 * Docstrings, in the code. They generate the API reference; style below.
-* The docs site, `docs/`: one Sphinx site with the guides (MyST Markdown in `docs/`), the examples (generated from `examples/` at build time), and the API reference (`docs/sdk/`). Build with `just build-docs` (warnings fail it, as in PR CI), preview with `just serve-docs`. Structure, conventions, and tasks: [`docs/AGENTS.md`](./docs/AGENTS.md).
+* The docs site, `docs/`: one Sphinx site with the guides (MyST Markdown in `docs/`), the examples (generated from `examples/` at build time), and the API reference (`docs/ref/`). Build with `just build-docs` (warnings fail it, as in PR CI), preview with `just serve-docs`. Structure, conventions, and tasks: [`docs/AGENTS.md`](./docs/AGENTS.md).
 
 ### Doc-string style
 All new code should have docstrings using Google format. They should have:
@@ -95,9 +95,9 @@ All new code should have docstrings using Google format. They should have:
 
 | Change type | Files to update |
 |---|---|
-| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
+| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/ref/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
 | New contrib driver | "Available drivers" section of `docs/library/contrib.md` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` (reference pages) and any affected guide pages in `docs/` |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/ref/` (reference pages) and any affected guide pages in `docs/` |
 | New feature, behavior change, or new install extra | Guide pages in `docs/`; also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus the sidebar toctrees in `docs/index.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-an-instrument-category)) |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and this file (`AGENTS.md`) |

@@ -29,4 +29,4 @@ scope = InstroScope(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keysight3000TX <instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keysight3000TX <instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX>` can be found in the [Reference](/ref/index.md).

@@ -133,57 +133,57 @@ examples/*/index
 examples/packages/*/index
 ```
 
-<!-- Reference section: API reference under sdk/ -->
+<!-- Reference section: API reference under ref/ -->
 
 ```{toctree}
 :hidden:
 :caption: Reference
 
-Overview <sdk/index>
+Overview <ref/index>
 ```
 
 ```{toctree}
 :hidden:
 :caption: Instruments
 
-sdk/instruments/index
-sdk/instruments/daq
-sdk/instruments/dmm
-sdk/instruments/psu
-sdk/instruments/eload
-sdk/instruments/scope
-sdk/instruments/flowcontroller
-sdk/instruments/i2c
-sdk/instruments/awg
-sdk/instruments/sdr
+ref/instruments/index
+ref/instruments/daq
+ref/instruments/dmm
+ref/instruments/psu
+ref/instruments/eload
+ref/instruments/scope
+ref/instruments/flowcontroller
+ref/instruments/i2c
+ref/instruments/awg
+ref/instruments/sdr
 ```
 
 ```{toctree}
 :hidden:
 :caption: Library
 
-sdk/library/instrument
-sdk/library/types
-sdk/library/config
-sdk/library/registry
-sdk/library/exceptions
-sdk/library/publishers
-sdk/library/discover
-sdk/library/transports
+ref/library/instrument
+ref/library/types
+ref/library/config
+ref/library/registry
+ref/library/exceptions
+ref/library/publishers
+ref/library/discover
+ref/library/transports
 ```
 
 ```{toctree}
 :hidden:
 :caption: Protocols
 
-sdk/protocols/index
-sdk/protocols/modbus
-sdk/protocols/ethernetip
+ref/protocols/index
+ref/protocols/modbus
+ref/protocols/ethernetip
 ```
 
 ```{toctree}
 :hidden:
 :caption: Changelog
 
-sdk/changelog
+ref/changelog
 ```

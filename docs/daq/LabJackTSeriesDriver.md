@@ -23,4 +23,4 @@ from instro.daq.drivers.labjack import LabJackTSeriesDriver
 daq = InstroDAQ(name="ljDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 ```
 
-Parameters and methods specific to {py:obj}`LabJackTSeriesDriver <instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`LabJackTSeriesDriver <instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver>` can be found in the [Reference](/ref/index.md).
