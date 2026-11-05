@@ -457,7 +457,7 @@ def test_query_returns_resource_response(mock_pyvisa):
     driver.open()
 
     assert driver.query("MEAS:VOLT?") == "5.0"
-    resource.query.assert_called_once_with("MEAS:VOLT?")
+    resource.query.assert_called_once_with("MEAS:VOLT?", None)
 
 
 def test_read_returns_resource_response(mock_pyvisa):
@@ -521,7 +521,7 @@ def test_lock_allows_same_thread_reentry(mock_pyvisa):
         call("CONF:VOLT:DC"),
         call("RANGE 10"),
     ]
-    resource.query.assert_called_once_with("READ?")
+    resource.query.assert_called_once_with("READ?", None)
 
 
 def test_per_call_lock_serializes_concurrent_write_and_query(mock_pyvisa):
@@ -541,7 +541,7 @@ def test_per_call_lock_serializes_concurrent_write_and_query(mock_pyvisa):
         return response
 
     resource.write.side_effect = lambda command: enter_call()
-    resource.query.side_effect = lambda command: enter_call("ok")
+    resource.query.side_effect = lambda command, delay=None: enter_call("ok")
     driver = _make_driver()
     driver.open()
 
