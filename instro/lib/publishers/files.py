@@ -40,11 +40,27 @@ class FileWriter(Generic[AnyStr], ABC):
         """
         if not file.writable():
             raise ValueError("FilePublisher needs a writable stream")
+        expected = "binary" if "b" in self.mode else "text"
+        if self._stream_kind(file) not in (expected, None):
+            raise ValueError(f"{type(self).__name__} needs a {expected} stream")
         self._file: IO[AnyStr] = file
 
     @abstractmethod
     def write(self, data: Measurement | Command) -> None:
         """Write one Measurement or Command to the stream."""
+
+    @staticmethod
+    def _stream_kind(file: IO[Any]) -> Literal["text", "binary"] | None:
+        """Return whether ``file`` is a text or binary stream, or None if it can't tell."""
+        if isinstance(file, io.TextIOBase):
+            return "text"
+        if isinstance(file, (io.RawIOBase, io.BufferedIOBase)):
+            return "binary"
+        # Wrappers such as tempfile.NamedTemporaryFile don't subclass io's base classes, but report a mode
+        mode = getattr(file, "mode", None)
+        if isinstance(mode, str):
+            return "binary" if "b" in mode else "text"
+        return None
 
 
 class FilePublisher:
@@ -141,8 +157,6 @@ class JsonFileWriter(FileWriter[str]):
             ValueError: If the stream is not writable or is not a text stream.
         """
         super().__init__(file)
-        if not isinstance(file, io.TextIOBase):
-            raise ValueError('JsonFileWriter needs a text stream, such as open(path, "w")')
         if self._file.tell() == 0:
             self._file.write("[]")
             self._file.flush()
@@ -192,8 +206,6 @@ class JsonlFileWriter(FileWriter[str]):
             ValueError: If the stream is not writable or is not a text stream.
         """
         super().__init__(file)
-        if not isinstance(file, io.TextIOBase):
-            raise ValueError('JsonlFileWriter needs a text stream, such as open(path, "w")')
 
     def write(self, data: Measurement | Command) -> None:
         """Append data as one JSON line, mapping non-finite floats to null."""
@@ -214,8 +226,6 @@ class CsvFileWriter(FileWriter[str]):
             ValueError: If the stream is not writable or is not a text stream.
         """
         super().__init__(file)
-        if not isinstance(file, io.TextIOBase):
-            raise ValueError('CsvFileWriter needs a text stream, such as open(path, "w")')
         self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
         if not self._file.seekable() or self._file.tell() == 0:
             self._writer.writeheader()
@@ -260,8 +270,6 @@ class AvroFileWriter(FileWriter[bytes]):
             ValueError: If the stream is not writable or is a text stream.
         """
         super().__init__(file)
-        if isinstance(file, io.TextIOBase):
-            raise ValueError('AvroFileWriter needs a binary stream, such as open(path, "wb")')
 
         # Define Schema compatible with Nominal Core
         self.schema = {
