@@ -48,9 +48,11 @@ Writes measurements and commands to a local file in Avro, CSV, or JSON Lines for
 **Constructor**
 ```py
 FilePublisher(
-    directory: str | Path,                            # Directory where the file will be written
+    directory: str | Path | None = None,              # Created if missing; defaults to ./instro-measurements
     format: Literal["json", "jsonl", "csv", "avro"] = "avro",  # Output file format
     custom_file_name: str | None = None,              # Optional base name (no extension)
+    *,
+    file: IO | None = None,                           # Open stream to write to instead of a file
 )
 ```
 
@@ -71,6 +73,8 @@ daq = InstroDAQ(
 - **`avro`** (default): Compact binary format. Uses the same schema as Nominal Core ingest, so captured files can be uploaded after the fact without transformation. Recommended for production captures.
 - **`csv`**: One row per `(timestamp, channel, value, tags)` tuple. Good for quick inspection in spreadsheet tools.
 - **`jsonl`**: Newline-delimited JSON, one record per publish. Recommended when you want human-readable output: each record is appended and flushed in constant time, and every flushed line is a complete record.
+
+**Streams:** pass an open stream as `file` instead of `directory`: binary for `avro`, text for `csv` and `jsonl` (`json` is not supported). The publisher leaves the stream open. See [Publishers: publish file stream](/examples/publishers/publish_file_stream.md).
 
 ### {py:obj}`NominalCorePublisher <instro.lib.publishers.nominal_core.NominalCorePublisher>`
 
