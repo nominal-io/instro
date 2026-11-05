@@ -26,4 +26,4 @@ scope = InstroScope(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` can be found in the [Reference](/ref/index.md).

@@ -23,4 +23,4 @@ from instro.daq.drivers.ni import NIDAQDriver
 daq = InstroDAQ(name="niDAQ", driver=NIDAQDriver(device_id="Dev1"))
 ```
 
-Parameters and methods specific to {py:obj}`NIDAQDriver <instro.daq.drivers.ni.nidaq.NIDAQDriver>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`NIDAQDriver <instro.daq.drivers.ni.nidaq.NIDAQDriver>` can be found in the [Reference](/ref/index.md).

@@ -50,4 +50,4 @@ with EtherNetIPDevice(config="line_plc.json", autostart=True) as plc:
     ...
 ```
 
-Parameters and methods specific to {py:obj}`EtherNetIPDevice <instro.ethernetip.EtherNetIPDevice>` can be found in the [Reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`EtherNetIPDevice <instro.ethernetip.EtherNetIPDevice>` can be found in the [Reference](/ref/index.md).
