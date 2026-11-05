@@ -29,4 +29,4 @@ psu = InstroPSU(
 )
 ```
 
-Parameters and methods specific to {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` can be found in the [reference](/sdk/index.md).

@@ -25,4 +25,4 @@ eload = InstroELoad(
 )
 ```
 
-Parameters and methods specific to {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` can be found in the [reference](/sdk/index.md).

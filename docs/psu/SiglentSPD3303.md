@@ -26,4 +26,4 @@ psu = InstroPSU(
 )
 ```
 
-Parameters and methods specific to {py:obj}`SiglentSPD3303 <instro.psu.drivers.siglent_spd3303.SiglentSPD3303>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`SiglentSPD3303 <instro.psu.drivers.siglent_spd3303.SiglentSPD3303>` can be found in the [reference](/sdk/index.md).

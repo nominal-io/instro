@@ -1,4 +1,4 @@
-# instro SDK
+# Reference
 
 The `instro` SDK provides a unified Python interface for controlling lab instruments,
 collecting measurements, and publishing data to [Nominal](https://nominal.io).

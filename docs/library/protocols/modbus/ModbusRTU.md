@@ -55,4 +55,4 @@ device = ModbusDevice(config="field_sensor.json")
 device.open()
 ```
 
-Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [reference](/sdk/index.md).
