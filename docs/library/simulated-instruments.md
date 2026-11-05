@@ -21,7 +21,7 @@ with InstroDMM(name="dmm", driver=VirtualDMM()) as dmm:
     print(dmm.read_dc_voltage().latest)
 ```
 
-Virtual drivers: `VirtualDMM`, `VirtualELoad`, `VirtualPSU`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}` (or `"VirtualELoad"`); a PSU also takes its channel count, as in `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2}`.
+Virtual drivers: `VirtualDMM`, `VirtualELoad`, `VirtualPSU`, `VirtualScope`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}` (or `"VirtualELoad"`); a PSU or scope also takes its channel count, as in `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2}` (or `"VirtualScope"`).
 
 ## SCPI simulators
 `instro` ships local SCPI simulators for select instrument categories, so you can develop and test without owning the physical hardware. Each simulator runs as a TCP server and pairs with a `Simulated<Category>` driver:
