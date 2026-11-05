@@ -25,4 +25,4 @@ daq = InstroDAQ(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keysight34980A <instro.daq.drivers.keysight_34980a.Keysight34980A>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keysight34980A <instro.daq.drivers.keysight_34980a.Keysight34980A>` can be found in the [Reference](/sdk/index.md).

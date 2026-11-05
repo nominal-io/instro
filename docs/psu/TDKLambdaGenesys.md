@@ -26,4 +26,4 @@ psu = InstroPSU(
 )
 ```
 
-Parameters and methods specific to {py:obj}`TDKLambdaGenesys <instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`TDKLambdaGenesys <instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys>` can be found in the [Reference](/sdk/index.md).

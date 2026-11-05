@@ -25,4 +25,4 @@ dmm = InstroDMM(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` can be found in the [Reference](/sdk/index.md).

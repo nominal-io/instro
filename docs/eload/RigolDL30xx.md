@@ -28,4 +28,4 @@ eload = InstroELoad(
 )
 ```
 
-Parameters and methods specific to {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` can be found in the [Reference](/sdk/index.md).

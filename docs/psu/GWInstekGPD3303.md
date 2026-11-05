@@ -31,4 +31,4 @@ psu = InstroPSU(
 
 The GPD-3303D has a single output switch, so `output_enable` turns every channel on or off together and `get_output_status` reports that shared state. Channel 3 (the fixed output) cannot be programmed.
 
-Parameters and methods specific to {py:obj}`GWInstekGPD3303 <instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`GWInstekGPD3303 <instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303>` can be found in the [Reference](/sdk/index.md).

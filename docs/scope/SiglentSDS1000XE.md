@@ -26,4 +26,4 @@ scope = InstroScope(
 )
 ```
 
-Parameters and methods specific to {py:obj}`SiglentSDS1000XE <instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE>` can be found in the [reference](/sdk/index.md).
+Parameters and methods specific to {py:obj}`SiglentSDS1000XE <instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE>` can be found in the [Reference](/sdk/index.md).
