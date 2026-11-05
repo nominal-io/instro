@@ -133,11 +133,11 @@ examples/*/index
 examples/packages/*/index
 ```
 
-<!-- SDK section: API reference under sdk/ -->
+<!-- Reference section: API reference under sdk/ -->
 
 ```{toctree}
 :hidden:
-:caption: SDK
+:caption: Reference
 
 Overview <sdk/index>
 ```

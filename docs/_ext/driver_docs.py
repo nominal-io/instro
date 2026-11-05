@@ -5,7 +5,7 @@ module, every name in that module's ``__all__`` (except ``*DriverBase``) must pa
 two checks:
 
 ``sdk``
-    The SDK page references the class by a dotted ``instro.`` path.
+    The category's page in ``sdk/`` (the Reference tab) references the class by a dotted ``instro.`` path.
 ``guide``
     A driver page ``<category>/<Name>.md`` exists.
 

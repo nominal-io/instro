@@ -54,4 +54,4 @@ dmm = InstroDMM(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` can be found in the [Reference](/sdk/index.md).

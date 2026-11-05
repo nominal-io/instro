@@ -36,4 +36,4 @@ transport = ModbusTCPTransport(host="192.168.1.100", port=502)
 device = ModbusDevice(config="my_device.json", connection=transport, unit_id=1)
 ```
 
-Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [Reference](/sdk/index.md).

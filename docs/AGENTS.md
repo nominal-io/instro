@@ -26,7 +26,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `examples/` | Generated at build time by `_ext/examples.py` (gitignored). Never edit. |
 | `sdk/` | API reference: category pages, library modules, protocols, changelog. |
 
-- **Sections:** the header tabs (Guides, Examples, SDK) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`sdk/`, `examples/`, else guides), from `nav_links` in `conf.py`.
+- **Sections:** the header tabs (Guides, Examples, Reference) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`sdk/`, `examples/`, else guides), from `nav_links` in `conf.py`.
 - **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/nominal-sphinx-theme); change it there, and the daily bump PR (`.github/workflows/bump-theme.yml`) takes it here. To take it now, run that workflow by hand, or run `uv lock --upgrade-package nominal-sphinx-theme` and open a PR. Keep `_static/custom.css` to instro-only styles.
 - **Hidden pages:** pages outside the sidebar set `orphan: true` in front matter. Driver pages and protocol sub-pages are orphans.
 - **Page head:** `# Title`, then an optional `{.lead}` paragraph (grey subtitle), with `myst: html_meta: description:` (and optionally `seo_title:`) in front matter for search engines; see the README's "Search engines".
@@ -40,7 +40,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 ## API pages (`sdk/`)
 
 - Each `sdk/instruments/<category>.md`: `# Title` + description; `## Instrument and Abstract Driver` (autosummary of `Instro<Category>`, `<Category>DriverBase`); `## Vendor Drivers` (hand-written Vendor / Model / Description table, Description as `` {pysummary}`<path>` ``); `## Simulated Driver` if any; `## Types & Configuration`; `---` then the Exceptions notice.
-- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary writes a gitignored stub (`instro.*.rst`) per table entry next to the SDK page that lists it, so class URLs read `/sdk/<section>/instro.psu.InstroPSU/`; `_templates/autosummary/class.rst` puts each class on one page: data types (pydantic, dataclass, enum) with their fields inline, other classes with member summary tables linking down to each member's details.
+- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary writes a gitignored stub (`instro.*.rst`) per table entry next to the Reference page that lists it, so class URLs read `/sdk/<section>/instro.psu.InstroPSU/`; `_templates/autosummary/class.rst` puts each class on one page: data types (pydantic, dataclass, enum) with their fields inline, other classes with member summary tables linking down to each member's details.
 - `conf.py`: vendor packages load from `packages/` source with native SDKs in `autodoc_mock_imports` (a new vendor package needs both); `autosummary_context["extra_methods"]` opts private methods in; a hook resolves re-exported names to their documented original, so document each object once, where defined.
 
 ## Tasks
@@ -57,7 +57,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 2. Add it to the Instruments toctree in `index.md`, and a heading plus `driver-cards` block to `instruments.md`.
 3. Add a section to `library/custom-instruments.md`, and to `library/config-files.md` if it accepts `config=`.
 4. Examples: add scripts under `examples/<category>/`; add a title and icon to `CATEGORIES` in `_ext/examples.py`.
-5. API: `sdk/instruments/<category>.md` in the layout above, added to the SDK Instruments toctree in `index.md`.
+5. API: `sdk/instruments/<category>.md` in the layout above, added to the Reference section's Instruments toctree in `index.md`.
 
 ## Terminology and style
 

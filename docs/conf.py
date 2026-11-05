@@ -115,7 +115,7 @@ driver_docs_exempt = {
     # Device class that vends the EAPSB10000VisaSource / EAPSB10000VisaSink drivers
     "psu.EAPSB10000Visa": {"sdk", "guide"},
     "eload.EAPSB10000Visa": {"sdk", "guide"},
-    # Simulators and helpers: documented on the SDK page only
+    # Simulators and helpers: documented on the Reference page only
     "psu.SimulatedPSU": {"guide"},
     "psu.VirtualPSU": {"guide"},
     "dmm.SimulatedDMM": {"guide"},
@@ -163,7 +163,7 @@ html_theme_options = theme_options(
     nav_links=[
         {"title": "Guides", "url": "index"},
         {"title": "Examples", "url": "examples/index"},
-        {"title": "SDK", "url": "sdk/index"},
+        {"title": "Reference", "url": "sdk/index"},
         {"title": "GitHub", "url": "https://github.com/nominal-io/instro"},
     ],
     # header icons, before the theme's buttons
