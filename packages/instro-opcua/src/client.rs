@@ -6,6 +6,7 @@ use std::str::FromStr;
 use std::sync::LazyLock;
 use std::time::Duration;
 
+use instro_opcua::error::OpcUaError;
 use instro_opcua::open62541::Certificate;
 use instro_opcua::open62541::PrivateKey;
 use instro_opcua::prelude::*;
@@ -20,13 +21,23 @@ use tokio::runtime::Runtime;
 
 use self::shared_rt::get_runtime;
 use crate::require_both;
+use crate::types::AccessLevelExType;
+use crate::types::AccessLevelType;
+use crate::types::AccessRestrictionType;
 use crate::types::AttributeId;
+use crate::types::AttributeWriteMask;
 use crate::types::BrowsePath;
 use crate::types::DataValue;
+use crate::types::EnumDefinition;
+use crate::types::EventNotifierType;
+use crate::types::LocalizedText;
 use crate::types::MessageSecurityMode;
+use crate::types::NodeClass;
 use crate::types::NodeId;
 use crate::types::QualifiedName;
 use crate::types::RelativePath;
+use crate::types::StructureDefinition;
+use crate::types::UaType;
 use crate::util::RuntimeExt as _;
 use crate::util::py_match;
 
@@ -233,7 +244,7 @@ impl OpcUaClient {
         private_key=None,
         ignore_server_cert=false,
         use_generated_cert=false,
-        security_mode: "typing.Literal['none', 'sign', 'signandencrypt'] | None"=None,
+        security_mode: "typing.Literal['none', 'sign', 'signandencrypt'] | types.MessageSecurityMode | None"=None,
         security_policy: "typing.Literal['none', 'basic128rsa15', 'basic256', 'basic256sha256', 'aes128sha256rsaoaep', 'aes256sha256rsapss'] | None"=None,
         timeout: "float | datetime.timedelta | None"=None,
     ))]
@@ -297,7 +308,7 @@ impl OpcUaClient {
 
         if let Some(security_mode) = security_mode {
             let security_mode = security_mode.extract::<MessageSecurityMode>()?;
-            builder = builder.with_security_mode(security_mode.as_ua());
+            builder = builder.with_security_mode(security_mode.into());
         }
 
         if let Some(security_policy) = security_policy {
@@ -325,7 +336,7 @@ impl OpcUaClient {
 
     #[pyo3(signature = (
         on_data: "typing.Callable[[list[tuple[NodeId, DataValue]]], None]",
-        nodes,
+        nodes: "Sequence[types.NodeId | types.RelativePath | str]",
         freq_hz,
         bg_poll_freq_hz=None,
         lifetime_count=None,
@@ -733,12 +744,12 @@ impl Node {
         })?
     }
 
-    #[pyo3(name = "get_attribute")]
+    #[pyo3(name = "get_attribute", signature = (attr: "types.AttributeId | int | str") -> "types.DataValue")]
     pub fn get_attribute_py(&self, py: Python<'_>, attr: AttributeId) -> PyResult<DataValue> {
         self.client.rt.unblock_on(py, async {
             let result = self
                 .client
-                .read_node(&self.node_id, &attr.as_ua())
+                .read_node(&self.node_id, attr.as_ua_ref())
                 .await
                 .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))?;
 
@@ -747,29 +758,134 @@ impl Node {
     }
 
     #[getter]
-    pub fn value(&self, py: Python<'_>) -> PyResult<DataValue> {
-        self.get_attribute_py(py, AttributeId::VALUE)
+    pub fn value(&self, py: Python<'_>) -> PyResult<Option<DataValue>> {
+        Ok(
+            self.get_attribute(py, ua::AttributeId::VALUE_T)?
+                .map(DataValue::new)
+        )
     }
 
-    #[getter]
-    pub fn display_name(&self, py: Python<'_>) -> PyResult<String> {
-        self.get_attribute(py, ua::AttributeId::DISPLAYNAME_T)
-            .and_then(normalize_data_value)
-            .map(|text| text.text().to_string())
-    }
+    // ====== REQUIRED ATTRIBUTES ======
+    // Servers are required to support these attributes, per the spec
 
     #[getter]
-    pub fn description(&self, py: Python<'_>) -> PyResult<String> {
-        self.get_attribute(py, ua::AttributeId::DESCRIPTION_T)
-            .and_then(normalize_data_value)
-            .map(|text| text.text().to_string())
+    pub fn display_name(&self, py: Python<'_>) -> PyResult<LocalizedText> {
+        self.get_mapped_attribute(py, ua::AttributeId::DISPLAYNAME_T)?
+            .ok_or_else(|| PyRuntimeError::new_err("server didn't respond with a display name"))
     }
 
     #[getter]
     pub fn browse_name(&self, py: Python<'_>) -> PyResult<QualifiedName> {
-        self.get_attribute(py, ua::AttributeId::BROWSENAME_T)
+        self.get_mapped_attribute(py, ua::AttributeId::BROWSENAME_T)?
+            .ok_or_else(|| PyRuntimeError::new_err("server didn't respond with a browse name"))
+    }
+
+    #[getter]
+    pub fn node_class(&self, py: Python<'_>) -> PyResult<NodeClass> {
+        self.get_mapped_attribute(py, ua::AttributeId::NODECLASS_T)?
+            .ok_or_else(|| PyRuntimeError::new_err("server didn't respond with a node class"))
+    }
+
+    // ====== OPTIONAL ATTRIBUTES ======
+    // These are optional/node class-specific attributes
+
+    #[getter]
+    pub fn description(&self, py: Python<'_>) -> PyResult<Option<LocalizedText>> {
+        self.get_mapped_attribute(py, ua::AttributeId::DESCRIPTION_T)
+    }
+
+    #[getter]
+    pub fn write_mask(&self, py: Python<'_>) -> PyResult<Option<AttributeWriteMask>> {
+        self.get_mapped_attribute(py, ua::AttributeId::WRITEMASK_T)
+    }
+
+    #[getter]
+    pub fn user_write_mask(&self, py: Python<'_>) -> PyResult<Option<AttributeWriteMask>> {
+        self.get_mapped_attribute(py, ua::AttributeId::USERWRITEMASK_T)
+    }
+
+    #[getter]
+    pub fn is_abstract(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::ISABSTRACT_T)
+    }
+
+    #[getter]
+    pub fn symmetric(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::SYMMETRIC_T)
+    }
+
+    #[getter]
+    pub fn inverse_name(&self, py: Python<'_>) -> PyResult<Option<LocalizedText>> {
+        self.get_mapped_attribute(py, ua::AttributeId::INVERSENAME_T)
+    }
+
+    #[getter]
+    pub fn contains_no_loops(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::CONTAINSNOLOOPS_T)
+    }
+
+    #[getter]
+    pub fn event_notifier(&self, py: Python<'_>) -> PyResult<Option<EventNotifierType>> {
+        self.get_mapped_attribute(py, ua::AttributeId::EVENTNOTIFIER_T)
+    }
+
+    #[getter]
+    pub fn data_type(&self, py: Python<'_>) -> PyResult<Option<NodeId>> {
+        self.get_mapped_attribute(py, ua::AttributeId::DATATYPE_T)
+    }
+
+    #[getter]
+    pub fn access_level(&self, py: Python<'_>) -> PyResult<Option<AccessLevelType>> {
+        self.get_mapped_attribute(py, ua::AttributeId::ACCESSLEVEL_T)
+    }
+
+    #[getter]
+    pub fn user_access_level(&self, py: Python<'_>) -> PyResult<Option<AccessLevelType>> {
+        self.get_mapped_attribute(py, ua::AttributeId::USERACCESSLEVEL_T)
+    }
+
+    #[getter]
+    pub fn minimum_sampling_interval(&self, py: Python<'_>) -> PyResult<Option<Duration>> {
+        self.get_attribute(py, ua::AttributeId::MINIMUMSAMPLINGINTERVAL_T)
             .and_then(normalize_data_value)
-            .map(QualifiedName::new)
+            .map(|d| d.map(|d| d.to_duration().unwrap_or_default()))
+    }
+
+    #[getter]
+    pub fn historizing(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::HISTORIZING_T)
+    }
+
+    #[getter]
+    pub fn executable(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::EXECUTABLE_T)
+    }
+
+    #[getter]
+    pub fn user_executable(&self, py: Python<'_>) -> PyResult<Option<bool>> {
+        self.get_mapped_attribute(py, ua::AttributeId::USEREXECUTABLE_T)
+    }
+
+    #[getter]
+    pub fn data_type_definition(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.get_attribute(py, ua::AttributeId::DATATYPEDEFINITION_T)
+            .and_then(normalize_data_value)?
+            .and_then(|d| Some(match d {
+                ua::DataTypeDefinition::Structure(s) => StructureDefinition::new(s).into_py_any(py),
+                ua::DataTypeDefinition::Enum(e) => EnumDefinition::new(e).into_py_any(py),
+                _ => None?,
+            }))
+            .transpose()
+    }
+
+    #[getter]
+    pub fn access_restrictions(&self, py: Python<'_>) -> PyResult<Option<AccessRestrictionType>> {
+        self.get_mapped_attribute(py, ua::AttributeId::ACCESSRESTRICTIONS_T)
+    }
+
+    #[getter]
+    pub fn access_level_ex(&self, py: Python<'_>) -> PyResult<Option<AccessLevelExType>> {
+        self.get_mapped_attribute(py, ua::AttributeId::ACCESSLEVELEX_T)
     }
 
     pub fn __repr__(&self) -> String {
@@ -781,9 +897,26 @@ impl Node {
     }
 }
 
-fn normalize_data_value<T: open62541::DataType>(value: open62541::DataValue<T>) -> PyResult<T> {
+fn normalize_mapped_value<T: UaType>(value: Option<open62541::DataValue<T::Inner>>) -> PyResult<Option<T>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
     match value.into_scalar_value() {
-        Some(scalar) => Ok(scalar),
+        Some(scalar) => Ok(Some(T::new(scalar))),
+        None => Err(PyValueError::new_err(
+            "querying attribute returned an invalid value",
+        )),
+    }
+}
+
+fn normalize_data_value<T: open62541::DataTypeExt>(value: Option<open62541::DataValue<T>>) -> PyResult<Option<T>> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+
+    match value.into_scalar_value() {
+        Some(scalar) => Ok(Some(scalar)),
         None => Err(PyValueError::new_err(
             "querying attribute returned an invalid value",
         )),
@@ -791,16 +924,27 @@ fn normalize_data_value<T: open62541::DataType>(value: open62541::DataValue<T>) 
 }
 
 impl Node {
-    pub fn get_attribute<A: open62541::Attribute + Send + Sync>(
-        &self,
-        py: Python<'_>,
-        attr: A,
-    ) -> PyResult<open62541::DataValue<A::Value>> {
+    fn get_mapped_attribute<T, A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<T>>
+    where
+        T: UaType<Inner = A::Value>,
+        A: open62541::Attribute + Send + Sync,
+    {
+        self.get_attribute(py, attr).and_then(normalize_mapped_value::<T>)
+    }
+
+    fn get_attribute<A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<open62541::DataValue<A::Value>>>
+    where
+        A: open62541::Attribute + Send + Sync,
+    {
+        use OpcUaError::*;
+
         self.client.rt.unblock_on(py, async {
-            self.client
-                .read_node(&self.node_id, attr)
-                .await
-                .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))
+
+            match self.client .read_node(&self.node_id, attr).await {
+                Ok(value) => Ok(Some(value)),
+                Err(Ua(e) | UaWithContext(e, _)) if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID => Ok(None),
+                Err(e) => Err(PyValueError::new_err(format!("failed to read attribute: '{e}'")))?,
+            }
         })?
     }
 }
