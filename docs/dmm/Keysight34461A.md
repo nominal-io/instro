@@ -16,8 +16,8 @@ The {py:obj}`Keysight34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>`
 ## Creating an [`InstroDMM`](/dmm.md) with {py:obj}`Keysight34461A <instro.dmm.drivers.keysight_34461a.Keysight34461A>`
 
 ```python
-from instro.dmm.drivers import Keysight34461A
-from instro.dmm import InstroDMM
+from instro import InstroDMM
+from instro.drivers import Keysight34461A
 
 dmm = InstroDMM(
     name="myDMM",

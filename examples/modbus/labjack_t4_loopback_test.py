@@ -18,7 +18,7 @@ Set HOST below to the T4's IP address or hostname before running.
 
 import time
 
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 HOST = "<device_ip>"
 PORT = 502

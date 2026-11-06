@@ -102,9 +102,8 @@ This is useful for using I2C devices that I2CInterface doesn't yet provide lower
 Construct `I2CInterface` directly. The caller picks a vendor driver and passes it in. There is no factory method or vendor enum.
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
-from instro.i2c.types import SystemDefinition
+from instro import I2CInterface, SystemDefinition
+from instro.drivers import Aardvark
 
 # Create system definition (see System Definition page for details)
 system = SystemDefinition()
@@ -144,15 +143,15 @@ First, create a `system_definition.py` file that defines your I2C bus configurat
 
 ```python
 # system_definition.py
-from instro.i2c.types import (
-    SystemDefinition,
-    RegisterDevice,
-    RegisterDef,
-    FieldDef,
+from instro import (
     CommandDevice,
     DataFormat,
+    FieldDef,
     LinearScaling,
+    RegisterDevice,
+    SystemDefinition,
 )
+from instro.i2c import RegisterDef
 from enum import Enum
 
 # Command enum for ADC
@@ -236,8 +235,8 @@ def create_system_definition() -> SystemDefinition:
 #### Basic Register Read/Write
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
+from instro import I2CInterface
+from instro.drivers import Aardvark
 from system_definition import create_system_definition
 
 # Import the shared system definition
@@ -267,8 +266,8 @@ i2c.close()
 For registers with bit fields, you can read and write individual fields:
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
+from instro import I2CInterface
+from instro.drivers import Aardvark
 from system_definition import create_system_definition
 
 # Import the shared system definition
@@ -296,8 +295,8 @@ i2c.close()
 For command-based devices (like ADCs):
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
+from instro import I2CInterface
+from instro.drivers import Aardvark
 from system_definition import create_system_definition
 
 # Import the shared system definition
@@ -327,8 +326,8 @@ i2c.close()
 For advanced use cases, you can bypass the system definition and use raw I2C operations:
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
+from instro import I2CInterface
+from instro.drivers import Aardvark
 from system_definition import create_system_definition
 
 # Import the shared system definition (still needed to create the instrument)
@@ -517,7 +516,7 @@ need a back-reference to the instrument.
 Here's a reference implementation for part of the Total Phase Aardvark driver:
 
 ```python
-from instro.i2c import I2CDriverBase
+from instro import I2CDriverBase
 
 class Aardvark(I2CDriverBase):
     def __init__(self, serial_number: str | None = None) -> None:
@@ -552,8 +551,7 @@ class Aardvark(I2CDriverBase):
 For custom drivers, construct `I2CInterface` directly and pass your driver instance:
 
 ```python
-from instro.i2c import I2CInterface, I2CDriverBase
-from instro.i2c.types import SystemDefinition
+from instro import I2CDriverBase, I2CInterface, SystemDefinition
 
 class MyCustomI2CDriver(I2CDriverBase):
     """Custom driver for my lab's proprietary I2C adapter."""

@@ -16,8 +16,8 @@ The {py:obj}`Agilent34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>` p
 ## Creating an [`InstroDMM`](/dmm.md) with {py:obj}`Agilent34401A <instro.dmm.drivers.agilent_a34401a.Agilent34401A>`
 
 ```python
-from instro.dmm.drivers import Agilent34401A
-from instro.dmm import InstroDMM
+from instro import InstroDMM
+from instro.drivers import Agilent34401A
 
 dmm = InstroDMM(
     name="myDMM",

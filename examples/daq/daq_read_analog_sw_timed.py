@@ -4,9 +4,8 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 """
 
-from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor
-from instro.lib.publishers import NominalCorePublisher
+from instro import DAQVendor, InstroDAQ
+from instro.lib import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -15,25 +14,25 @@ VENDOR = DAQVendor.LABJACK_T_SERIES
 # owns its transport at construction time.
 match VENDOR:
     case DAQVendor.LABJACK_T_SERIES:
-        from instro.daq.drivers.labjack import LabJackTSeriesDriver
+        from instro.drivers import LabJackTSeriesDriver
 
         CHANNEL_0 = "AIN0"
         CHANNEL_1 = "AIN1"
         driver = LabJackTSeriesDriver(device_id="440023871")  # LabJack serial number
     case DAQVendor.NI:
-        from instro.daq.drivers.ni import NIDAQDriver
+        from instro.drivers import NIDAQDriver
 
         CHANNEL_0 = "Dev1/ai0"
         CHANNEL_1 = "Dev1/ai1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.KEYSIGHT_34980:
-        from instro.daq.drivers import Keysight34980A
+        from instro.drivers import Keysight34980A
 
         CHANNEL_0 = "1009"
         CHANNEL_1 = "1010"
         driver = Keysight34980A("USB0::0x0957::0x0507::MY44001757::INSTR")  # VISA resource
     case DAQVendor.MCC:
-        from instro.daq.drivers.mcc import MCCDriver
+        from instro.drivers import MCCDriver
 
         CHANNEL_0 = "0"
         CHANNEL_1 = "1"

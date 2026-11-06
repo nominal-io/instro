@@ -6,10 +6,9 @@ settings back.
 
 """
 
-from instro.awg import AmplitudeMeasurementUnit, InstroAWG, Sine, Square
-from instro.awg.drivers import RigolDG1022Z
-from instro.lib.publishers import NominalCorePublisher
-from instro.lib.transports import VisaConfig
+from instro import AmplitudeMeasurementUnit, InstroAWG, Sine, Square
+from instro.drivers import RigolDG1022Z
+from instro.lib import NominalCorePublisher, VisaConfig
 
 VISA_RESOURCE = "<visa_resource>"  # Replace with your instrument's VISA resource string.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

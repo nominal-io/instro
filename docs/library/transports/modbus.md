@@ -29,7 +29,7 @@ For a config-driven device where the register map lives in a JSON file rather th
 A Modbus transport holds no unit address of its own: it serves any number of unit addresses on the line. Every I/O method takes the target's `unit_id` as a keyword argument:
 
 ```python
-from instro.lib.transports import ModbusTCPTransport
+from instro.lib import ModbusTCPTransport
 
 modbus = ModbusTCPTransport(host="192.168.1.50", port=502)
 
@@ -48,7 +48,7 @@ finally:
 Use `ModbusRTUTransport` for serial devices. It supports both Modbus serial-line transmission modes: RTU framing (the default) and ASCII framing, via `framer`:
 
 ```python
-from instro.lib.transports import ModbusRTUTransport
+from instro.lib import ModbusRTUTransport
 
 modbus = ModbusRTUTransport(port="/dev/ttyUSB0", baudrate=19200)
 

@@ -15,8 +15,8 @@ Using InstroDMM for SCPI-based digital multimeters
 ## Creating an InstroDMM
 
 ```python
-from instro.dmm.drivers import Agilent34401A
-from instro.dmm import InstroDMM
+from instro import InstroDMM
+from instro.drivers import Agilent34401A
 
 dmm = InstroDMM(
     name="myDMM",
@@ -95,7 +95,7 @@ Each selects the function only when it isn't already active, so repeated calls i
 `InstroDMM` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
 
 ```python
-from instro.dmm import InstroDMM
+from instro import InstroDMM
 
 dmm = InstroDMM(config="bench_dmm.json")
 ```

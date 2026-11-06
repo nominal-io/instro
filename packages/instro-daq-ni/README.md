@@ -2,7 +2,7 @@
 
 National Instruments DAQ drivers for [`instro`](https://github.com/nominal-io/instro).
 
-This package contributes `NIDAQDriver` under `instro.daq.drivers.ni`. The driver talks to NI multifunction DAQ hardware through the [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html) runtime via the `nidaqmx` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
+This package contributes `NIDAQDriver` (`from instro.drivers import NIDAQDriver`). The driver talks to NI multifunction DAQ hardware through the [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html) runtime via the `nidaqmx` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
 
 ## Installation
 
@@ -17,8 +17,8 @@ The NI-DAQmx runtime is a separate vendor install from National Instruments and 
 Construct the driver with the device name as it appears in NI MAX, then pass it to `InstroDAQ`:
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers.ni import NIDAQDriver
+from instro import InstroDAQ
+from instro.drivers import NIDAQDriver
 
 daq = InstroDAQ(name="myDAQ", driver=NIDAQDriver(device_id="Dev1"))
 ```

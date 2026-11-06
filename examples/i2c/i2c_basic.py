@@ -6,10 +6,9 @@ Requires the Aardvark vendor package: install with ``uv sync --extra i2c``
 
 import time
 
-from instro.i2c import I2CInterface
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c.types import SystemDefinition
-from instro.lib.publishers import NominalCorePublisher
+from instro import I2CInterface, SystemDefinition
+from instro.drivers import Aardvark
+from instro.lib import NominalCorePublisher
 
 RESOURCE_ID = "2239-764425"
 
@@ -21,12 +20,8 @@ def my_system_definition() -> SystemDefinition:
 
     Typically, you'd want to put this definition in a seperate file from your main app.
     """
-    from instro.i2c.types import (
-        DataFormat,
-        FieldDef,
-        RegisterDef,
-        RegisterDevice,
-    )
+    from instro import DataFormat, FieldDef, RegisterDevice
+    from instro.i2c import RegisterDef
 
     # The following represents a PCA9506 GPIO exapander with
     # some LEDs wired to the IO lines on Port 4

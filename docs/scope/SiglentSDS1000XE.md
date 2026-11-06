@@ -16,8 +16,8 @@ The {py:obj}`SiglentSDS1000XE <instro.scope.drivers.siglent_sds1000x_e.SiglentSD
 ## Creating an [`InstroScope`](/scope.md) with {py:obj}`SiglentSDS1000XE <instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE>`
 
 ```python
-from instro.scope.drivers import SiglentSDS1000XE
-from instro.scope import InstroScope
+from instro import InstroScope
+from instro.drivers import SiglentSDS1000XE
 
 scope = InstroScope(
     name="myScope",

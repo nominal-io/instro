@@ -11,9 +11,9 @@ Then in another shell:
 
 import time
 
-from instro.lib.publishers import FilePublisher
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import FilePublisher
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 
