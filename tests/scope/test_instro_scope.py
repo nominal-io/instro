@@ -6,7 +6,7 @@ owning a VisaDriver, and InstroScope delegating to its driver.
 
 import math
 from collections.abc import Iterator
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -391,6 +391,67 @@ def test_tektronix_digitize_raises_timeout_and_clears(
         tektronix.digitize(timeout=0.1)
 
     tektronix_visa.clear.assert_called_once()
+
+
+def test_tektronix_fetch_waveform_requests_full_record_and_sizes_times_from_curve(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    tektronix_visa.query.side_effect = ["1", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query_binary_values.return_value = [10, 20, 30]
+
+    waveform = tektronix.fetch_waveform(channel=1)
+
+    writes = [c.args[0] for c in tektronix_visa.write.call_args_list]
+    assert "DATa:STARt 1" in writes
+    assert "DATa:STOP 1000000000" in writes
+    assert len(waveform.times) == len(waveform.voltages) == 3
+    assert waveform.voltages == pytest.approx([0.01, 0.02, 0.03])
+
+
+def test_tektronix_fetch_waveform_drains_errors_before_first_query(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    tektronix_visa.query.side_effect = ["1", "1.0E-9", "0.0", "1.0E-3", "0", "0.0"]
+    tektronix_visa.query_binary_values.return_value = [0, 1, 2, 3]
+
+    tektronix.fetch_waveform(channel=1)
+
+    calls = [c for c in tektronix_visa.mock_calls if c[0] in ("write", "query")]
+    first_query_index = next(i for i, c in enumerate(calls) if c[0] == "query")
+    assert calls[first_query_index] == call.query("ALLEv?")
+    assert all(c[0] == "write" for c in calls[:first_query_index])
+
+
+def test_tektronix_read_file_disables_read_termination_during_binary_read(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    inst = MagicMock()
+    inst.read_termination = "\n"
+    tektronix_visa._inst = inst
+    seen: list[object] = []
+
+    def read_raw() -> bytes:
+        seen.append(inst.read_termination)
+        return b"\x89PNG\r\n\x1a\nbody\n"
+
+    tektronix_visa.read_raw.side_effect = read_raw
+
+    data = tektronix._read_file_from_instrument("C:/shot.png")
+
+    assert seen == [None]  # a "\n" terminator would cut the read short inside the PNG header
+    assert inst.read_termination == "\n"
+    assert data == b"\x89PNG\r\n\x1a\nbody"
+
+
+def test_tektronix_load_settings_host_writes_definite_length_block(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock, tmp_path
+) -> None:
+    path = tmp_path / "setup.set"
+    path.write_bytes(b"hello")
+
+    tektronix.load_settings(str(path))
+
+    tektronix_visa.write_raw.assert_called_once_with(b'FILESystem:WRITEFile "C:/nominal_temp_setup.set",#15hello')
 
 
 # --- SiglentSDS1000XE unit tests ---
