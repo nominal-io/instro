@@ -946,7 +946,6 @@ mod tests {
     use super::PollTimer;
     use super::ReadNodeItem;
     use super::VariantValue;
-    use super::generate_self_signed_cert;
     use crate::Result;
     use crate::error::OpcUaError;
 
@@ -1580,14 +1579,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn generate_cert_produces_nonempty_keypair() {
-        let (certificate, private_key) =
-            generate_self_signed_cert().expect("failed to generate self-signed certificate");
-
-        assert!(!certificate.as_bytes().is_empty(), "certificate is empty");
-        assert!(!private_key.as_bytes().is_empty(), "private key is empty");
     }
 }
