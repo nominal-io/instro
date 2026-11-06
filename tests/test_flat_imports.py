@@ -38,7 +38,10 @@ def test_top_level_type_checking_imports_match_lazy_exports() -> None:
     tree = ast.parse(Path(instro.__file__).read_text())
     block = next(n for n in tree.body if isinstance(n, ast.If) and getattr(n.test, "id", None) == "TYPE_CHECKING")
     static = {
-        alias.name: node.module for node in block.body if isinstance(node, ast.ImportFrom) for alias in node.names
+        alias.asname or alias.name: node.module
+        for node in block.body
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
     }
     assert static == instro._EXPORTS
 
@@ -65,7 +68,7 @@ def test_drivers_exports_every_category_driver(category: str) -> None:
 @pytest.mark.parametrize("name", sorted(instro.drivers._VENDOR_DRIVERS))
 def test_drivers_exports_vendor_package_driver(name: str) -> None:
     module_name, _extra = instro.drivers._VENDOR_DRIVERS[name]
-    assert name in instro.drivers.__all__
+    assert name in dir(instro.drivers)
     try:
         expected = getattr(importlib.import_module(module_name), name)
     except ImportError:  # vendor package or its native SDK (e.g. Windows-only mcculw) absent here
@@ -73,6 +76,14 @@ def test_drivers_exports_vendor_package_driver(name: str) -> None:
             getattr(instro.drivers, name)
     else:
         assert getattr(instro.drivers, name) is expected
+
+
+def test_drivers_star_import_skips_vendor_package_drivers() -> None:
+    # A vendor name in __all__ would make `import *` raise wherever that extra isn't installed.
+    namespace: dict[str, object] = {}
+    exec("from instro.drivers import *", namespace)
+    assert "VirtualPSU" in namespace
+    assert not set(instro.drivers._VENDOR_DRIVERS) & set(instro.drivers.__all__)
 
 
 def test_drivers_missing_vendor_package_names_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -94,4 +105,7 @@ def test_contrib_drivers_exports_every_contrib_driver(category: str) -> None:
     contrib_drivers = pytest.importorskip("instro.contrib.drivers")
     module = importlib.import_module(f"instro.contrib.{category}.drivers")
     for name in module.__all__:
-        assert getattr(contrib_drivers, name) is getattr(module, name), f"{name} missing from instro.contrib.drivers"
+        assert name in contrib_drivers.__all__, (
+            f"instro.contrib.{category}.drivers.{name} missing from instro.contrib.drivers"
+        )
+        assert getattr(contrib_drivers, name) is getattr(module, name)

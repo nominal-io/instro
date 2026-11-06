@@ -55,7 +55,8 @@ if TYPE_CHECKING:
     from instro.daq.drivers.ni import NIDAQDriver as NIDAQDriver
     from instro.i2c.drivers.totalphase import Aardvark as Aardvark
 
-# Vendor-package driver -> (module, extra that installs it).
+# Vendor-package driver -> (module, extra that installs it). Kept out of ``__all__`` so ``import *`` doesn't
+# fail when an extra is missing; ``__dir__`` still lists them, and the TYPE_CHECKING imports re-export them.
 _VENDOR_DRIVERS: dict[str, tuple[str, str]] = {
     "Aardvark": ("instro.i2c.drivers.totalphase", "aardvark"),
     "LabJackTSeriesDriver": ("instro.daq.drivers.labjack", "labjack"),
@@ -78,9 +79,6 @@ __all__ = [
     "RigolDG1022Z",
     # DAQ
     "Keysight34980A",
-    "LabJackTSeriesDriver",
-    "MCCDriver",
-    "NIDAQDriver",
     # DMM
     "Agilent34401A",
     "Keithley2400",
@@ -91,8 +89,6 @@ __all__ = [
     "BK85XXB",
     "RigolDL30xx",
     "VirtualELoad",
-    # I2C
-    "Aardvark",
     # PSU (EAPSB10000Visa is bidirectional: it also backs the E-Load category)
     "BK914X",
     "BK9115",
@@ -128,4 +124,4 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted({*globals(), *__all__})
+    return sorted({*globals(), *__all__, *_VENDOR_DRIVERS})
