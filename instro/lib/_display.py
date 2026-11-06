@@ -11,6 +11,7 @@ is tracked in nominal-io/instro#710.
 from __future__ import annotations
 
 import html
+import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone, tzinfo
@@ -270,6 +271,11 @@ def named(name: str, rid: str, url: Callable[[], str] | None = None) -> str:
     """A resource's name, linked to its page, with a button that copies its RID."""
     text = escape(name) if url is None else resource_link(name, url)
     return f'<span class="nominal-repr-id-group">{text}{copy_button(rid)}</span>'
+
+
+def natural_key(name: str) -> list[int | str]:
+    """Sort key that orders the digit runs in ``name`` by value, so ``ch2`` sorts before ``ch10``."""
+    return [int(part) if part.isdigit() else part for part in re.split(r"(\d+)", name)]
 
 
 def properties_section(properties: Mapping[str, object], title: str = "Properties") -> Section:

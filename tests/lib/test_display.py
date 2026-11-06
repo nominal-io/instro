@@ -57,6 +57,20 @@ def test_instrument_card_shows_latest_values_while_running():
     assert "running" in html
 
 
+def test_instrument_card_sorts_channels_naturally():
+    psu = InstroPSU(name="bench", driver=create_autospec(PSUDriverBase, instance=True), num_channels=1)
+    latest = {f"bench.{name}": (0, 1.0) for name in ("loop_time", "ch10.voltage", "ch2.voltage", "ch1.voltage")}
+
+    names = [row[0] for row in psu._channels_section(latest).rows]
+
+    assert names == [
+        "<code>ch1.voltage</code>",
+        "<code>ch2.voltage</code>",
+        "<code>ch10.voltage</code>",
+        "<code>loop_time</code>",
+    ]
+
+
 def test_text_style_keeps_the_plain_repr(tmp_path):
     publisher = FilePublisher(tmp_path, format="jsonl")
     try:
