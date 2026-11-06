@@ -2,9 +2,9 @@
 
 import time
 
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
 from instro.lib import Command, Measurement
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
 
 VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 

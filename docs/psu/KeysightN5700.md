@@ -19,8 +19,8 @@ The {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` pr
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>`
 
 ```python
-from instro.psu.drivers import KeysightN5700
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import KeysightN5700
 
 psu = InstroPSU(
     name="myPSU",
@@ -29,4 +29,4 @@ psu = InstroPSU(
 )
 ```
 
-Parameters and methods specific to {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` can be found in the [Reference](/ref/index.md).

@@ -16,11 +16,11 @@ The {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>` provides a dri
 ## Creating an [`InstroDAQ`](/daq.md) with {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>`
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers.mcc import MCCDriver
+from instro import InstroDAQ
+from instro.drivers import MCCDriver
 
 # device unique ID, optionally suffixed with a board number
 daq = InstroDAQ(name="mccDAQ", driver=MCCDriver(device_id="344371:0"))
 ```
 
-Parameters and methods specific to {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`MCCDriver <instro.daq.drivers.mcc.mccdaq.MCCDriver>` can be found in the [Reference](/ref/index.md).

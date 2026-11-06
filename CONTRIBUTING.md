@@ -245,9 +245,9 @@ Docs live in this repo, so they ship in the same PR as the code change. If your 
 
 | Change type | Files to update |
 |------|------|
-| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/sdk/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
+| New vendor driver | `README.md` "Supported devices" table; a driver page and image in `docs/<category>/`, and the Vendor Drivers table in `docs/ref/instruments/<category>.md` (see [`docs/AGENTS.md`](./docs/AGENTS.md#add-a-vendor-driver)) |
 | New contrib driver | "Available drivers" section of `docs/library/contrib.md` |
-| Public API change (HAL methods, signatures, return types, new category) | `docs/sdk/` and any affected guide pages in `docs/`; check with `just build-docs` |
+| Public API change (HAL methods, signatures, return types, new category) | `docs/ref/` and any affected guide pages in `docs/`; check with `just build-docs` |
 | New feature, behavior change, or new install extra | Guide pages in `docs/`; also `README.md` if it touches the quickstart, install instructions, or extras table |
 | New category or top-level module | All of the above plus the sidebar toctrees in `docs/index.md` |
 | Contributor workflow, repo convention, or tooling change | `CONTRIBUTING.md` and [`AGENTS.md`](./AGENTS.md) |
@@ -332,7 +332,7 @@ The word `contrib` travels with every import as the disclaimer.
 When the maintainers acquire the device and can verify the driver directly:
 
 1. `git mv` the file from `packages/instro-contrib/instro/contrib/<cat>/drivers/<driver>.py` to `instro/<cat>/drivers/<driver>.py`.
-2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
+2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`, and from `instro/contrib/drivers/__init__.py` to `instro/drivers/__init__.py`.
 3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
 4. Open a follow-up issue to delete the stub in the next release.
 5. Describe the import-path change in the PR and affected user documentation, and use a normal Conventional Commit title so release-please generates the changelog entry. Graduation is not considered a breaking change for either package; follow the [migration policy](#pull-request-titles). Do not hand-edit `CHANGELOG.md`.

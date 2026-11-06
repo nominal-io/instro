@@ -9,8 +9,8 @@ import logging
 import math
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.drivers.ni import NIDAQDriver
+from instro import InstroDAQ
+from instro.drivers import NIDAQDriver
 
 # Show write_batch's per-channel "<alias> -> succeeded/failed" debug logs.
 logging.basicConfig(format="%(asctime)s %(name)s %(levelname)s %(message)s")

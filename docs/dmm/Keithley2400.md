@@ -16,8 +16,8 @@ The {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` provi
 ## Creating an [`InstroDMM`](/dmm.md) with {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>`
 
 ```python
-from instro.dmm.drivers import Keithley2400
-from instro.dmm import InstroDMM
+from instro import InstroDMM
+from instro.drivers import Keithley2400
 
 dmm = InstroDMM(
     name="myDMM",
@@ -25,4 +25,4 @@ dmm = InstroDMM(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keithley2400 <instro.dmm.drivers.keithley_2400.Keithley2400>` can be found in the [Reference](/ref/index.md).

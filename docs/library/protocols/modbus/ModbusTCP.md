@@ -19,7 +19,7 @@ Modbus TCP is a connection type for [`ModbusDevice`](/library/protocols/modbus.m
 ## Creating a {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` over TCP
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 # connection block declared inline, e.g. { "transport": "tcp", "host": "192.168.1.100", "port": 502 }
 device = ModbusDevice(config="my_device.json")
@@ -29,11 +29,11 @@ device.open()
 Or with an explicit, shareable transport:
 
 ```python
-from instro.lib.transports import ModbusTCPTransport
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
+from instro.lib import ModbusTCPTransport
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
 device = ModbusDevice(config="my_device.json", connection=transport, unit_id=1)
 ```
 
-Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [Reference](/ref/index.md).

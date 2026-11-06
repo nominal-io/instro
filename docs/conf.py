@@ -1,4 +1,4 @@
-"""Sphinx config for the instro docs: the guides (this folder) and the API reference (sdk/)."""
+"""Sphinx config for the instro docs: the guides (this folder) and the API reference (ref/)."""
 
 import sys
 from pathlib import Path
@@ -120,14 +120,15 @@ autodoc_pydantic_model_member_order = "bysource"
 # -- driver_docs: names exported by instro.<category>.drivers that skip a check --
 driver_docs_exempt = {
     # Device class that vends the EAPSB10000VisaSource / EAPSB10000VisaSink drivers
-    "psu.EAPSB10000Visa": {"sdk", "guide"},
-    "eload.EAPSB10000Visa": {"sdk", "guide"},
-    # Simulators and helpers: documented on the SDK page only
+    "psu.EAPSB10000Visa": {"ref", "guide"},
+    "eload.EAPSB10000Visa": {"ref", "guide"},
+    # Simulators and helpers: documented on the Reference page only
     "psu.SimulatedPSU": {"guide"},
     "psu.VirtualPSU": {"guide"},
     "dmm.SimulatedDMM": {"guide"},
     "dmm.VirtualDMM": {"guide"},
     "eload.VirtualELoad": {"guide"},
+    "scope.VirtualScope": {"guide"},
     "daq.HWTimestamper": {"guide"},
 }
 
@@ -169,7 +170,7 @@ html_theme_options = theme_options(
     nav_links=[
         {"title": "Guides", "url": "index"},
         {"title": "Examples", "url": "examples/index"},
-        {"title": "SDK", "url": "sdk/index"},
+        {"title": "Reference", "url": "ref/index"},
         {"title": "GitHub", "url": "https://github.com/nominal-io/instro"},
     ],
     # header icons, before the theme's buttons
@@ -222,8 +223,8 @@ def _alias_reexports(app, env):
 
 
 def _hide_edit_link_on_stubs(app, pagename, templatename, context, doctree):
-    """Autosummary stubs (sdk/**/instro.*) are gitignored, so "Edit this page" would 404."""
-    if pagename.startswith("sdk/") and pagename.rpartition("/")[2].startswith("instro."):
+    """Autosummary stubs (ref/**/instro.*) are gitignored, so "Edit this page" would 404."""
+    if pagename.startswith("ref/") and pagename.rpartition("/")[2].startswith("instro."):
         context["page_source_suffix"] = ""
 
 
@@ -307,7 +308,7 @@ def _add_seo(app, pagename, templatename, context, doctree):
         description = description or (
             f"Control {article} {card} {noun} from Python with the instro {name} driver: {does}."
         )
-    elif pagename.startswith("sdk/") and name.startswith("instro."):
+    elif pagename.startswith("ref/") and name.startswith("instro."):
         module, _, obj = name.rpartition(".")
         title = title or f"{obj} ({module}) - instro Python API"
         description = description or _description(doctree, min_length=0)

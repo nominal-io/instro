@@ -5,9 +5,9 @@ in another vendor's driver leaves the rest of the script unchanged.
 
 """
 
-from instro.dmm import InstroDMM
-from instro.dmm.drivers import Agilent34401A  # or Keysight34461A, Keithley2400, SimulatedDMM
-from instro.lib.publishers import NominalCorePublisher
+from instro import InstroDMM
+from instro.drivers import Agilent34401A  # or Keysight34461A, Keithley2400, SimulatedDMM
+from instro.lib import NominalCorePublisher
 
 VISA_RESOURCE = "ASRL3::INSTR"
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

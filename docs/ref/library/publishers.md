@@ -49,6 +49,16 @@
    ~instro.lib.publishers.nominal_connect.NominalConnectPublisher
 ```
 
+## Plotly Publisher
+
+```{eval-rst}
+.. autosummary::
+   :toctree: .
+   :nosignatures:
+
+   ~instro.lib.publishers.plot.PlotlyPublisher
+```
+
 ## Channel Buffers
 
 ```{eval-rst}

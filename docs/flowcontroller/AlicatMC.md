@@ -18,7 +18,7 @@ The {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` provide
 ```python
 from instro.unstable.flowcontroller.drivers import AlicatMC
 from instro.unstable.flowcontroller import InstroFlowController
-from instro.lib.transports import SerialConfig, TerminatorConfig, VisaConfig
+from instro.lib import SerialConfig, TerminatorConfig, VisaConfig
 
 fc = InstroFlowController(
     name="myFlowController",
@@ -33,4 +33,4 @@ fc = InstroFlowController(
 )
 ```
 
-Parameters and methods specific to {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`AlicatMC <instro.unstable.flowcontroller.drivers.AlicatMC>` can be found in the [Reference](/ref/index.md).

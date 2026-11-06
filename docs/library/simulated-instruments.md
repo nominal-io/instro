@@ -14,21 +14,21 @@ Try and test instro with no hardware: virtual instruments that run in-process, o
 The quickest way to try `instro`: a virtual driver simulates readings in-process, with no hardware, server, or second terminal. It works with every method of its instrument class.
 
 ```python
-from instro.dmm import InstroDMM
-from instro.dmm.drivers import VirtualDMM
+from instro import InstroDMM
+from instro.drivers import VirtualDMM
 
 with InstroDMM(name="dmm", driver=VirtualDMM()) as dmm:
     print(dmm.read_dc_voltage().latest)
 ```
 
-Virtual drivers: `VirtualDMM`, `VirtualELoad`, `VirtualPSU`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}` (or `"VirtualELoad"`); a PSU also takes its channel count, as in `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2}`.
+Virtual drivers: `VirtualDMM`, `VirtualELoad`, `VirtualPSU`, `VirtualScope`. In a JSON config, use `"driver": {"connection_type": "virtual", "name": "VirtualDMM"}` (or `"VirtualELoad"`); a PSU or scope also takes its channel count, as in `"driver": {"connection_type": "virtual", "name": "VirtualPSU", "num_channels": 2}` (or `"VirtualScope"`).
 
 ## SCPI simulators
 `instro` ships local SCPI simulators for select instrument categories, so you can develop and test without owning the physical hardware. Each simulator runs as a TCP server and pairs with a `Simulated<Category>` driver:
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
 
 with InstroPSU(
     name="bench_psu",
@@ -59,8 +59,8 @@ uv run python -m instro.psu.scpi_sim_server
 Connect from another terminal or script with the `SimulatedPSU` driver. This small Python client opens an `InstroPSU`, configures channel 1, and reads voltage and current measurements:
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
 
 with InstroPSU(
     name="bench_psu",
@@ -411,8 +411,8 @@ uv run python -m instro.dmm.scpi_sim_server
 Connect from another terminal or script with the `SimulatedDMM` driver. This small Python client opens an `InstroDMM`, switches functions, and reads measurements:
 
 ```python
-from instro.dmm import InstroDMM
-from instro.dmm.drivers import SimulatedDMM
+from instro import InstroDMM
+from instro.drivers import SimulatedDMM
 
 with InstroDMM(
     name="bench_dmm",

@@ -17,8 +17,8 @@ The LJM library is a separate vendor install from LabJack and is required at run
 Construct the driver with the device serial number, then pass it to `InstroDAQ`:
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
 
 daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 ```

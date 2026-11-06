@@ -15,8 +15,8 @@ Instrument for all oscilloscopes
 ## Creating an InstroScope  
 
 ```python
-from instro.scope.drivers import Keysight1200X
-from instro.scope import InstroScope
+from instro import InstroScope
+from instro.drivers import Keysight1200X
 
 scope = InstroScope(
     name="myScope",
@@ -29,6 +29,8 @@ scope = InstroScope(
 
 :::{driver-cards} scope
 :::
+
+- **Virtual**: no hardware or server; waveforms simulated in-process (`VirtualScope`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
 
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#oscilloscope-scope), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
@@ -81,7 +83,7 @@ InstroScope("name", driver=Keysight1200X("<visa_resource>"), num_channels=4)
 See [Config Files](/library/config-files.md) for more info.
 
 ```python
-from instro.scope import InstroScope
+from instro import InstroScope
 
 scope = InstroScope(config="bench_scope.json")
 ```
@@ -146,6 +148,8 @@ Where `bench_scope.json` contains:
   ]
 }
 ```
+
+To try a config with no hardware, use the virtual driver: `"driver": {"connection_type": "virtual", "name": "VirtualScope", "num_channels": 4}`. Odd channels see a 1 kHz sine and even channels a 1 kHz square; an optional `signals` map sets a channel's own, as in `"signals": {"1": {"shape": "square", "frequency": 2000, "amplitude": 0.5}}`. As on a real scope, a capture clips at the screen edges, so set each channel's `vertical_scale` and `vertical_offset` to fit its signal.
 
 ### Measurements
 

@@ -67,6 +67,7 @@ Here is a table of available packages:
 | **I2C** | `i2c` | All I2C packages |
 |  | `aardvark` | TotalPhase Aardvark package |
 | **EtherNet** | `ethernetip` | EtherNet/IP support |
+| **Plotting** | `plot` | Plotly publisher, with `anywidget` for live notebook plots |
 | **Other** | `contrib` | Community-contributed drivers |
 |  | `unstable` | Experimental unstable modules |
 

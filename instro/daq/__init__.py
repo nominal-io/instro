@@ -14,7 +14,25 @@ from instro.daq.daq import (
     InstroDAQ,
     TimingConfigException,
 )
-from instro.daq.types import ChannelType, DAQVendor, RelayChannel
+from instro.daq.types import (
+    AnalogChannel,
+    AnalogCurrentChannel,
+    AnalogThermocoupleChannel,
+    AnalogVoltageChannel,
+    ChannelType,
+    CJCSource,
+    DAQChannel,
+    DAQVendor,
+    DigitalChannel,
+    DigitalLineChannel,
+    DigitalPortChannel,
+    DigitalPortWidth,
+    Direction,
+    HWTimingConfig,
+    Logic,
+    RelayChannel,
+    TerminalConfig,
+)
 
 __all__ = [
     "InstroDAQ",
@@ -25,4 +43,18 @@ __all__ = [
     "HWTimingException",
     "TimingConfigException",
     "RelayChannel",
+    "AnalogChannel",
+    "AnalogCurrentChannel",
+    "AnalogThermocoupleChannel",
+    "AnalogVoltageChannel",
+    "CJCSource",
+    "DAQChannel",
+    "DigitalChannel",
+    "DigitalLineChannel",
+    "DigitalPortChannel",
+    "DigitalPortWidth",
+    "Direction",
+    "HWTimingConfig",
+    "Logic",
+    "TerminalConfig",
 ]

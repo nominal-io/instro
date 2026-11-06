@@ -16,8 +16,8 @@ The {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` provides a driver 
 ## Creating an [`InstroELoad`](/eload.md) with {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>`
 
 ```python
-from instro.eload.drivers import BK85XXB
-from instro.eload import InstroELoad
+from instro import InstroELoad
+from instro.drivers import BK85XXB
 
 eload = InstroELoad(
     name="myELoad",
@@ -25,4 +25,4 @@ eload = InstroELoad(
 )
 ```
 
-Parameters and methods specific to {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`BK85XXB <instro.eload.drivers.bk_85xxb.BK85XXB>` can be found in the [Reference](/ref/index.md).

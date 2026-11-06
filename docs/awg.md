@@ -15,8 +15,8 @@ Using InstroAWG for SCPI-based arbitrary waveform generators
 ## Creating an InstroAWG
 
 ```python
-from instro.awg.drivers import RigolDG1022Z
-from instro.awg import InstroAWG
+from instro import InstroAWG
+from instro.drivers import RigolDG1022Z
 
 awg = InstroAWG(
     name="myAWG",
@@ -115,7 +115,7 @@ Certain features are only available on particular waveforms. Drivers own their i
 ```
 
 ```python
-from instro.awg import InstroAWG
+from instro import InstroAWG
 
 awg = InstroAWG(config="bench_awg.json")
 ```

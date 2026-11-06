@@ -19,8 +19,8 @@ The {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` provid
 ## Creating an [`InstroELoad`](/eload.md) with {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>`
 
 ```python
-from instro.eload.drivers import RigolDL30xx
-from instro.eload import InstroELoad
+from instro import InstroELoad
+from instro.drivers import RigolDL30xx
 
 eload = InstroELoad(
     name="myELoad",
@@ -28,4 +28,4 @@ eload = InstroELoad(
 )
 ```
 
-Parameters and methods specific to {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`RigolDL30xx <instro.eload.drivers.rigol_dl30xx.RigolDL30xx>` can be found in the [Reference](/ref/index.md).

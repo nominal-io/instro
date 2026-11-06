@@ -5,9 +5,7 @@ settings, capturing a waveform, and taking built-in measurements.
 
 """
 
-from instro.lib.publishers import NominalCorePublisher
-from instro.lib.transports import VisaConfig
-from instro.scope import (
+from instro import (
     AcquisitionMode,
     Coupling,
     InstroScope,
@@ -16,7 +14,8 @@ from instro.scope import (
     TriggerSlope,
     TriggerType,
 )
-from instro.scope.drivers import Keysight1200X
+from instro.drivers import Keysight1200X
+from instro.lib import NominalCorePublisher, VisaConfig
 
 VISA_RESOURCE = "<visa_resource>"  # Replace with your instrument's VISA resource string.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

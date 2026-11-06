@@ -141,7 +141,9 @@ Registration follows the category's existing pattern — check how a sibling
 driver is wired before assuming:
 
 - **Core categories:** edit `instro/<category>/drivers/__init__.py`, adding both
-  the import and the `__all__` entry.
+  the import and the `__all__` entry, and add the same driver to the flat
+  `instro/drivers/__init__.py` (import + `__all__`, under its category comment).
+  `tests/test_flat_imports.py` fails if a category driver is missing there.
   Then add a `DriverEntry` to `<CAT>_VENDOR_REGISTRY` in
   `instro/<category>/config.py` with the driver's `*IDN?` `IdnPattern`(s)
   (vendor substrings, anchored model regex, programmable channel count), so the
@@ -150,9 +152,12 @@ driver is wired before assuming:
   package under `packages/`; register it in that package's `drivers/__init__.py`
   (import + `__all__`). The category's top-level `drivers/__init__.py` relies on
   `pkgutil.extend_path` to make the vendor-package subpackage importable — don't
-  remove it.
+  remove it. Also add the class to `_VENDOR_DRIVERS`, the `TYPE_CHECKING`
+  imports, and `__all__` in `instro/drivers/__init__.py`, so it loads lazily
+  from `instro.drivers` when the package is installed.
 - **Contrib drivers:** register in the corresponding contrib
-  `drivers/__init__.py` (the smoke test picks it up automatically).
+  `drivers/__init__.py` and in the flat `instro/contrib/drivers/__init__.py`
+  (the smoke test picks it up automatically).
 
 ## Step 6 — Write tests
 
@@ -192,7 +197,7 @@ Per `AGENTS.md` "Documentation":
 - **`docs/<category>/<Driver>.md`** plus `<Driver>.png` — the driver's guide
   page, copied from a sibling; its front-matter card puts it in the category's
   card grid. Then add a row to the Vendor Drivers table in
-  `docs/sdk/instruments/<category>.md` and the class to the hidden autosummary
+  `docs/ref/instruments/<category>.md` and the class to the hidden autosummary
   list beneath it (see `docs/AGENTS.md` "Add a vendor driver"). Check with
   `just build-docs`.
 - If a new public API/category was introduced (rare for a single driver), also

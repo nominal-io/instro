@@ -46,7 +46,7 @@ The meter must use the **`8845`** command set. The driver sends Agilent 34401A c
 
 ```python
 from instro.unstable.dmm.drivers import Fluke8845A
-from instro.dmm import InstroDMM
+from instro import InstroDMM
 
 dmm = InstroDMM(
     name="myDMM",
@@ -54,4 +54,4 @@ dmm = InstroDMM(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Fluke8845A <instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A>` can be found in the [Reference](/ref/index.md).

@@ -16,8 +16,8 @@ The {py:obj}`RigolDG1022Z <instro.awg.drivers.rigol_dg1022z.RigolDG1022Z>` provi
 ## Creating an [`InstroAWG`](/awg.md) with {py:obj}`RigolDG1022Z <instro.awg.drivers.rigol_dg1022z.RigolDG1022Z>`
 
 ```python
-from instro.awg.drivers import RigolDG1022Z
-from instro.awg import InstroAWG
+from instro import InstroAWG
+from instro.drivers import RigolDG1022Z
 
 awg = InstroAWG(
     name="myAWG",
@@ -26,4 +26,4 @@ awg = InstroAWG(
 )
 ```
 
-Parameters and methods specific to {py:obj}`RigolDG1022Z <instro.awg.drivers.rigol_dg1022z.RigolDG1022Z>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`RigolDG1022Z <instro.awg.drivers.rigol_dg1022z.RigolDG1022Z>` can be found in the [Reference](/ref/index.md).

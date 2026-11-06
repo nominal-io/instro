@@ -16,8 +16,8 @@ The {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektron
 ## Creating an [`InstroScope`](/scope.md) with {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>`
 
 ```python
-from instro.scope.drivers import Tektronix2SeriesMSO
-from instro.scope import InstroScope
+from instro import InstroScope
+from instro.drivers import Tektronix2SeriesMSO
 
 scope = InstroScope(
     name="myScope",
@@ -26,4 +26,4 @@ scope = InstroScope(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Tektronix2SeriesMSO <instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO>` can be found in the [Reference](/ref/index.md).

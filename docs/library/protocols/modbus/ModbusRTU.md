@@ -49,10 +49,10 @@ Modbus RTU is a connection type for [`ModbusDevice`](/library/protocols/modbus.m
 ```
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 device = ModbusDevice(config="field_sensor.json")
 device.open()
 ```
 
-Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`ModbusDevice <instro.modbus.ModbusDevice>` can be found in the [Reference](/ref/index.md).

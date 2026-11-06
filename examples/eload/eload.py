@@ -6,11 +6,9 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 import time
 
-from instro.eload import InstroELoad
-from instro.eload.drivers import BK85XXB
-from instro.eload.types import LoadMode
-from instro.lib.publishers import NominalCorePublisher
-from instro.lib.transports import SerialConfig, VisaConfig
+from instro import InstroELoad, LoadMode
+from instro.drivers import BK85XXB
+from instro.lib import NominalCorePublisher, SerialConfig, VisaConfig
 
 VISA_RESOURCE = "ASRL7::INSTR"
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.
