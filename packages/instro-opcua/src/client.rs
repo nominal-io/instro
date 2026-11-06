@@ -1,5 +1,6 @@
 mod shared_rt;
 
+use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::str::FromStr;
@@ -87,17 +88,17 @@ impl Deref for OpcUaClient {
     }
 }
 
-enum NodeIdKind {
-    NodeId(ua::NodeId),
+enum NodeSpec {
+    Node(Node),
     Path(ua::BrowsePath),
 }
 
-impl FromPyObject<'_, '_> for NodeIdKind {
+impl FromPyObject<'_, '_> for NodeSpec {
     type Error = PyErr;
 
     fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
         Ok(py_match! {
-            id: NodeId = obj => NodeIdKind::NodeId(id.borrow().as_ua_ref().clone()),
+            id: Node = obj => NodeSpec::Node(id.borrow().clone()),
 
             #[extract]
             id_str: &str = obj => Self::from_str(id_str)?,
@@ -107,7 +108,7 @@ impl FromPyObject<'_, '_> for NodeIdKind {
                     .with_relative_path(path.borrow().as_ua_ref().clone())
                     .with_starting_node(ROOT_FOLDER_ID.clone());
 
-                NodeIdKind::Path(path)
+                NodeSpec::Path(path)
             },
 
             else => {
@@ -120,17 +121,15 @@ impl FromPyObject<'_, '_> for NodeIdKind {
     }
 }
 
-impl FromStr for NodeIdKind {
+impl FromStr for NodeSpec {
     type Err = PyErr;
     fn from_str(id_or_path: &str) -> PyResult<Self> {
-        Ok(if let Ok(node_id) = id_or_path.parse::<ua::NodeId>() {
-            NodeIdKind::NodeId(node_id)
-        } else if let Ok(path) = id_or_path.parse::<ua::RelativePath>() {
+        Ok(if let Ok(path) = id_or_path.parse::<ua::RelativePath>() {
             let path = ua::BrowsePath::init()
                 .with_relative_path(path)
                 .with_starting_node(ROOT_FOLDER_ID.clone());
 
-            NodeIdKind::Path(path)
+            NodeSpec::Path(path)
         } else {
             Err(PyValueError::new_err(format!(
                 "invalid node id or path: '{id_or_path}'"
@@ -143,7 +142,7 @@ impl OpcUaClient {
     async fn translate_browse_paths(
         &self,
         paths: ua::Array<ua::BrowsePath>,
-    ) -> PyResult<Vec<(ua::BrowsePath, ua::NodeId)>> {
+    ) -> PyResult<Vec<Node>> {
         let request =
             ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(paths.clone());
 
@@ -191,10 +190,11 @@ impl OpcUaClient {
                                 targets[0].target_id().server_index()
                             )
                         } else {
-                            return Either::Left((
-                                path.clone(),
-                                targets[0].target_id().node_id().clone(),
-                            ));
+                            return Either::Left(Node {
+                                client: self.clone(),
+                                node_id: targets[0].target_id().node_id().clone(),
+                                browse_path: path.clone(),
+                            });
                         }
                     } else {
                         "internal error: browse path result array was invalid"
@@ -213,18 +213,17 @@ impl OpcUaClient {
     }
 
     // TODO(cartercanedy): translate both node ids and paths and return a node ID-Path map
-    fn parse_nodes(&self, nodes: Vec<NodeIdKind>) -> PyResult<Vec<ua::NodeId>> {
-        let (ids, paths): (Vec<_>, Vec<_>) = nodes.into_iter().partition_map(|kind| match kind {
-            NodeIdKind::NodeId(node_id) => Either::Left(node_id),
-            NodeIdKind::Path(path) => Either::Right(path),
+    fn parse_nodes(&self, nodes: Vec<NodeSpec>) -> PyResult<Vec<Node>> {
+        let (nodes, paths): (Vec<_>, Vec<_>) = nodes.into_iter().partition_map(|kind| match kind {
+            NodeSpec::Node(node_id) => Either::Left(node_id),
+            NodeSpec::Path(path) => Either::Right(path),
         });
 
         Ok(self
             .rt
             .block_on(self.translate_browse_paths(ua::Array::from_slice(&paths)))?
             .into_iter()
-            .map(|(_path, node_id)| node_id)
-            .chain(ids)
+            .chain(nodes)
             .collect::<Vec<_>>())
     }
 }
@@ -365,7 +364,7 @@ impl OpcUaClient {
 
         let nodes = nodes
             .iter()
-            .map(|item| NodeIdKind::extract(item.as_borrowed()))
+            .map(|item| NodeSpec::extract(item.as_borrowed()))
             .collect::<PyResult<Vec<_>>>()?;
 
         let nodes = py.detach(|| self.parse_nodes(nodes))?;
@@ -395,14 +394,26 @@ impl OpcUaClient {
             discard_oldest,
         };
 
+        let node_map = nodes
+            .iter()
+            .map(|node| Ok((node.node_id().clone(), node.clone().into_py_any(py)?)))
+            .collect::<PyResult<Vec<(_, _)>>>()?
+            .into_iter()
+            .collect::<BTreeMap<_, _>>();
+
+        let node_ids = node_map.keys().cloned().collect_vec();
+
         let on_data = move |points: Box<dyn Iterator<Item = _>>| {
             Python::attach(|py| {
                 let results = points
                     .map(|(node, value)| {
-                        let node_id = NodeId::new(node).into_bound_py_any(py)?;
-                        let data_point = DataValue::new(value).into_bound_py_any(py)?;
+                        let node = node_map.get(&node).ok_or_else(|| {
+                            PyRuntimeError::new_err(format!("node not found: '{node}'"))
+                        })?;
 
-                        PyTuple::new(py, [node_id, data_point])
+                        let data_point = DataValue::new(value).into_py_any(py)?;
+
+                        PyTuple::new(py, [node, &data_point])
                     })
                     .collect::<PyResult<Vec<_>>>()
                     .and_then(|points| points.into_bound_py_any(py))?;
@@ -415,7 +426,7 @@ impl OpcUaClient {
 
         let session = self.rt.unblock_on(py, async {
             self.client
-                .start_subscription(&nodes, sub_config, item_config, on_data)
+                .start_subscription(&node_ids, sub_config, item_config, on_data)
                 .await
                 .map_err(|e| {
                     PyRuntimeError::new_err(format!("failed to start subscription: '{e}'"))
@@ -476,22 +487,11 @@ impl OpcUaClient {
                 .with_relative_path(path)
                 .with_starting_node(ROOT_FOLDER_ID.clone());
 
-            #[expect(
-                clippy::unwrap_used,
-                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
-            )]
-            let (browse_path, node_id) = self
-                .translate_browse_paths(ua::Array::from_slice(&[path]))
+            self.translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
                 .into_iter()
                 .next()
-                .unwrap();
-
-            Ok(Node {
-                client: self.clone(),
-                node_id,
-                browse_path,
-            })
+                .ok_or_else(|| PyRuntimeError::new_err("unexpectedly received no translated node"))
         })?
     }
 }
@@ -523,7 +523,8 @@ fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
     })
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
+#[derive(Clone)]
 pub struct Node {
     client: OpcUaClient,
     node_id: ua::NodeId,
@@ -557,10 +558,17 @@ impl Node {
     }
 }
 
+impl Node {
+    fn node_id(&self) -> &ua::NodeId {
+        &self.node_id
+    }
+}
+
 #[pymethods]
 impl Node {
     #[getter]
-    pub fn node_id(&self) -> NodeId {
+    #[pyo3(name = "node_id")]
+    pub fn node_id_py(&self) -> NodeId {
         NodeId::new(self.node_id.clone())
     }
 
@@ -592,7 +600,7 @@ impl Node {
         self.client.rt.unblock_on(py, async {
             // scope the browse path translation to the parent
             let path = ua::BrowsePath::init()
-                .with_starting_node(self.node_id().as_ua_ref().clone())
+                .with_starting_node(self.node_id_py().as_ua_ref().clone())
                 .with_relative_path(
                     #[expect(
                         clippy::unwrap_used,
@@ -602,11 +610,7 @@ impl Node {
                         .with_elements(ua::Array::from_slice(child_path.elements().unwrap())),
                 );
 
-            #[expect(
-                clippy::unwrap_used,
-                reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
-            )]
-            let (_, node_id) = self
+            let node = self
                 .client
                 .translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
@@ -630,9 +634,8 @@ impl Node {
                 .with_relative_path(path);
 
             Ok(Self {
-                client: self.client.clone(),
-                node_id,
                 browse_path,
+                ..node
             })
         })?
     }
@@ -881,7 +884,7 @@ impl Node {
     pub fn __repr__(&self) -> String {
         format!(
             "<Node node_id='{}' browse_path={}>",
-            *self.node_id(),
+            *self.node_id_py(),
             self.browse_path().__repr__()
         )
     }
