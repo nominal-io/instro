@@ -1,15 +1,22 @@
 use instro_opcua::prelude::*;
+use itertools::Itertools as _;
 use pyo3::IntoPyObjectExt as _;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 
+pub(crate) trait UaType {
+    type Inner: open62541::DataTypeExt;
+    fn new(value: Self::Inner) -> Self;
+    fn as_ua_ref(&self) -> &Self::Inner;
+}
+
 macro_rules! ua_struct {
-    ($(#[$struct_doc:meta])? $struct_vis:vis struct $this_t:ident;) => {
-        $(#[$struct_doc])?
-        #[pyclass(from_py_object)]
+    ($(#[doc = $doc:literal])? $struct_vis:vis struct $this_t:tt;) => {
+        $(#[$doc])?
+        #[pyclass(from_py_object, eq)]
         #[repr(transparent)]
-        #[derive(Clone)]
+        #[derive(Clone, PartialEq, Eq)]
         $struct_vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
 
         impl std::ops::Deref for $this_t {
@@ -26,14 +33,20 @@ macro_rules! ua_struct {
             }
         }
 
-        impl $this_t {
-            #[allow(unused, reason = "not used for all structs")]
-            pub(crate) const fn new(value: ::instro_opcua::open62541::ua::$this_t) -> Self {
+        impl From<::instro_opcua::open62541::ua::$this_t> for $this_t {
+            fn from(value: ::instro_opcua::open62541::ua::$this_t) -> $this_t {
+                $this_t::new(value)
+            }
+        }
+
+        impl UaType for $this_t {
+            type Inner = ::instro_opcua::open62541::ua::$this_t;
+
+            fn new(value: ::instro_opcua::open62541::ua::$this_t) -> Self {
                 Self(value)
             }
 
-            #[allow(unused, reason = "not used for all structs")]
-            pub(crate) fn as_ua_ref(&self) -> &::instro_opcua::open62541::ua::$this_t {
+            fn as_ua_ref(&self) -> &::instro_opcua::open62541::ua::$this_t {
                 &self.0
             }
         }
@@ -42,75 +55,93 @@ macro_rules! ua_struct {
 
 macro_rules! ua_enum {
     ($(#[$doc:meta])? $enum_vis:vis enum $this_t:ident { $($(#[$variant_doc:meta])? $variant:ident),* $(,)? }) => {
-        $(#[$doc])?
-        #[pyclass(skip_from_py_object)]
-        #[repr(transparent)]
-        #[derive(Clone)]
-        pub struct $this_t(::instro_opcua::open62541::ua::$this_t);
+        paste::paste! {
+            $(#[$doc])?
+            #[pyclass(skip_from_py_object, eq)]
+            #[repr(transparent)]
+            #[derive(Clone, PartialEq, Eq)]
+            pub struct $this_t(::instro_opcua::open62541::ua::$this_t);
 
-        #[pymethods]
-        impl $this_t {
-            $(
-                $(#[$variant_doc])?
-                #[classattr]
-                pub const $variant: $this_t = Self(::instro_opcua::open62541::ua::$this_t::$variant);
-            )*
-        }
-
-        impl $this_t {
-            #[allow(unused, reason = "not used for all enums")]
-            pub(crate) fn new(value: ua::$this_t) -> Self {
-                Self(value)
+            #[pymethods]
+            impl $this_t {
+                $(
+                    $(#[$variant_doc])?
+                    #[classattr]
+                    pub const [<$variant:snake:upper>]: $this_t = Self(::instro_opcua::open62541::ua::$this_t::[<$variant:upper>]);
+                )*
             }
 
-            #[allow(unused, reason = "not used for all enums")]
-            pub(crate) fn as_ua(&self) -> ua::$this_t {
-                self.0.clone()
-            }
-        }
-
-        impl TryFrom<u32> for $this_t {
-            type Error = PyErr;
-
-            fn try_from(value: u32) -> PyResult<Self> {
-                paste::paste! {
-                    Ok(match value {
-                        $(ua::$this_t::[<$variant _U32>] => Self(ua::$this_t::$variant),)*
-                        _ => Err(PyValueError::new_err(format!("invalid attribute id: '{value}'")))?,
-                    })
+            impl From<::instro_opcua::open62541::ua::$this_t> for $this_t {
+                fn from(value: ::instro_opcua::open62541::ua::$this_t) -> $this_t {
+                    $this_t::new(value)
                 }
             }
-        }
 
-        impl FromPyObject<'_, '_> for $this_t {
-            type Error = PyErr;
+            impl From<$this_t> for ::instro_opcua::open62541::ua::$this_t {
+                fn from(value: $this_t) -> ::instro_opcua::open62541::ua::$this_t {
+                    value.0
+                }
+            }
 
-            fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
-                use $crate::util::py_match;
+            impl UaType for $this_t {
+                type Inner = ::instro_opcua::open62541::ua::$this_t;
 
-                Ok(py_match!{
-                    slf: $this_t = obj => slf.borrow().clone(),
+                #[allow(unused, reason = "not used for all enums")]
+                fn new(value: ::instro_opcua::open62541::ua::$this_t) -> Self {
+                    Self(value)
+                }
 
-                    #[extract]
-                    s: &str = obj => {
-                        paste::paste! {
-                            match s.to_lowercase().as_str() {
-                                $(
-                                    stringify!([<$variant:lower>]) => Self(ua::$this_t::$variant),
-                                )*
+                #[allow(unused, reason = "not used for all enums")]
+                fn as_ua_ref(&self) -> &::instro_opcua::open62541::ua::$this_t {
+                    &self.0
+                }
+            }
 
-                                _ => Err(PyValueError::new_err(format!("invalid attribute id: '{s}'")))?,
-                            }
-                        }
-                    },
+            impl TryFrom<u32> for $this_t {
+                type Error = PyErr;
 
-                    #[extract]
-                    i: u32 = obj => Self::try_from(i)?,
-
-                    else => {
-                        Err(PyValueError::new_err(format!("invalid attribute id: '{obj:?}'")))?
+                fn try_from(value: u32) -> PyResult<Self> {
+                    use ::instro_opcua::open62541::ua;
+                    paste::paste! {
+                        Ok(match value {
+                            $(ua::$this_t::[<$variant:upper _U32>] => Self(ua::$this_t::[<$variant:upper>]),)*
+                            _ => Err(PyValueError::new_err(format!("invalid attribute id: '{value}'")))?,
+                        })
                     }
-                })
+                }
+            }
+
+            impl FromPyObject<'_, '_> for $this_t {
+                type Error = PyErr;
+
+                fn extract(obj: Borrowed<'_, '_, PyAny>) -> PyResult<Self> {
+                    use $crate::util::py_match;
+                    use ::instro_opcua::open62541::ua;
+
+                    Ok(py_match!{
+                        slf: $this_t = obj => slf.borrow().clone(),
+
+                        #[extract]
+                        s: &str = obj => {
+                            paste::paste! {
+                                match s.to_lowercase().as_str() {
+                                    $(
+                                        stringify!([<$variant:lower>]) | stringify!([<$variant:snake>]) => Self(ua::$this_t::[<$variant:upper>]),
+                                    )*
+
+                                    _ => Err(PyValueError::new_err(format!("invalid attribute id: '{s}'")))?,
+                                }
+                            }
+                        },
+
+                        #[extract]
+                        i: u32 = obj => Self::try_from(i)?,
+
+                        else => {
+                            Err(PyValueError::new_err(format!("invalid attribute id: '{obj:?}'")))?
+                        }
+                    })
+                }
             }
         }
     }
@@ -436,46 +467,455 @@ impl NodeId {
 }
 
 ua_enum! {
-    /// Attributes that are available to read from a [`Node`]
     pub enum AttributeId {
-        VALUE,
-        DATATYPE,
-        BROWSENAME,
-        DISPLAYNAME,
-        DESCRIPTION,
-        NODEID,
-        NODECLASS,
-        WRITEMASK,
-        USERWRITEMASK,
-        ISABSTRACT,
-        SYMMETRIC,
-        INVERSENAME,
-        CONTAINSNOLOOPS,
-        EVENTNOTIFIER,
-        VALUERANK,
-        ARRAYDIMENSIONS,
-        ACCESSLEVEL,
-        USERACCESSLEVEL,
-        MINIMUMSAMPLINGINTERVAL,
-        HISTORIZING,
-        EXECUTABLE,
-        USEREXECUTABLE,
-        DATATYPEDEFINITION,
-        ROLEPERMISSIONS,
-        USERROLEPERMISSIONS,
-        ACCESSRESTRICTIONS,
-        ACCESSLEVELEX,
+        Value,
+        DataType,
+        BrowseName,
+        DisplayName,
+        Description,
+        NodeId,
+        NodeClass,
+        WriteMask,
+        UserWriteMask,
+        IsAbstract,
+        Symmetric,
+        InverseName,
+        ContainsNoLoops,
+        EventNotifier,
+        ValueRank,
+        ArrayDimensions,
+        AccessLevel,
+        UserAccessLevel,
+        MinimumSamplingInterval,
+        Historizing,
+        Executable,
+        UserExecutable,
+        DataTypeDefinition,
+        RolePermissions,
+        UserRolePermissions,
+        AccessRestrictions,
+        AccessLevelEx,
     }
 }
 
 ua_enum! {
-    /// Message security mode enum
+    pub enum AccessLevelType {
+        None,
+        CurrentRead,
+        CurrentWrite,
+        HistoryRead,
+        HistoryWrite,
+        SemanticChange,
+        StatusWrite,
+        TimestampWrite,
+    }
+}
+
+ua_enum! {
+    pub enum AccessLevelExType {
+        None,
+        Constant,
+        CurrentRead,
+        CurrentWrite,
+        HistoryRead,
+        HistoryWrite,
+        SemanticChange,
+        StatusWrite,
+        TimestampWrite,
+        NonatomicRead,
+        NonatomicWrite,
+        WriteFullArrayOnly,
+        NoSubDataTypes,
+        NonVolatile,
+    }
+}
+
+ua_enum! {
+    pub enum AccessRestrictionType {
+        None,
+        ApplyRestrictionsToBrowse,
+        EncryptionRequired,
+        SessionRequired,
+        SigningRequired,
+    }
+}
+
+ua_enum! {
     pub enum MessageSecurityMode {
-        /// No signing or encryption
-        NONE,
-        /// Message signing only, no encryption
-        SIGN,
-        /// Message signing and encryption
-        SIGNANDENCRYPT,
+        None,
+        Sign,
+        SignAndEncrypt,
+    }
+}
+
+ua_enum! {
+    pub enum NodeClass {
+        Unspecified,
+        Object,
+        Variable,
+        Method,
+        ObjectType,
+        VariableType,
+        ReferenceType,
+        DataType,
+        View,
+    }
+}
+
+ua_struct! {
+    pub struct LocalizedText;
+}
+
+#[pymethods]
+impl LocalizedText {
+    #[getter]
+    pub fn locale(&self) -> Option<String> {
+        let locale_str = self.0.locale();
+        if locale_str.is_empty() {
+            None
+        } else {
+            Some(locale_str.to_string())
+        }
+    }
+
+    #[getter]
+    pub fn text(&self) -> String {
+        self.0.text().to_string()
+    }
+}
+
+ua_enum! {
+    pub enum AttributeWriteMask {
+        AccessLevel,
+        AccessLevelEx,
+        AccessRestrictions,
+        ArrayDimensions,
+        BrowseName,
+        ContainsNoLoops,
+        DataType,
+        DataTypeDefinition,
+        Description,
+        DisplayName,
+        EventNotifier,
+        Executable,
+        Historizing,
+        InverseName,
+        IsAbstract,
+        MinimumSamplingInterval,
+        NodeClass,
+        NodeId,
+        RolePermissions,
+        Symmetric,
+        UserAccessLevel,
+        UserExecutable,
+        UserWriteMask,
+        ValueForVariableType,
+        ValueRank,
+        WriteMask,
+    }
+}
+
+#[pymethods]
+impl AttributeWriteMask {
+    #[getter]
+    pub fn is_access_level_set(&self) -> bool {
+        self.0.access_level().into()
+    }
+
+    #[getter]
+    pub fn is_access_level_ex_set(&self) -> bool {
+        self.0.access_level_ex().into()
+    }
+
+    #[getter]
+    pub fn is_access_restrictions_set(&self) -> bool {
+        self.0.access_restrictions().into()
+    }
+
+    #[getter]
+    pub fn array_dimensions(&self) -> bool {
+        self.0.array_dimensions().into()
+    }
+
+    #[getter]
+    pub fn browse_name(&self) -> bool {
+        self.0.browse_name().into()
+    }
+
+    #[getter]
+    pub fn contains_no_loops(&self) -> bool {
+        self.0.contains_no_loops().into()
+    }
+
+    #[getter]
+    pub fn data_type(&self) -> bool {
+        self.0.data_type().into()
+    }
+
+    #[getter]
+    pub fn data_type_definition(&self) -> bool {
+        self.0.data_type_definition().into()
+    }
+
+    #[getter]
+    pub fn description(&self) -> bool {
+        self.0.description().into()
+    }
+
+    #[getter]
+    pub fn display_name(&self) -> bool {
+        self.0.display_name().into()
+    }
+
+    #[getter]
+    pub fn event_notifier(&self) -> bool {
+        self.0.event_notifier().into()
+    }
+
+    #[getter]
+    pub fn executable(&self) -> bool {
+        self.0.executable().into()
+    }
+
+    #[getter]
+    pub fn historizing(&self) -> bool {
+        self.0.historizing().into()
+    }
+
+    #[getter]
+    pub fn inverse_name(&self) -> bool {
+        self.0.inverse_name().into()
+    }
+
+    #[getter]
+    pub fn is_abstract(&self) -> bool {
+        self.0.is_abstract().into()
+    }
+
+    #[getter]
+    pub fn minimum_sampling_interval(&self) -> bool {
+        self.0.minimum_sampling_interval().into()
+    }
+
+    #[getter]
+    pub fn node_class(&self) -> bool {
+        self.0.node_class().into()
+    }
+
+    #[getter]
+    pub fn node_id(&self) -> bool {
+        self.0.node_id().into()
+    }
+
+    #[getter]
+    pub fn role_permissions(&self) -> bool {
+        self.0.role_permissions().into()
+    }
+
+    #[getter]
+    pub fn symmetric(&self) -> bool {
+        self.0.symmetric().into()
+    }
+
+    #[getter]
+    pub fn user_access_level(&self) -> bool {
+        self.0.user_access_level().into()
+    }
+
+    #[getter]
+    pub fn user_executable(&self) -> bool {
+        self.0.user_executable().into()
+    }
+
+    #[getter]
+    pub fn user_write_mask(&self) -> bool {
+        self.0.user_write_mask().into()
+    }
+
+    #[getter]
+    pub fn value_for_variable_type(&self) -> bool {
+        self.0.value_for_variable_type().into()
+    }
+
+    #[getter]
+    pub fn value_rank(&self) -> bool {
+        self.0.value_rank().into()
+    }
+
+    #[getter]
+    pub fn write_mask(&self) -> bool {
+        self.0.write_mask().into()
+    }
+}
+
+impl UaType for bool {
+    type Inner = ua::Boolean;
+
+    fn new(value: ua::Boolean) -> Self {
+        value.value()
+    }
+
+    fn as_ua_ref(&self) -> &ua::Boolean {
+        // SAFETY: primitive types are repr(transparent) for their inner type
+        unsafe { std::mem::transmute(&self) }
+    }
+}
+
+ua_struct! {
+    pub struct EnumDefinition;
+}
+
+#[pymethods]
+impl EnumDefinition {
+    #[getter]
+    pub fn fields(&self) -> Vec<EnumField> {
+        self.0
+            .fields()
+            .unwrap_or(&[])
+            .iter()
+            .cloned()
+            .map(EnumField)
+            .collect()
+    }
+}
+
+ua_struct! {
+    pub struct EnumField;
+}
+
+#[pymethods]
+impl EnumField {
+    #[getter]
+    pub fn name(&self) -> String {
+        self.0.name().to_string()
+    }
+
+    #[getter]
+    pub fn description(&self) -> LocalizedText {
+        self.0.description().clone().into()
+    }
+
+    #[getter]
+    pub fn value(&self) -> i64 {
+        self.0.value()
+    }
+}
+
+ua_struct! {
+    pub struct StructureDefinition;
+}
+
+#[pymethods]
+impl StructureDefinition {
+    #[getter]
+    pub fn fields(&self) -> Vec<StructureField> {
+        self.0
+            .fields()
+            .unwrap_or(&[])
+            .iter()
+            .cloned()
+            .map(StructureField)
+            .collect()
+    }
+
+    #[getter]
+    pub fn base_data_type(&self) -> NodeId {
+        self.0.base_data_type().clone().into()
+    }
+
+    #[getter]
+    pub fn default_encoding_id(&self) -> NodeId {
+        self.0.default_encoding_id().clone().into()
+    }
+
+    #[getter]
+    pub fn structure_type(&self) -> StructureType {
+        self.0.structure_type().clone().into()
+    }
+}
+
+ua_enum! {
+    pub enum StructureType {
+        Structure,
+        StructureWithOptionalFields,
+        Union,
+        StructureWithSubtypedValues,
+        UnionWithSubtypedValues,
+    }
+}
+
+ua_struct! {
+    pub struct StructureField;
+}
+
+#[pymethods]
+impl StructureField {
+    #[getter]
+    pub fn name(&self) -> String {
+        self.0.name().to_string()
+    }
+
+    #[getter]
+    pub fn description(&self) -> LocalizedText {
+        self.0.description().clone().into()
+    }
+
+    #[getter]
+    pub fn array_dimensions(&self) -> Option<Vec<u32>> {
+        Some(
+            self.0
+                .array_dimensions()?
+                .iter()
+                .map(|dim| dim.value())
+                .collect_vec(),
+        )
+    }
+
+    #[getter]
+    pub fn data_type(&self) -> NodeId {
+        self.0.data_type().clone().into()
+    }
+
+    #[getter]
+    pub fn value_rank(&self) -> i32 {
+        self.0.value_rank()
+    }
+
+    #[getter]
+    pub fn is_optional(&self) -> bool {
+        self.0.is_optional()
+    }
+
+    #[getter]
+    pub fn max_string_length(&self) -> u32 {
+        self.0.max_string_length()
+    }
+}
+
+ua_enum! {
+    pub enum EventNotifierType {
+        None,
+        HistoryRead,
+        HistoryWrite,
+        SubscribeToEvents,
+    }
+}
+
+#[pymethods]
+impl EventNotifierType {
+    pub fn is_none_set(&self) -> bool {
+        self.0.none()
+    }
+
+    pub fn is_history_read_set(&self) -> bool {
+        self.0.history_read()
+    }
+
+    pub fn is_history_write_set(&self) -> bool {
+        self.0.history_write()
+    }
+
+    pub fn is_subscribe_to_events_set(&self) -> bool {
+        self.0.subscribe_to_events()
     }
 }

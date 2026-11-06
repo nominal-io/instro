@@ -45,4 +45,26 @@ mod instro_opcua_py_types {
     use super::types::RelativePathElement;
     #[pymodule_export]
     use super::types::StatusCode;
+    #[pymodule_export]
+    use super::types::NodeClass;
+    #[pymodule_export]
+    use super::types::EnumDefinition;
+    #[pymodule_export]
+    use super::types::EnumField;
+    #[pymodule_export]
+    use super::types::StructureDefinition;
+    #[pymodule_export]
+    use super::types::StructureField;
+    #[pymodule_export]
+    use super::types::AttributeWriteMask;
+    #[pymodule_export]
+    use super::types::LocalizedText;
+    #[pymodule_export]
+    use super::types::EventNotifierType;
+    #[pymodule_export]
+    use super::types::AccessLevelType;
+    #[pymodule_export]
+    use super::types::AccessLevelExType;
+    #[pymodule_export]
+    use super::types::AccessRestrictionType;
 }
