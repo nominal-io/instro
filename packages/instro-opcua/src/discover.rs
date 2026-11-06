@@ -27,11 +27,11 @@ impl EndpointDescription {
 
     #[getter]
     fn security_mode(&self) -> &str {
-        match self.0.security_mode().clone().into_raw().0 {
+        match unsafe { self.0.security_mode().as_u32_unchecked() } {
             ua::MessageSecurityMode::NONE_U32 => "none",
             ua::MessageSecurityMode::SIGN_U32 => "sign",
             ua::MessageSecurityMode::SIGNANDENCRYPT_U32 => "sign_and_encrypt",
-            _ => unreachable!(),
+            _ => "unknown",
         }
     }
 
