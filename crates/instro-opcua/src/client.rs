@@ -690,7 +690,9 @@ impl ClientBuilder {
     fn instro_app_description() -> ua::ApplicationDescription {
         #[expect(clippy::unwrap_used, reason = "static strings don't contain nul bytes")]
         ua::ApplicationDescription::init()
-            .with_application_name(ua::LocalizedText::new("en-US", "Nominal OPC UA Client").unwrap())
+            .with_application_name(
+                ua::LocalizedText::new("en-US", "Nominal OPC UA Client").unwrap(),
+            )
             .with_product_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
             .with_application_type(ua::ApplicationType::CLIENT)
             .with_application_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
@@ -1251,6 +1253,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100)
         );
@@ -1306,6 +1309,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100),
             "polled sample emitted first"
@@ -1313,6 +1317,7 @@ mod tests {
         assert_eq!(
             notification
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(200)
         );
@@ -1359,6 +1364,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100)
         );
