@@ -2,7 +2,7 @@
 
 Measurement Computing (MCC) DAQ drivers for [`instro`](https://github.com/nominal-io/instro).
 
-This package contributes `MCCDriver` under `instro.daq.drivers.mcc`. The driver talks to MCC USB-series hardware through the [MCC Universal Library](https://www.mccdaq.com/Software-Downloads) via the `mcculw` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
+This package contributes `MCCDriver` (`from instro.drivers import MCCDriver`). The driver talks to MCC USB-series hardware through the [MCC Universal Library](https://www.mccdaq.com/Software-Downloads) via the `mcculw` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
 
 ## Installation
 

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -116,3 +117,51 @@ def test_contrib_drivers_exports_every_contrib_driver(category: str) -> None:
             f"instro.contrib.{category}.drivers.{name} missing from instro.contrib.drivers"
         )
         assert getattr(contrib_drivers, name) is getattr(module, name)
+
+
+_REPO = Path(__file__).resolve().parents[1]
+_IMPORT = re.compile(r"from (instro(?:\.\w+)*) import (\([^)]*\)|[^\n#]+)")
+_USER_DOCS = sorted(
+    p
+    for p in [_REPO / "README.md", *(_REPO / "docs").rglob("*.md"), *(_REPO / "examples").rglob("*.py")]
+    if not {"guides", "ref", "_build", "sdk", "examples"} & set(p.relative_to(_REPO).parts[1:-1])
+    and p.name not in {"AGENTS.md", "CONTRIBUTING.md", "DOCS_MIGRATION.md"}
+)
+
+
+def _shallowest(module: str, name: str) -> str | None:
+    """The shallowest instro module that exports the same object as ``module.name``, or None if unresolvable."""
+    try:
+        obj = getattr(importlib.import_module(module), name)
+    except (ImportError, AttributeError):  # vendor package absent, or a placeholder name in prose
+        return None
+    parts = module.split(".")
+    candidates = [".".join(parts[:i]) for i in range(1, len(parts))] + ["instro.drivers", "instro.lib"]
+    if module.startswith("instro.contrib."):
+        candidates.append("instro.contrib.drivers")
+    best = module
+    for candidate in candidates:
+        try:
+            namespace = importlib.import_module(candidate)
+        except ImportError:
+            continue
+        if name in dir(namespace) and getattr(namespace, name, None) is obj and candidate.count(".") < best.count("."):
+            best = candidate
+    return best
+
+
+@pytest.mark.parametrize("path", _USER_DOCS, ids=lambda p: str(p.relative_to(_REPO)))
+def test_docs_import_from_shallowest_module(path: Path) -> None:
+    # Docs and examples recommend one place to import each name from: the shallowest module that has it.
+    text = path.read_text()
+    deeper = []
+    for match in _IMPORT.finditer(text):
+        module = match.group(1)
+        names = [n.strip().split(" as ")[0] for n in match.group(2).strip("()").replace("\n", " ").split(",")]
+        for name in filter(None, names):
+            best = _shallowest(module, name)
+            if best is not None and best != module:
+                deeper.append(
+                    f"line {text[: match.start()].count(chr(10)) + 1}: import {name} from {best}, not {module}"
+                )
+    assert not deeper, "\n".join(deeper)

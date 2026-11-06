@@ -2,7 +2,7 @@
 
 Total Phase Aardvark I2C driver for [`instro`](https://github.com/nominal-io/instro).
 
-This package contributes `Aardvark` under `instro.i2c.drivers.totalphase`. The driver talks to the [Total Phase Aardvark](https://www.totalphase.com/products/aardvark-i2cspi/) I2C/SPI host adapter through the `pyaardvark` binding, and runs behind the `I2CInterface` hardware abstraction.
+This package contributes `Aardvark` (`from instro.drivers import Aardvark`). The driver talks to the [Total Phase Aardvark](https://www.totalphase.com/products/aardvark-i2cspi/) I2C/SPI host adapter through the `pyaardvark` binding, and runs behind the `I2CInterface` hardware abstraction.
 
 ## Installation
 

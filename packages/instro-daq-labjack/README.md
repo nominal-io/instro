@@ -2,7 +2,7 @@
 
 LabJack DAQ drivers for [`instro`](https://github.com/nominal-io/instro).
 
-This package contributes `LabJackTSeriesDriver` under `instro.daq.drivers.labjack`, with model definitions for the T4, T7, and T8. The driver talks to LabJack T-series hardware through the [LabJack LJM](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit) library via the `labjack-ljm` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
+This package contributes `LabJackTSeriesDriver` (`from instro.drivers import LabJackTSeriesDriver`), with model definitions for the T4, T7, and T8. The driver talks to LabJack T-series hardware through the [LabJack LJM](https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit) library via the `labjack-ljm` Python binding, and runs behind the `InstroDAQ` hardware abstraction alongside the other DAQ vendors.
 
 ## Installation
 

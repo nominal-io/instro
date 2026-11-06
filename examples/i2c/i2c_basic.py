@@ -20,7 +20,8 @@ def my_system_definition() -> SystemDefinition:
 
     Typically, you'd want to put this definition in a seperate file from your main app.
     """
-    from instro.i2c import DataFormat, FieldDef, RegisterDef, RegisterDevice
+    from instro import DataFormat, FieldDef, RegisterDevice
+    from instro.i2c import RegisterDef
 
     # The following represents a PCA9506 GPIO exapander with
     # some LEDs wired to the IO lines on Port 4

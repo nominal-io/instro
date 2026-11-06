@@ -143,15 +143,15 @@ First, create a `system_definition.py` file that defines your I2C bus configurat
 
 ```python
 # system_definition.py
-from instro.i2c import (
+from instro import (
     CommandDevice,
     DataFormat,
     FieldDef,
     LinearScaling,
-    RegisterDef,
     RegisterDevice,
     SystemDefinition,
 )
+from instro.i2c import RegisterDef
 from enum import Enum
 
 # Command enum for ADC

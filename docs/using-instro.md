@@ -14,7 +14,7 @@ This page discusses details about using `instro`.
 
 ## Imports
 
-Import from three namespaces:
+Import each name from the shallowest module that has it. For almost every name, that is one of three namespaces:
 
 | Namespace | What it holds | Example |
 | --- | --- | --- |
@@ -28,11 +28,11 @@ from instro.drivers import VirtualDMM, VirtualELoad, VirtualPSU
 from instro.lib import BackgroundDaemonConfig, NominalCorePublisher
 ```
 
-The category paths still work and give you the same objects, so existing code needs no changes. `from instro.psu.drivers import BK9115` and `from instro.drivers import BK9115` import the same class.
+Code that imports from the deeper module paths (`instro.psu.drivers`, `instro.lib.publishers`, ...) keeps working unchanged, but write new code against the namespaces above.
 
 A driver from a vendor package (`NIDAQDriver`, `LabJackTSeriesDriver`, `MCCDriver`, `Aardvark`) loads when you first import it. If its package is missing, the `ImportError` names the extra to install, for example `pip install 'instro[nidaq]'`. Community drivers have their own flat namespace, `instro.contrib.drivers`.
 
-Two names keep their category path because they mean different things in different protocols: Modbus `TimingConfig` stays in `instro.modbus`, and `RegisterDef` at the top level is the Modbus one, so import the I2C `RegisterDef` from `instro.i2c`.
+Two names are not in `instro` because they mean different things in different protocols, so their shallowest module is the category package: import Modbus `TimingConfig` from `instro.modbus`, and the I2C `RegisterDef` from `instro.i2c` (`instro.RegisterDef` is the Modbus one).
 
 `import instro` is cheap: each name loads on first use. In IPython, `dir(instro)` and tab completion list every name before anything loads.
 

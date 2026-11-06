@@ -64,7 +64,7 @@ The typical InstroAWG workflow:
 
 ### Waveform Definitions
 
-InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.awg`.
+InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses; import them from `instro`.
 
 `Arbitrary` requires a sample rate field (`sample_rate_sas`, in samples per second) to specify the number of samples that the internal DAC outputs per second.
 

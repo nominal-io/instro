@@ -70,7 +70,8 @@ Both device types require:
 ### RegisterDevice Configuration
 
 ```python
-from instro.i2c import DataFormat, FieldDef, RegisterDef, RegisterDevice
+from instro import DataFormat, FieldDef, RegisterDevice
+from instro.i2c import RegisterDef
 
 device = RegisterDevice(
     name="power_gpio", # User defined name for the device
@@ -331,7 +332,8 @@ If you plan to write values to registers that use custom scaling, you must provi
 A common use case: configuring a GPIO expander with multiple registers and bit fields.
 
 ```python
-from instro.i2c import DataFormat, FieldDef, RegisterDef, RegisterDevice, SystemDefinition
+from instro import DataFormat, FieldDef, RegisterDevice, SystemDefinition
+from instro.i2c import RegisterDef
 
 system = SystemDefinition()
 

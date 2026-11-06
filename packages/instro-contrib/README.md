@@ -13,7 +13,7 @@ pip install instro-contrib       # standalone
 
 ## Usage
 
-Contrib drivers import from `instro.contrib.drivers`, and run behind the same category HALs (`InstroPSU`, `InstroDMM`, …). They also mirror the core `instro` layout with `contrib` inserted after the top-level package name (`instro.contrib.psu.drivers`):
+Import contrib drivers from `instro.contrib.drivers`. They run behind the same category HALs (`InstroPSU`, `InstroDMM`, …):
 
 ```python
 from instro import InstroPSU

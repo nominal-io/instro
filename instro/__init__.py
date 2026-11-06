@@ -11,11 +11,11 @@ Build an instrument from a category class and a driver, then read and command it
 
 Swap ``VirtualPSU`` for a real driver (``BK9115``, ``RigolDP800``, ...) and the rest stays the same.
 
-Where to import from:
+Import each name from the shallowest module that has it, which is one of these three for almost everything:
 
 ``instro``
-    Instrument classes (``InstroPSU``, ``InstroDMM``, ``InstroDAQ``, ...), their types and enums
-    (``MeasurementFunction``, ``LoadMode``, ...), and the ``*DriverBase`` classes for writing a driver.
+    Instrument classes, their types and enums (``MeasurementFunction``, ``LoadMode``, ...), and the
+    ``*DriverBase`` classes for writing a driver.
 ``instro.drivers``
     Every driver, including the ones in vendor packages (``NIDAQDriver``, ``Aardvark``, ...).
 ``instro.lib``
@@ -23,26 +23,29 @@ Where to import from:
     ``FilePublisher``), transports and their settings (``VisaConfig``), ``Measurement``/``Command``, and
     exceptions.
 
-Instrument categories, each also importable on its own (``from instro.psu import InstroPSU``):
+The instrument classes, all in ``instro``:
 
-``instro.psu``
-    Power supplies (``InstroPSU``).
-``instro.dmm``
-    Digital multimeters (``InstroDMM``).
-``instro.eload``
-    Electronic loads (``InstroELoad``).
-``instro.scope``
-    Oscilloscopes (``InstroScope``).
-``instro.awg``
-    Arbitrary waveform generators (``InstroAWG``).
-``instro.daq``
-    Data acquisition (``InstroDAQ``); ``instro.daq.scaling`` converts raw readings to engineering units.
-``instro.i2c``
-    I2C buses (``I2CInterface``).
-``instro.modbus``
-    Modbus devices (``ModbusDevice``).
+``InstroPSU``
+    Power supplies.
+``InstroDMM``
+    Digital multimeters.
+``InstroELoad``
+    Electronic loads.
+``InstroScope``
+    Oscilloscopes.
+``InstroAWG``
+    Arbitrary waveform generators.
+``InstroDAQ``
+    Data acquisition; scalers such as ``LinearScaler`` convert raw readings to engineering units.
+``I2CInterface``
+    I2C buses.
+``ModbusDevice``
+    Modbus devices.
 
-Optional packages add ``instro.contrib`` (community drivers, ``pip install 'instro[contrib]'``),
+Two protocol-specific names live in their category instead: Modbus ``TimingConfig`` in ``instro.modbus``, and
+the I2C ``RegisterDef`` in ``instro.i2c`` (``instro.RegisterDef`` is the Modbus one).
+
+Optional packages add ``instro.contrib.drivers`` (community drivers, ``pip install 'instro[contrib]'``),
 ``instro.ethernetip`` (EtherNet/IP devices), and ``instro.unstable`` (in-development categories).
 """
 

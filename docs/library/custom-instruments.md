@@ -1254,7 +1254,7 @@ def tare_flow(self) -> FlowData:
     """Zero the flow reading. Device must have zero flow when called."""
 ```
 
-All six methods are `@abc.abstractmethod`. `FlowData` (from `instro.flowcontroller.types`) carries `pressure`, `temperature`, `vol_flow`, `mass_flow`, `setpoint`, `gas`, and `status_flags`.
+All six methods are `@abc.abstractmethod`. `FlowData` (from `instro.unstable.flowcontroller`) carries `pressure`, `temperature`, `vol_flow`, `mass_flow`, `setpoint`, `gas`, and `status_flags`.
 
 ##### Talking to the Instrument
 
@@ -1273,9 +1273,8 @@ See the [VisaDriver guide](/library/transports/visa.md) for the full transport r
 `AlicatMC` is the reference driver. It communicates over RS-232 using Alicat's proprietary ASCII polling protocol — **not SCPI** — so commands are terse single-character identifiers rather than IEEE 488.2-style mnemonics.
 
 ```python
-from instro.unstable.flowcontroller import FlowControllerDriverBase
-from instro.unstable.flowcontroller.types import FlowData
 from instro.lib import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.unstable.flowcontroller import FlowControllerDriverBase, FlowData
 
 class AlicatMC(FlowControllerDriverBase):
     """Alicat MC-series mass-flow controller over RS-232 ASCII polling."""
@@ -1344,8 +1343,7 @@ Alicat MC-series devices use a proprietary ASCII polling protocol. Commands are 
 Construct `InstroFlowController` with your own driver instance:
 
 ```python
-from instro.unstable.flowcontroller import InstroFlowController, FlowControllerDriverBase
-from instro.unstable.flowcontroller.types import FlowData
+from instro.unstable.flowcontroller import FlowControllerDriverBase, FlowData, InstroFlowController
 
 class MyFlowControllerDriver(FlowControllerDriverBase):
 
@@ -1473,8 +1471,7 @@ from typing import Any, ClassVar
 
 import numpy as np
 
-from instro.unstable.sdr.sdr import IQCapture, SDRDriverBase
-from instro.unstable.sdr.types import Direction
+from instro.unstable.sdr import Direction, IQCapture, SDRDriverBase
 
 
 class MyVendorSDR(SDRDriverBase):

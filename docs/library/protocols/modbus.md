@@ -683,8 +683,9 @@ device.open()
 :::{tab-item} Programmatic Config
 
 ```python
+from instro import ModbusConfig, ModbusDevice, RegisterDef
 from instro.lib import DeviceInfo, LinearScale, ModbusTCPTransport
-from instro.modbus import ModbusConfig, ModbusDevice, RegisterDef, TimingConfig
+from instro.modbus import TimingConfig
 
 config = ModbusConfig(
     device=DeviceInfo(name="my_device", manufacturer="Acme", model="X-100"),
