@@ -1,8 +1,8 @@
 """Example: Publishers: publish shared."""
 
-from instro.lib.publishers import FilePublisher, SharedPublisher
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import FilePublisher, SharedPublisher
 
 PRIMARY_VISA_RESOURCE = "TCPIP0::127.0.0.1::5025::SOCKET"
 SECONDARY_VISA_RESOURCE = "TCPIP0::127.0.0.1::5026::SOCKET"

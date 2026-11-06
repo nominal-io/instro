@@ -15,8 +15,8 @@ Using InstroELoad for SCPI-based programmable electronic loads
 ## Creating an InstroELoad
 
 ```python
-from instro.eload.drivers.bk_85xxb import BK85XXB
-from instro.eload import InstroELoad
+from instro import InstroELoad
+from instro.drivers import BK85XXB
 
 eload = InstroELoad(
     name="myELoad",
@@ -85,7 +85,7 @@ The operating mode must be set using `set_mode()` before you can configure the l
 `InstroELoad` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
 
 ```python
-from instro.eload import InstroELoad
+from instro import InstroELoad
 
 eload = InstroELoad(config="bench_eload.json")
 ```

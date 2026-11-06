@@ -100,8 +100,8 @@ from __future__ import annotations
 
 import math
 
-from instro.lib.transports.visa import VisaConfig, VisaDriver
-from instro.scope import ScopeDriverBase
+from instro import ScopeDriverBase
+from instro.lib import VisaConfig, VisaDriver
 
 # IEEE-488.2 sentinel returned when a measurement has no valid result.
 _VENDOR_INVALID_MEASUREMENT = 9.91e37
@@ -270,8 +270,8 @@ For non-VISA instruments, follow the same shape with the protocol client your dr
 Here's a representative driver implementation for the B&K Precision 9115-series single-channel supplies:
 
 ```python
-from instro.psu import PSUDriverBase
-from instro.lib.transports import VisaConfig, VisaDriver
+from instro import PSUDriverBase
+from instro.lib import VisaConfig, VisaDriver
 
 class BK9115(PSUDriverBase):
     """SCPI mapping for the B&K Precision 9115-series single-channel power supplies."""
@@ -340,9 +340,8 @@ Always consult your PSU's programming manual for the correct SCPI syntax.
 For drivers that aren't shipped in the library, construct `InstroPSU` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu import PSUDriverBase
-from instro.lib.transports import VisaDriver
+from instro import InstroPSU, PSUDriverBase
+from instro.lib import VisaDriver
 
 class MyCustomPSUDriver(PSUDriverBase):
     """Custom driver for my lab's proprietary PSU."""
@@ -461,9 +460,8 @@ For non-VISA instruments, follow the same shape with the protocol client your dr
 Here is the abridged shape of the Agilent 34401A driver:
 
 ```python
-from instro.dmm import DMMDriverBase
-from instro.dmm.types import MeasurementFunction
-from instro.lib.transports import VisaConfig, VisaDriver
+from instro import DMMDriverBase, MeasurementFunction
+from instro.lib import VisaConfig, VisaDriver
 
 class Agilent34401A(DMMDriverBase):
     """SCPI mapping for the Agilent/HP/Keysight 34401A DMM."""
@@ -518,9 +516,8 @@ Always consult your DMM's programming manual for the correct SCPI syntax.
 For drivers that aren't shipped in the library, construct `InstroDMM` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
 
 ```python
-from instro.dmm import MeasurementFunction, InstroDMM
-from instro.dmm import DMMDriverBase
-from instro.lib.transports import VisaDriver
+from instro import DMMDriverBase, InstroDMM, MeasurementFunction
+from instro.lib import VisaDriver
 
 class MyCustomDMMDriver(DMMDriverBase):
     """Custom driver for my lab's proprietary DMM."""
@@ -874,9 +871,8 @@ For non-VISA instruments, follow the same shape with the protocol client your dr
 Here's an abridged shape of the Rigol DG1022Z driver:
 
 ```python
-from instro.awg.awg import AWGDriverBase
-from instro.awg.types import AmplitudeMeasurementUnit, Sine, Waveform
-from instro.lib.transports import VisaConfig, VisaDriver
+from instro import AWGDriverBase, AmplitudeMeasurementUnit, Sine, Waveform
+from instro.lib import VisaConfig, VisaDriver
 
 class RigolDG1022Z(AWGDriverBase):
     """SCPI driver for the Rigol DG1022Z two-channel arbitrary waveform generator."""
@@ -923,10 +919,8 @@ class RigolDG1022Z(AWGDriverBase):
 For drivers that aren't shipped in the library, construct `InstroAWG` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
 
 ```python
-from instro.awg import InstroAWG
-from instro.awg.awg import AWGDriverBase
-from instro.awg.types import AmplitudeMeasurementUnit, Waveform, Sine
-from instro.lib.transports import VisaDriver
+from instro import AWGDriverBase, AmplitudeMeasurementUnit, InstroAWG, Sine, Waveform
+from instro.lib import VisaDriver
 
 class MyCustomAWGDriver(AWGDriverBase):
     """Custom driver for my lab's proprietary AWG."""
@@ -1083,9 +1077,8 @@ The important part is that the public constructor describes the instrument conne
 Here's the complete driver implementation for B&K Precision 85xx Series electronic loads:
 
 ```python
-from instro.eload import ELoadDriverBase
-from instro.eload.types import LoadMode, SlewRateDirection
-from instro.lib.transports import VisaConfig, VisaDriver
+from instro import ELoadDriverBase, LoadMode, SlewRateDirection
+from instro.lib import VisaConfig, VisaDriver
 
 def loadmode_to_unit(mode: LoadMode) -> str:
     """Convert LoadMode enum to SCPI unit keyword."""
@@ -1160,9 +1153,8 @@ Different electronic load vendors use different SCPI command sets. Always consul
 For drivers that aren't shipped in the library, construct `InstroELoad` with your own driver instance. The driver should accept connection settings directly and create its transport internally:
 
 ```python
-from instro.eload import LoadMode, InstroELoad
-from instro.eload import ELoadDriverBase
-from instro.lib.transports import VisaDriver
+from instro import ELoadDriverBase, InstroELoad, LoadMode
+from instro.lib import VisaDriver
 
 class MyCustomELoadDriver(ELoadDriverBase):
     """Custom driver for my lab's proprietary electronic load."""
@@ -1283,7 +1275,7 @@ See the [VisaDriver guide](/library/transports/visa.md) for the full transport r
 ```python
 from instro.unstable.flowcontroller import FlowControllerDriverBase
 from instro.unstable.flowcontroller.types import FlowData
-from instro.lib.transports.visa import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
+from instro.lib import SerialConfig, TerminatorConfig, VisaConfig, VisaDriver
 
 class AlicatMC(FlowControllerDriverBase):
     """Alicat MC-series mass-flow controller over RS-232 ASCII polling."""
@@ -1568,8 +1560,7 @@ Every custom instrument is a subclass of `Instrument`. The base class owns the p
 import random
 import time
 
-from instro.lib import Command, Instrument, Measurement
-from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement, publish_command, publish_measurement
 
 class SimpleTempController(Instrument):
     def __init__(self, name: str, **kwargs):
@@ -1658,7 +1649,7 @@ print(f"current={latest:.1f}")
 To stream the same data to Nominal Core instead of (or in addition to) the in-memory buffer, attach a publisher before `start()`:
 
 ```python
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib import NominalCorePublisher
 
 controller.add_publisher(NominalCorePublisher("<dataset_rid>"))
 ```

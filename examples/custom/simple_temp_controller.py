@@ -3,8 +3,7 @@
 import random
 import time
 
-from instro.lib import Command, Instrument, Measurement
-from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement, publish_command, publish_measurement
 
 
 class SimpleTempController(Instrument):

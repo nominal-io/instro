@@ -15,8 +15,8 @@ Using InstroPSU for SCPI-based programmable power supplies
 ## Creating an InstroPSU
 
 ```python
-from instro.psu.drivers import SiglentSPD3303
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import SiglentSPD3303
 
 psu = InstroPSU(
     name="myPSU",
@@ -86,7 +86,7 @@ psu.output_enable(True, channel=1)
 `InstroPSU` can also be constructed directly from a JSON config file, which removes the need to write any Python setup code:
 
 ```python
-from instro.psu import InstroPSU
+from instro import InstroPSU
 
 psu = InstroPSU(config="bench_psu.json")
 ```

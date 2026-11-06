@@ -11,9 +11,9 @@ myst:
 An open-source, vendor-agnostic Python library for interfacing with test equipment.
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-# from instro.daq.drivers.ni import NIDAQDriver
-from instro.daq import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+# from instro.drivers import NIDAQDriver
+from instro import InstroDAQ
 
 daq = InstroDAQ(
   name    = "myDAQ",

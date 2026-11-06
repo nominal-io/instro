@@ -46,8 +46,8 @@ CompactLogix is the specific [Allen-Bradley](/library/protocols/ethernetip/Allen
 ```python
 import time
 
-from instro.lib.publishers import NominalCorePublisher
 from instro.ethernetip import EtherNetIPDevice
+from instro.lib import NominalCorePublisher
 
 RID = "<dataset_rid>"  # Nominal Core dataset RID.
 

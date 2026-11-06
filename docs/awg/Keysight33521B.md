@@ -16,8 +16,8 @@ The {py:obj}`Keysight33521B <instro.awg.drivers.keysight_33521b.Keysight33521B>`
 ## Creating an [`InstroAWG`](/awg.md) with {py:obj}`Keysight33521B <instro.awg.drivers.keysight_33521b.Keysight33521B>`
 
 ```python
-from instro.awg.drivers import Keysight33521B
-from instro.awg import InstroAWG
+from instro import InstroAWG
+from instro.drivers import Keysight33521B
 
 awg = InstroAWG(
     name="myAWG",

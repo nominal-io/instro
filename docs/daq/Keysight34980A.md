@@ -16,8 +16,8 @@ The {py:obj}`Keysight34980A <instro.daq.drivers.keysight_34980a.Keysight34980A>`
 ## Creating an [`InstroDAQ`](/daq.md) with {py:obj}`Keysight34980A <instro.daq.drivers.keysight_34980a.Keysight34980A>`
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers import Keysight34980A
+from instro import InstroDAQ
+from instro.drivers import Keysight34980A
 
 daq = InstroDAQ(
     name="keysightDAQ",

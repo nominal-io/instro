@@ -11,15 +11,8 @@ Then run this script.
 
 import time
 
-from instro.lib.transports import ModbusTCPTransport
-from instro.modbus import (
-    DeviceInfo,
-    LinearScale,
-    ModbusConfig,
-    ModbusDevice,
-    RegisterDef,
-    TimingConfig,
-)
+from instro.lib import DeviceInfo, LinearScale, ModbusTCPTransport
+from instro.modbus import ModbusConfig, ModbusDevice, RegisterDef, TimingConfig
 
 transport = ModbusTCPTransport(host="127.0.0.1", port=5020, timeout=2.0)
 

@@ -17,8 +17,8 @@ The Aardvark shared library is a separate vendor install from Total Phase and is
 Construct the driver with the adapter serial number, then pass it to `I2CInterface` along with a system definition describing the peripherals on the bus:
 
 ```python
-from instro.i2c import I2CInterface
-from instro.i2c.drivers.totalphase import Aardvark
+from instro import I2CInterface
+from instro.drivers import Aardvark
 
 i2c = I2CInterface(
     name="myI2C",

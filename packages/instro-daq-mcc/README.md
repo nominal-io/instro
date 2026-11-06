@@ -17,8 +17,8 @@ The MCC Universal Library (`mcculw`) is Windows-only, so this package runs on Wi
 Construct the driver with the MCC device ID, optionally suffixed with `:<board_number>` (default 0), then pass it to `InstroDAQ`:
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers.mcc import MCCDriver
+from instro import InstroDAQ
+from instro.drivers import MCCDriver
 
 daq = InstroDAQ(name="myDAQ", driver=MCCDriver(device_id="344371:0"))
 ```
