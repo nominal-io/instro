@@ -473,15 +473,15 @@ impl OpcUaClient {
 
         self.rt.unblock_on(py, async {
             let path = ua::BrowsePath::init()
-                .with_relative_path(&path)
-                .with_starting_node(&ROOT_FOLDER_ID);
+                .with_relative_path(path)
+                .with_starting_node(ROOT_FOLDER_ID.clone());
 
             #[expect(
                 clippy::unwrap_used,
                 reason = "`translate_browse_paths` verifies that the len(input) == len(output)"
             )]
             let (browse_path, node_id) = self
-                .translate_browse_paths(vec![path])
+                .translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
                 .into_iter()
                 .next()
@@ -539,8 +539,8 @@ impl Node {
             client,
             node_id: ua::NodeId::ns0(id),
             browse_path: ua::BrowsePath::init()
-                .with_starting_node(&ROOT_FOLDER_ID)
-                .with_relative_path(&ua::RelativePath::parse(path).unwrap()),
+                .with_starting_node(ROOT_FOLDER_ID.clone())
+                .with_relative_path(ua::RelativePath::parse(path).unwrap()),
         }
     }
 
@@ -592,13 +592,13 @@ impl Node {
         self.client.rt.unblock_on(py, async {
             // scope the browse path translation to the parent
             let path = ua::BrowsePath::init()
-                .with_starting_node(self.node_id().as_ua_ref())
+                .with_starting_node(self.node_id().as_ua_ref().clone())
                 .with_relative_path(
                     #[expect(
                         clippy::unwrap_used,
                         reason = "`child_path.is_empty()` is checked above"
                     )]
-                    &ua::RelativePath::init().with_elements(child_path.elements().unwrap()),
+                    ua::RelativePath::init().with_elements(ua::Array::from_slice(child_path.elements().unwrap())),
                 );
 
             #[expect(
@@ -607,7 +607,7 @@ impl Node {
             )]
             let (_, node_id) = self
                 .client
-                .translate_browse_paths(vec![path])
+                .translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
                 .into_iter()
                 .next()
@@ -619,14 +619,14 @@ impl Node {
                 .iter()
                 .chain(child_path.iter())
                 .cloned()
-                .collect_vec();
+                .collect::<ua::Array<_>>();
 
-            let path = ua::RelativePath::init().with_elements(all_elements.as_slice());
+            let path = ua::RelativePath::init().with_elements(all_elements);
 
             // normalize the path to be rooted at the root folder
             let browse_path = ua::BrowsePath::init()
-                .with_starting_node(&ROOT_FOLDER_ID)
-                .with_relative_path(&path);
+                .with_starting_node(ROOT_FOLDER_ID.clone())
+                .with_relative_path(path);
 
             Ok(Self {
                 client: self.client.clone(),
@@ -645,11 +645,11 @@ impl Node {
                 LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES));
 
             let desc = ua::BrowseDescription::init()
-                .with_browse_direction(&ua::BrowseDirection::FORWARD)
+                .with_browse_direction(ua::BrowseDirection::FORWARD)
                 .with_include_subtypes(true)
-                .with_node_id(&self.node_id)
-                .with_reference_type_id(&HIERARCHICAL_NODE_ID)
-                .with_result_mask(&ua::BrowseResultMask::ALL);
+                .with_node_id(self.node_id.clone())
+                .with_reference_type_id(HIERARCHICAL_NODE_ID.clone())
+                .with_result_mask(ua::BrowseResultMask::ALL);
 
             let results = self
                 .client
@@ -703,19 +703,19 @@ impl Node {
                 .map(|reference| {
                     let element = ua::RelativePathElement::init()
                         .with_include_subtypes(true)
-                        .with_reference_type_id(&HIERARCHICAL_NODE_ID)
+                        .with_reference_type_id(HIERARCHICAL_NODE_ID.clone())
                         .with_is_inverse(false)
-                        .with_target_name(reference.browse_name());
+                        .with_target_name(reference.browse_name().clone());
 
-                    let child_path_items = my_path.iter().cloned().chain([element]).collect_vec();
+                    let child_path_items = my_path.iter().cloned().chain([element]).collect::<ua::Array<_>>();
 
                     let child_path =
-                        ua::RelativePath::init().with_elements(child_path_items.as_slice());
+                        ua::RelativePath::init().with_elements(child_path_items);
 
                     let browse_path = ua::BrowsePath::init()
-                        .with_relative_path(&child_path)
+                        .with_relative_path(child_path)
                         // this should always be the Root folder
-                        .with_starting_node(self.browse_path.starting_node());
+                        .with_starting_node(self.browse_path.starting_node().clone());
 
                     Self {
                         client: self.client.clone(),
