@@ -619,132 +619,132 @@ ua_enum! {
 impl AttributeWriteMask {
     #[getter]
     pub fn is_access_level_set(&self) -> bool {
-        self.0.access_level().into()
+        self.0.access_level()
     }
 
     #[getter]
     pub fn is_access_level_ex_set(&self) -> bool {
-        self.0.access_level_ex().into()
+        self.0.access_level_ex()
     }
 
     #[getter]
     pub fn is_access_restrictions_set(&self) -> bool {
-        self.0.access_restrictions().into()
+        self.0.access_restrictions()
     }
 
     #[getter]
     pub fn array_dimensions(&self) -> bool {
-        self.0.array_dimensions().into()
+        self.0.array_dimensions()
     }
 
     #[getter]
     pub fn browse_name(&self) -> bool {
-        self.0.browse_name().into()
+        self.0.browse_name()
     }
 
     #[getter]
     pub fn contains_no_loops(&self) -> bool {
-        self.0.contains_no_loops().into()
+        self.0.contains_no_loops()
     }
 
     #[getter]
     pub fn data_type(&self) -> bool {
-        self.0.data_type().into()
+        self.0.data_type()
     }
 
     #[getter]
     pub fn data_type_definition(&self) -> bool {
-        self.0.data_type_definition().into()
+        self.0.data_type_definition()
     }
 
     #[getter]
     pub fn description(&self) -> bool {
-        self.0.description().into()
+        self.0.description()
     }
 
     #[getter]
     pub fn display_name(&self) -> bool {
-        self.0.display_name().into()
+        self.0.display_name()
     }
 
     #[getter]
     pub fn event_notifier(&self) -> bool {
-        self.0.event_notifier().into()
+        self.0.event_notifier()
     }
 
     #[getter]
     pub fn executable(&self) -> bool {
-        self.0.executable().into()
+        self.0.executable()
     }
 
     #[getter]
     pub fn historizing(&self) -> bool {
-        self.0.historizing().into()
+        self.0.historizing()
     }
 
     #[getter]
     pub fn inverse_name(&self) -> bool {
-        self.0.inverse_name().into()
+        self.0.inverse_name()
     }
 
     #[getter]
     pub fn is_abstract(&self) -> bool {
-        self.0.is_abstract().into()
+        self.0.is_abstract()
     }
 
     #[getter]
     pub fn minimum_sampling_interval(&self) -> bool {
-        self.0.minimum_sampling_interval().into()
+        self.0.minimum_sampling_interval()
     }
 
     #[getter]
     pub fn node_class(&self) -> bool {
-        self.0.node_class().into()
+        self.0.node_class()
     }
 
     #[getter]
     pub fn node_id(&self) -> bool {
-        self.0.node_id().into()
+        self.0.node_id()
     }
 
     #[getter]
     pub fn role_permissions(&self) -> bool {
-        self.0.role_permissions().into()
+        self.0.role_permissions()
     }
 
     #[getter]
     pub fn symmetric(&self) -> bool {
-        self.0.symmetric().into()
+        self.0.symmetric()
     }
 
     #[getter]
     pub fn user_access_level(&self) -> bool {
-        self.0.user_access_level().into()
+        self.0.user_access_level()
     }
 
     #[getter]
     pub fn user_executable(&self) -> bool {
-        self.0.user_executable().into()
+        self.0.user_executable()
     }
 
     #[getter]
     pub fn user_write_mask(&self) -> bool {
-        self.0.user_write_mask().into()
+        self.0.user_write_mask()
     }
 
     #[getter]
     pub fn value_for_variable_type(&self) -> bool {
-        self.0.value_for_variable_type().into()
+        self.0.value_for_variable_type()
     }
 
     #[getter]
     pub fn value_rank(&self) -> bool {
-        self.0.value_rank().into()
+        self.0.value_rank()
     }
 
     #[getter]
     pub fn write_mask(&self) -> bool {
-        self.0.write_mask().into()
+        self.0.write_mask()
     }
 }
 
