@@ -319,8 +319,8 @@ impl FromPyObject<'_, '_> for NodeIdKind {
             NodeIdKind::NodeId(node_id.borrow().0.clone())
         } else if let Ok(path) = obj.cast_exact::<RelativePath>() {
             let path = ua::BrowsePath::init()
-                .with_relative_path(&path.borrow().0)
-                .with_starting_node(&ua::NodeId::numeric(0, 84));
+                .with_relative_path(path.borrow().0.clone())
+                .with_starting_node(ua::NodeId::numeric(0, 84));
 
             NodeIdKind::Path(path)
         } else if let Ok(s) = obj.extract::<&str>() {
@@ -341,8 +341,8 @@ impl FromStr for NodeIdKind {
             NodeIdKind::NodeId(node_id)
         } else if let Ok(path) = id_or_path.parse::<ua::RelativePath>() {
             let path = ua::BrowsePath::init()
-                .with_relative_path(&path)
-                .with_starting_node(&ua::NodeId::numeric(0, 84));
+                .with_relative_path(path)
+                .with_starting_node(ua::NodeId::numeric(0, 84));
 
             NodeIdKind::Path(path)
         } else {
@@ -356,9 +356,9 @@ impl FromStr for NodeIdKind {
 impl OpcUaClient {
     async fn translate_browse_paths(
         &self,
-        paths: Vec<ua::BrowsePath>,
+        paths: ua::Array<ua::BrowsePath>,
     ) -> PyResult<Vec<(ua::BrowsePath, ua::NodeId)>> {
-        let request = ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(&paths);
+        let request = ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(paths.clone());
 
         let results = self
             .client
@@ -383,7 +383,7 @@ impl OpcUaClient {
         }
 
         let (good, bad): (Vec<_>, Vec<_>) =
-            results.iter().zip(paths).partition_map(|(result, path)| {
+            results.iter().zip(paths.iter()).partition_map(|(result, path)| {
                 // this might look fragile, but it's not a big deal
                 let err_str = if result.status_code().is_bad() {
                     &format!(
@@ -401,7 +401,7 @@ impl OpcUaClient {
                             targets[0].target_id().server_index()
                         )
                     } else {
-                        return Either::Left((path, targets[0].target_id().node_id().clone()));
+                        return Either::Left((path.clone(), targets[0].target_id().node_id().clone()));
                     }
                 } else {
                     "internal error: browse path result array was invalid"
@@ -428,7 +428,7 @@ impl OpcUaClient {
 
         Ok(self
             .rt
-            .block_on(self.translate_browse_paths(paths))?
+            .block_on(self.translate_browse_paths(ua::Array::from_slice(&paths)))?
             .into_iter()
             .map(|(_path, node_id)| node_id)
             .chain(ids)

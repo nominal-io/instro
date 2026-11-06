@@ -253,7 +253,7 @@ impl Registrar {
         let mut attributes = ua::ObjectAttributes::default();
         let display_name = spec.display_name.as_deref().unwrap_or(&spec.browse_name);
 
-        attributes = attributes.with_display_name(&localized_text(display_name)?);
+        attributes = attributes.with_display_name(localized_text(display_name)?);
 
         let object = ObjectNode {
             requested_new_node_id: Some(requested_id),
@@ -315,11 +315,11 @@ impl Registrar {
         let access: AccessLevelType = spec.access.as_level();
 
         let mut attributes = ua::VariableAttributes::default()
-            .with_data_type(&data_type)
-            .with_access_level(&access);
+            .with_data_type(data_type)
+            .with_access_level(access);
 
         let display_name = spec.display_name.as_deref().unwrap_or(&spec.browse_name);
-        attributes = attributes.with_display_name(&localized_text(display_name)?);
+        attributes = attributes.with_display_name(localized_text(display_name)?);
 
         let variable = VariableNode {
             requested_new_node_id: Some(requested_id),
