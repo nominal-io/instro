@@ -358,7 +358,8 @@ impl OpcUaClient {
         &self,
         paths: ua::Array<ua::BrowsePath>,
     ) -> PyResult<Vec<(ua::BrowsePath, ua::NodeId)>> {
-        let request = ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(paths.clone());
+        let request =
+            ua::TranslateBrowsePathsToNodeIdsRequest::init().with_browse_paths(paths.clone());
 
         let results = self
             .client
@@ -383,32 +384,38 @@ impl OpcUaClient {
         }
 
         let (good, bad): (Vec<_>, Vec<_>) =
-            results.iter().zip(paths.iter()).partition_map(|(result, path)| {
-                // this might look fragile, but it's not a big deal
-                let err_str = if result.status_code().is_bad() {
-                    &format!(
-                        "server failed to translate browse path to node id: '{}'",
-                        result.status_code().name()
-                    )
-                } else if let Some(targets) = result.targets() {
-                    if targets.is_empty() {
-                        "no targets found for browse path"
-                    } else if targets.len() > 1 {
-                        "ambiguous path, multiple targets found"
-                    } else if targets[0].target_id().server_index() != 0 {
+            results
+                .iter()
+                .zip(paths.iter())
+                .partition_map(|(result, path)| {
+                    // this might look fragile, but it's not a big deal
+                    let err_str = if result.status_code().is_bad() {
                         &format!(
-                            "requested node exists on a different server: '{}'",
-                            targets[0].target_id().server_index()
+                            "server failed to translate browse path to node id: '{}'",
+                            result.status_code().name()
                         )
+                    } else if let Some(targets) = result.targets() {
+                        if targets.is_empty() {
+                            "no targets found for browse path"
+                        } else if targets.len() > 1 {
+                            "ambiguous path, multiple targets found"
+                        } else if targets[0].target_id().server_index() != 0 {
+                            &format!(
+                                "requested node exists on a different server: '{}'",
+                                targets[0].target_id().server_index()
+                            )
+                        } else {
+                            return Either::Left((
+                                path.clone(),
+                                targets[0].target_id().node_id().clone(),
+                            ));
+                        }
                     } else {
-                        return Either::Left((path.clone(), targets[0].target_id().node_id().clone()));
-                    }
-                } else {
-                    "internal error: browse path result array was invalid"
-                };
+                        "internal error: browse path result array was invalid"
+                    };
 
-                Either::Right(format!("'{}', {}", path.relative_path(), err_str))
-            });
+                    Either::Right(format!("'{}', {}", path.relative_path(), err_str))
+                });
 
         if bad.is_empty() {
             Ok(good)

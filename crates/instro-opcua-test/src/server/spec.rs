@@ -109,7 +109,7 @@ impl Access {
                 .with_current_read(true)
                 .with_current_write(true),
             Self::WriteOnly => ua::AccessLevelType::NONE.with_current_write(true),
-            Self::Custom(level) => level.clone(),
+            Self::Custom(level) => *level,
         }
     }
 }

@@ -38,7 +38,7 @@ impl NodeReadBatch {
         let pairs = nodes
             .into_iter()
             .cloned()
-            .cartesian_product(attrs.iter().map(|&attr| attr.clone()))
+            .cartesian_product(attrs.iter().map(|&attr| *attr))
             .collect_vec();
 
         Self { pairs }
