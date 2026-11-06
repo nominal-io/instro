@@ -409,7 +409,7 @@ class Instrument:
                     _display.value(sample),
                     _display.timestamp(timestamp),
                 ]
-                for name, (timestamp, sample) in latest.items()
+                for name, (timestamp, sample) in sorted(latest.items(), key=lambda item: _display.natural_key(item[0]))
             ],
             columns=("Channel", "Latest", "Time"),
         )
