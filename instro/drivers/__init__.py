@@ -1,13 +1,18 @@
-"""Every concrete instrument driver in one namespace.
+"""Every instrument driver: pick one and pass it to an instrument class.
 
-The drivers ship in instro itself and in the optional vendor packages::
+::
 
-    from instro.drivers import BK9115, Keysight34461A, VirtualELoad
+    from instro import InstroDMM
+    from instro.drivers import Keysight34461A
 
-The per-category paths (``instro.psu.drivers``, ``instro.dmm.drivers``, ...) still work and export the same
-classes. Drivers from vendor packages (``NIDAQDriver``, ``LabJackTSeriesDriver``, ``MCCDriver``,
-``Aardvark``) load on first access and raise `ImportError` naming the extra to install when their package
-is missing.
+    dmm = InstroDMM(name="myDMM", driver=Keysight34461A("TCPIP::192.168.1.20::INSTR"))
+
+``Virtual*`` drivers (``VirtualPSU``, ``VirtualDMM``, ``VirtualELoad``, ``VirtualScope``) simulate an
+instrument in-process, so code runs without hardware. ``Simulated*`` drivers talk to a local SCPI simulator.
+
+Drivers that wrap a vendor SDK ship as extras: ``NIDAQDriver`` (``instro[nidaq]``), ``LabJackTSeriesDriver``
+(``instro[labjack]``), ``MCCDriver`` (``instro[mccdaq]``), and ``Aardvark`` (``instro[aardvark]``). Importing
+one without its extra raises `ImportError` naming the extra to install.
 """
 
 from __future__ import annotations
@@ -124,4 +129,4 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted({*globals(), *__all__, *_VENDOR_DRIVERS})
+    return sorted({*__all__, *_VENDOR_DRIVERS, *(n for n in globals() if n.startswith("__"))})

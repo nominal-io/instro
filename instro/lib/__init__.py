@@ -1,11 +1,28 @@
-"""Cross-category building blocks: base instrument, transports, publishers, shared types and config.
+"""Shared tools for every instrument: publishers, transports, data types, and errors.
 
-Everything public in the ``instro.lib`` subpackages imports from here::
+Publishers send each reading and command to a destination; pass them to any instrument::
 
-    from instro.lib import BackgroundDaemonConfig, NominalCorePublisher, VisaConfig
+    from instro import InstroPSU
+    from instro.drivers import VirtualPSU
+    from instro.lib import FilePublisher, NominalCorePublisher
 
-The submodule paths (``instro.lib.publishers``, ``instro.lib.transports``, ``instro.lib.types``, ...) still
-work and export the same objects.
+    publishers = [FilePublisher(format="jsonl", directory="/tmp/instro/"), NominalCorePublisher("<dataset_rid>")]
+    psu = InstroPSU(name="myPSU", driver=VirtualPSU(num_channels=1), num_channels=1, publishers=publishers)
+
+What's here:
+
+Publishers
+    ``NominalCorePublisher``, ``NominalConnectPublisher``, ``FilePublisher``, ``PlotlyPublisher``, and the
+    ``Publisher`` protocol for writing your own.
+Transports
+    ``VisaConfig`` and ``SerialConfig`` to customize how a driver connects; ``ModbusTCPTransport`` and
+    ``ModbusRTUTransport`` to share one Modbus connection between devices.
+Data
+    ``Measurement`` and ``Command``, the records instruments return and publish.
+Errors
+    ``InstroError`` and its subclasses, such as ``FeatureNotSupportedError``.
+Discovery
+    ``scan_visa_resources`` and ``match_idn`` find connected instruments and the drivers that support them.
 """
 
 from instro.lib.config import (
@@ -93,6 +110,7 @@ __all__ = [
     "Publisher",
     "QueuedPublisher",
     "SharedPublisher",
+    # Logging
     "install_nominal_core_log_handler",
     # Transports
     "ControlFlow",

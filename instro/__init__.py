@@ -1,18 +1,49 @@
-"""instro: typed Python API for test-and-measurement instruments.
+"""Control test-and-measurement instruments from Python, with one API per instrument category.
 
-The instrument classes and their types import straight from ``instro``, concrete drivers from
-``instro.drivers``, and the shared building blocks (publishers, transports, measurement types) from
-``instro.lib``::
+Build an instrument from a category class and a driver, then read and command it::
 
-    from instro import InstroDMM, InstroPSU, MeasurementFunction
-    from instro.drivers import VirtualDMM, VirtualPSU
-    from instro.lib import NominalCorePublisher
+    from instro import InstroPSU
+    from instro.drivers import VirtualPSU
 
-The category paths (``instro.psu``, ``instro.psu.drivers``, ``instro.lib.publishers``, ...) still work and
-export the same objects.
+    with InstroPSU(name="myPSU", driver=VirtualPSU(num_channels=1), num_channels=1) as psu:
+        psu.apply(current_limit=1.0, voltage=5.0, enable=True, channel=1)
+        print(psu.get_voltage(channel=1).latest)
 
-Names here load on first access, so ``import instro`` stays cheap and importing one submodule (say
-``instro.lib.types``) does not import every instrument category.
+Swap ``VirtualPSU`` for a real driver (``BK9115``, ``RigolDP800``, ...) and the rest stays the same.
+
+Where to import from:
+
+``instro``
+    Instrument classes (``InstroPSU``, ``InstroDMM``, ``InstroDAQ``, ...), their types and enums
+    (``MeasurementFunction``, ``LoadMode``, ...), and the ``*DriverBase`` classes for writing a driver.
+``instro.drivers``
+    Every driver, including the ones in vendor packages (``NIDAQDriver``, ``Aardvark``, ...).
+``instro.lib``
+    Shared tools: publishers that send data to Nominal or files (``NominalCorePublisher``,
+    ``FilePublisher``), transports and their settings (``VisaConfig``), ``Measurement``/``Command``, and
+    exceptions.
+
+Instrument categories, each also importable on its own (``from instro.psu import InstroPSU``):
+
+``instro.psu``
+    Power supplies (``InstroPSU``).
+``instro.dmm``
+    Digital multimeters (``InstroDMM``).
+``instro.eload``
+    Electronic loads (``InstroELoad``).
+``instro.scope``
+    Oscilloscopes (``InstroScope``).
+``instro.awg``
+    Arbitrary waveform generators (``InstroAWG``).
+``instro.daq``
+    Data acquisition (``InstroDAQ``); ``instro.daq.scaling`` converts raw readings to engineering units.
+``instro.i2c``
+    I2C buses (``I2CInterface``).
+``instro.modbus``
+    Modbus devices (``ModbusDevice``).
+
+Optional packages add ``instro.contrib`` (community drivers, ``pip install 'instro[contrib]'``),
+``instro.ethernetip`` (EtherNet/IP devices), and ``instro.unstable`` (in-development categories).
 """
 
 # The TYPE_CHECKING block below uses grouped ``X as X`` re-exports (explicit for mypy --strict users);
@@ -285,4 +316,5 @@ def __getattr__(name: str) -> Any:
 
 
 def __dir__() -> list[str]:
-    return sorted({*globals(), *_EXPORTS, *_SUBMODULES})
+    # Only the public API: helper imports (importlib, Any, ...) would clutter tab completion.
+    return sorted({*_EXPORTS, *_SUBMODULES, *(n for n in globals() if n.startswith("__"))})

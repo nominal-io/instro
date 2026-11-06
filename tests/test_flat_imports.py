@@ -52,6 +52,13 @@ def test_top_level_import_is_lazy() -> None:
     assert result.stdout.strip() == "False"
 
 
+@pytest.mark.parametrize("module", [instro, instro.drivers], ids=lambda m: m.__name__)
+def test_dir_lists_only_public_names(module: object) -> None:
+    # dir() feeds IPython tab completion; the modules' own helper imports must not show up there.
+    public = {n for n in dir(module) if not n.startswith("_")}
+    assert public.isdisjoint({"Any", "TYPE_CHECKING", "annotations", "extend_path", "importlib"})
+
+
 def test_top_level_unknown_name_raises_attribute_error() -> None:
     with pytest.raises(AttributeError, match="no attribute 'NotAThing'"):
         _ = instro.NotAThing  # type: ignore[attr-defined]
