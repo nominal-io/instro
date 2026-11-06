@@ -227,7 +227,7 @@ impl Client {
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
-    /// `on_data` as new samples arrive. If  the callback returns `Some(error)`,
+    /// `on_data` as new samples arrive. If the callback returns `Err(error)`,
     /// the subscription will be stopped and the error will be returned.
     ///
     /// Subscription creation and monitored-item setup are performed eagerly
