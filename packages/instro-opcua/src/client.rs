@@ -615,7 +615,8 @@ impl Node {
                         clippy::unwrap_used,
                         reason = "`child_path.is_empty()` is checked above"
                     )]
-                    ua::RelativePath::init().with_elements(ua::Array::from_slice(child_path.elements().unwrap())),
+                    ua::RelativePath::init()
+                        .with_elements(ua::Array::from_slice(child_path.elements().unwrap())),
                 );
 
             #[expect(
@@ -724,10 +725,13 @@ impl Node {
                         .with_is_inverse(false)
                         .with_target_name(reference.browse_name().clone());
 
-                    let child_path_items = my_path.iter().cloned().chain([element]).collect::<ua::Array<_>>();
+                    let child_path_items = my_path
+                        .iter()
+                        .cloned()
+                        .chain([element])
+                        .collect::<ua::Array<_>>();
 
-                    let child_path =
-                        ua::RelativePath::init().with_elements(child_path_items);
+                    let child_path = ua::RelativePath::init().with_elements(child_path_items);
 
                     let browse_path = ua::BrowsePath::init()
                         .with_relative_path(child_path)
@@ -759,10 +763,9 @@ impl Node {
 
     #[getter]
     pub fn value(&self, py: Python<'_>) -> PyResult<Option<DataValue>> {
-        Ok(
-            self.get_attribute(py, ua::AttributeId::VALUE_T)?
-                .map(DataValue::new)
-        )
+        Ok(self
+            .get_attribute(py, ua::AttributeId::VALUE_T)?
+            .map(DataValue::new))
     }
 
     // ====== REQUIRED ATTRIBUTES ======
@@ -870,11 +873,15 @@ impl Node {
     pub fn data_type_definition(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
         self.get_attribute(py, ua::AttributeId::DATATYPEDEFINITION_T)
             .and_then(normalize_data_value)?
-            .and_then(|d| Some(match d {
-                ua::DataTypeDefinition::Structure(s) => StructureDefinition::new(s).into_py_any(py),
-                ua::DataTypeDefinition::Enum(e) => EnumDefinition::new(e).into_py_any(py),
-                _ => None?,
-            }))
+            .and_then(|d| {
+                Some(match d {
+                    ua::DataTypeDefinition::Structure(s) => {
+                        StructureDefinition::new(s).into_py_any(py)
+                    }
+                    ua::DataTypeDefinition::Enum(e) => EnumDefinition::new(e).into_py_any(py),
+                    _ => None?,
+                })
+            })
             .transpose()
     }
 
@@ -897,7 +904,9 @@ impl Node {
     }
 }
 
-fn normalize_mapped_value<T: UaType>(value: Option<open62541::DataValue<T::Inner>>) -> PyResult<Option<T>> {
+fn normalize_mapped_value<T: UaType>(
+    value: Option<open62541::DataValue<T::Inner>>,
+) -> PyResult<Option<T>> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -910,7 +919,9 @@ fn normalize_mapped_value<T: UaType>(value: Option<open62541::DataValue<T::Inner
     }
 }
 
-fn normalize_data_value<T: open62541::DataTypeExt>(value: Option<open62541::DataValue<T>>) -> PyResult<Option<T>> {
+fn normalize_data_value<T: open62541::DataTypeExt>(
+    value: Option<open62541::DataValue<T>>,
+) -> PyResult<Option<T>> {
     let Some(value) = value else {
         return Ok(None);
     };
@@ -929,21 +940,31 @@ impl Node {
         T: UaType<Inner = A::Value>,
         A: open62541::Attribute + Send + Sync,
     {
-        self.get_attribute(py, attr).and_then(normalize_mapped_value::<T>)
+        self.get_attribute(py, attr)
+            .and_then(normalize_mapped_value::<T>)
     }
 
-    fn get_attribute<A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<open62541::DataValue<A::Value>>>
+    fn get_attribute<A>(
+        &self,
+        py: Python<'_>,
+        attr: A,
+    ) -> PyResult<Option<open62541::DataValue<A::Value>>>
     where
         A: open62541::Attribute + Send + Sync,
     {
         use OpcUaError::*;
 
         self.client.rt.unblock_on(py, async {
-
-            match self.client .read_node(&self.node_id, attr).await {
+            match self.client.read_node(&self.node_id, attr).await {
                 Ok(value) => Ok(Some(value)),
-                Err(Ua(e) | UaWithContext(e, _)) if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID => Ok(None),
-                Err(e) => Err(PyValueError::new_err(format!("failed to read attribute: '{e}'")))?,
+                Err(Ua(e) | UaWithContext(e, _))
+                    if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID =>
+                {
+                    Ok(None)
+                }
+                Err(e) => Err(PyValueError::new_err(format!(
+                    "failed to read attribute: '{e}'"
+                )))?,
             }
         })?
     }
