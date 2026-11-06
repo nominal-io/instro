@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/nominal-io/instro/compare/instro-ethernetip-v1.0.2...instro-ethernetip-v1.0.3) (2026-11-06)
+
+
+### Bug Fixes
+
+* **ci:** unify Rust toolchain before parallel docs builds ([#697](https://github.com/nominal-io/instro/issues/697)) ([b91f43a](https://github.com/nominal-io/instro/commit/b91f43a00d623dd2f26d4169d013a5686b7e1f5e))
+
 ## [1.0.2](https://github.com/nominal-io/instro/compare/instro-ethernetip-v1.0.1...instro-ethernetip-v1.0.2) (2026-10-23)
 
 
