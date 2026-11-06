@@ -63,7 +63,7 @@ impl Session {
             }
         })?;
 
-        Ok(true)
+        Ok(false)
     }
 }
 
