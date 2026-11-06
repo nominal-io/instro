@@ -36,7 +36,7 @@ def test_top_level_exports_every_category_name(category: str) -> None:
 
 def test_top_level_type_checking_imports_match_lazy_exports() -> None:
     # mypy and IDEs read the TYPE_CHECKING block; runtime reads _EXPORTS. They must name the same objects.
-    tree = ast.parse(Path(instro.__file__).read_text())
+    tree = ast.parse(Path(instro.__file__).read_text(encoding="utf-8"))
     block = next(n for n in tree.body if isinstance(n, ast.If) and getattr(n.test, "id", None) == "TYPE_CHECKING")
     static = {
         alias.asname or alias.name: node.module
@@ -153,7 +153,7 @@ def _shallowest(module: str, name: str) -> str | None:
 @pytest.mark.parametrize("path", _USER_DOCS, ids=lambda p: str(p.relative_to(_REPO)))
 def test_docs_import_from_shallowest_module(path: Path) -> None:
     # Docs and examples recommend one place to import each name from: the shallowest module that has it.
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     deeper = []
     for match in _IMPORT.finditer(text):
         module = match.group(1)
