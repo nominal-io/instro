@@ -688,11 +688,12 @@ impl ClientBuilder {
     }
 
     fn instro_app_description() -> ua::ApplicationDescription {
+        #[expect(clippy::unwrap_used, reason = "static strings don't contain nul bytes")]
         ua::ApplicationDescription::init()
-            .with_application_name("en-US", "Nominal OPC UA Client")
-            .with_product_uri("urn:nominal:opcua-client")
+            .with_application_name(ua::LocalizedText::new("en-US", "Nominal OPC UA Client").unwrap())
+            .with_product_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
             .with_application_type(ua::ApplicationType::CLIENT)
-            .with_application_uri("urn:nominal:opcua-client")
+            .with_application_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
     }
 
     /// Consumes the builder and connects to the endpoint at the given URL, returning a [`Client`].
@@ -1073,7 +1074,7 @@ mod tests {
         let timestamp = ua::DateTime::try_from_unix_timestamp_nanos(ts as i128).unwrap();
         let variant = ua::Variant::scalar(ua::Double::new(value));
         ua::DataValue::new(variant)
-            .with_server_timestamp(&timestamp)
+            .with_server_timestamp(timestamp)
             .cast::<ua::Variant>()
     }
 

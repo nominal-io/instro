@@ -45,6 +45,7 @@ async fn rw_stored_variable_round_trip() {
     let initial_scalar = initial
         .value()
         .and_then(ua::Variant::as_scalar::<ua::Double>)
+        .copied()
         .map(ua::Double::value)
         .expect("initial value is a Double");
 
@@ -68,6 +69,7 @@ async fn rw_stored_variable_round_trip() {
         .expect("read after client write")
         .value()
         .and_then(ua::Variant::as_scalar::<ua::Double>)
+        .copied()
         .map(ua::Double::value)
         .expect("post-write value is a Double");
 
@@ -87,6 +89,7 @@ async fn rw_stored_variable_round_trip() {
         .expect("read after server set")
         .value()
         .and_then(ua::Variant::as_scalar::<ua::Double>)
+        .copied()
         .map(ua::Double::value)
         .expect("post-server-set value is a Double");
 
@@ -121,6 +124,7 @@ async fn read_only_variable_rejects_writes() {
         .expect("read on RO succeeds")
         .value()
         .and_then(ua::Variant::as_scalar::<ua::UInt32>)
+        .copied()
         .map(ua::UInt32::value)
         .expect("RO value is a UInt32");
 
@@ -169,6 +173,7 @@ async fn folder_hierarchy_resolves_via_label() {
         .expect("read on nested var")
         .value()
         .and_then(ua::Variant::as_scalar::<ua::Int16>)
+        .copied()
         .map(ua::Int16::value)
         .expect("inner temp is Int16");
 
