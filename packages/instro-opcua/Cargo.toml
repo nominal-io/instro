@@ -19,3 +19,4 @@ tracing.workspace = true
 itertools.workspace = true
 pyo3.workspace = true
 zips.workspace = true
+paste = "1"
