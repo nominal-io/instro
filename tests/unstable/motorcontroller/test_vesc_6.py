@@ -9,6 +9,7 @@ import pytest
 
 from instro.unstable.motorcontroller.drivers import VESC6
 from instro.unstable.transports import CanConfig, CanTransport
+from tests.unstable.can_fakes import ScriptedRecv
 
 _CONTROLLER_ID = 42
 
@@ -27,9 +28,14 @@ def bus_cls() -> Iterator[MagicMock]:
 
 
 @pytest.fixture
-def bus(bus_cls: MagicMock) -> MagicMock:
+def rx() -> ScriptedRecv:
+    return ScriptedRecv()
+
+
+@pytest.fixture
+def bus(bus_cls: MagicMock, rx: ScriptedRecv) -> MagicMock:
     instance = bus_cls.return_value
-    instance.recv.return_value = None
+    instance.recv.side_effect = rx.recv
     return instance
 
 
@@ -82,6 +88,7 @@ def test_bus_kwargs_forwarded(bus_cls: MagicMock, bus: MagicMock) -> None:
     driver = VESC6(channel=0, pole_pairs=1, interface="gs_usb", bus_kwargs={"index": 0})
     driver.open()
     bus_cls.assert_called_once_with(interface="gs_usb", channel=0, bitrate=500_000, index=0)
+    driver.close()
 
 
 def test_send_before_open_raises(bus_cls: MagicMock) -> None:
@@ -137,7 +144,7 @@ def test_commands_reject_out_of_range_values(vesc: VESC6, bus: MagicMock, call) 
     bus.send.assert_not_called()
 
 
-def test_pole_pairs_convert_rpm_and_telemetry_velocity(bus: MagicMock) -> None:
+def test_pole_pairs_convert_rpm_and_telemetry_velocity(bus: MagicMock, rx: ScriptedRecv) -> None:
     driver = VESC6(channel="COM4", pole_pairs=5, controller_id=_CONTROLLER_ID, interface="slcan")
     driver.open()
 
@@ -146,17 +153,17 @@ def test_pole_pairs_convert_rpm_and_telemetry_velocity(bus: MagicMock) -> None:
     assert frame.arbitration_id == (3 << 8) | _CONTROLLER_ID
     assert bytes(frame.data) == struct.pack(">i", 5_000)
 
-    bus.recv.side_effect = [_status_frame(9, struct.pack(">ihh", 12_345, 0, 0)), None]
+    rx.feed(_status_frame(9, struct.pack(">ihh", 12_345, 0, 0)))
     assert driver.get_telemetry()["velocity"] == pytest.approx(2_469.0)
+    driver.close()
 
 
-def test_get_telemetry_parses_status_frames(vesc: VESC6, bus: MagicMock) -> None:
-    bus.recv.side_effect = [
+def test_get_telemetry_parses_status_frames(vesc: VESC6, rx: ScriptedRecv) -> None:
+    rx.feed(
         _status_frame(9, struct.pack(">ihh", 12_345, 155, 500)),
         _status_frame(16, struct.pack(">hhhh", 421, 380, 92, 9_000)),
         _status_frame(27, struct.pack(">ihh", 6_000, 244, 0)),
-        None,
-    ]
+    )
 
     telemetry = vesc.get_telemetry()
 
@@ -172,17 +179,16 @@ def test_get_telemetry_parses_status_frames(vesc: VESC6, bus: MagicMock) -> None
     }
 
 
-def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, bus: MagicMock) -> None:
-    bus.recv.side_effect = [
+def test_get_telemetry_ignores_other_senders_and_unknown_packets(vesc: VESC6, rx: ScriptedRecv) -> None:
+    rx.feed(
         _status_frame(9, struct.pack(">ihh", 999, 10, 10), controller_id=7),
         _status_frame(5, b"\x00" * 8),  # FILL_RX_BUFFER (fragmented COMM_* protocol)
-        None,
-    ]
+    )
 
     assert vesc.get_telemetry() == {}
 
 
-def test_two_drivers_share_one_transport(bus_cls: MagicMock, bus: MagicMock) -> None:
+def test_two_drivers_share_one_transport(bus_cls: MagicMock, bus: MagicMock, rx: ScriptedRecv) -> None:
     transport = CanTransport(CanConfig(channel=0, interface="gs_usb"))
     left = VESC6(channel=transport, pole_pairs=1, controller_id=1)
     right = VESC6(channel=transport, pole_pairs=1, controller_id=2)
@@ -191,14 +197,12 @@ def test_two_drivers_share_one_transport(bus_cls: MagicMock, bus: MagicMock) -> 
     right.open()
     bus_cls.assert_called_once()
 
-    bus.recv.side_effect = [
+    rx.feed(
         _status_frame(9, struct.pack(">ihh", 100, 0, 0), controller_id=1),
         _status_frame(9, struct.pack(">ihh", 200, 0, 0), controller_id=2),
-        None,
-        None,
-    ]
+    )
     assert left.get_telemetry()["velocity"] == pytest.approx(100)
-    # left's drain routed right's frame instead of consuming it.
+    # left's drain did not consume right's frame.
     assert right.get_telemetry()["velocity"] == pytest.approx(200)
 
     left.close()
