@@ -214,12 +214,12 @@ impl OpcUaClient {
     // TODO(cartercanedy): translate both node ids and paths and return a node ID-Path map
     fn parse_nodes(&self, nodes: Vec<NodeSpec>) -> PyResult<Vec<Node>> {
         let (nodes, paths): (Vec<_>, Vec<_>) = nodes.into_iter().partition_map(|kind| match kind {
-            NodeSpec::Node(node_id) => Either::Left(node_id),
+            NodeSpec::Node(node) => Either::Left(node),
             NodeSpec::Path(path) => Either::Right(path),
         });
 
         if paths.is_empty() {
-            return Ok(ids);
+            return Ok(nodes);
         }
 
         Ok(self
