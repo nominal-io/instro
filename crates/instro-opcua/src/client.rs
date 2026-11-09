@@ -622,6 +622,10 @@ impl SecurityPolicyUri {
 // so we need to re-implement the entire builder API here.
 pub struct ClientBuilder(UaClientBuilder);
 
+// SAFETY: this should've been marked Send upstream, but it isn't, so marking it here.
+// unknown if the underlying builder is also Sync, but not concerned about it.
+unsafe impl Send for ClientBuilder {}
+
 impl ClientBuilder {
     /// Creates a new builder for an unencrypted client.
     pub fn new(pki: PkiConfig) -> Result<Self> {

@@ -14,9 +14,9 @@ pub(crate) trait UaType {
 macro_rules! ua_struct {
     ($(#[doc = $doc:literal])? $struct_vis:vis struct $this_t:tt;) => {
         $(#[$doc])?
-        #[pyclass(from_py_object, eq)]
+        #[pyclass(from_py_object, eq, ord)]
         #[repr(transparent)]
-        #[derive(Clone, PartialEq, Eq)]
+        #[derive(Clone, PartialEq, PartialOrd)]
         $struct_vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
 
         impl std::ops::Deref for $this_t {
@@ -54,14 +54,67 @@ macro_rules! ua_struct {
 }
 
 macro_rules! ua_enum {
-    ($(#[$doc:meta])? $enum_vis:vis enum $this_t:ident { $($(#[$variant_doc:meta])? $variant:ident),* $(,)? }) => {
-        paste::paste! {
-            $(#[$doc])?
-            #[pyclass(skip_from_py_object, eq)]
-            #[repr(transparent)]
-            #[derive(Clone, PartialEq, Eq)]
-            pub struct $this_t(::instro_opcua::open62541::ua::$this_t);
+    ($(#[$($attrs:tt)+])* $vis:vis enum $this_t:ident { $($rest:tt)+ }) => {
+        // preserve arbitrary attributes while intercepting the #[optionset] attribute
+        ua_enum!(@declare_type [] [no] $vis enum $this_t; $(#[$($attrs)+])*);
+        ua_enum!(@impl $this_t { $($rest)+ });
+    };
 
+    (
+        @declare_type [$(#[$attrs:meta])*] [$optionset:ident]
+        $vis:vis enum $this_t:ident;
+    ) => {
+        paste::paste! {
+            impl $this_t {
+                ua_enum!(@when $optionset {
+                    #[doc = "Gets the value of this [`" $this_t "`] as a [`u32`]."]
+                    pub fn as_u32(&self) -> u32 {
+                        self.0.into_raw() as u32
+                    }
+                } else {
+                    #[doc = "Gets the value of this [`" $this_t "`] as a [`u32`]."]
+                    pub fn as_u32(&self) -> u32 {
+                        self.0.as_u32()
+                    }
+                });
+            }
+        }
+
+        $(#[$attrs])*
+        #[pyclass(skip_from_py_object, eq)]
+        #[repr(transparent)]
+        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+        $vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
+    };
+
+    (
+        @declare_type [$(#[$($attrs:tt)+])*] [$optionset:ident]
+        $vis:vis enum $this_t:ident; #[optionset]
+        $($rest:tt)*
+    ) => {
+        ua_enum!(
+            @declare_type [$(#[$attrs])*] [yes]
+            $vis enum $this_t; $($rest)*
+        );
+    };
+
+    (
+        @declare_type [$(#[$($attrs:tt)+])*] [$optionset:ident]
+        $vis:vis enum $this_t:ident; #[attr:meta]
+        $($rest:tt)*
+    ) => {
+        ua_enum!(
+            @declare_type [$(#[$attrs])* #[$attr]] [$optionset]
+            $vis enum $this_t; $($rest)*
+        );
+    };
+
+
+    (@when no { $item:item } $(else { $else:item } )?) => { $($else)? };
+    (@when yes { $item:item } $(else { $else:item } )?) => { $item };
+
+    (@impl $this_t:ident { $($(#[$variant_doc:meta])* $variant:ident),* $(,)? }) => {
+        paste::paste! {
             #[pymethods]
             impl $this_t {
                 $(
@@ -102,11 +155,22 @@ macro_rules! ua_enum {
 
                 fn try_from(value: u32) -> PyResult<Self> {
                     use ::instro_opcua::open62541::ua;
-                    paste::paste! {
-                        Ok(match value {
-                            $(ua::$this_t::[<$variant:upper _U32>] => Self(ua::$this_t::[<$variant:upper>]),)*
-                            _ => Err(PyValueError::new_err(format!("invalid attribute id: '{value}'")))?,
-                        })
+                    Ok(match value {
+                        $(ua::$this_t::[<$variant:upper _U32>] => Self(ua::$this_t::[<$variant:upper>]),)*
+                        _ => Err(PyValueError::new_err(format!("invalid attribute id: '{value}'")))?,
+                    })
+                }
+            }
+
+            #[pymethods]
+            impl $this_t {
+                pub fn __str__<'py>(&self, py: Python<'py>) -> Bound<'py, PyString> {
+                    use ::instro_opcua::open62541::ua;
+                    match self.0.clone() {
+                        $(
+                            ua::$this_t::[<$variant:upper>] => ::pyo3::intern!(py, stringify!([<$variant:lower>])).clone(),
+                        )*
+                        _ => ::pyo3::types::PyString::new(py, &self.clone().as_u32().to_string()),
                     }
                 }
             }
@@ -123,14 +187,12 @@ macro_rules! ua_enum {
 
                         #[extract]
                         s: &str = obj => {
-                            paste::paste! {
-                                match s.to_lowercase().as_str() {
-                                    $(
-                                        stringify!([<$variant:lower>]) | stringify!([<$variant:snake>]) => Self(ua::$this_t::[<$variant:upper>]),
-                                    )*
+                            match s.to_lowercase().as_str() {
+                                $(
+                                    stringify!([<$variant:lower>]) | stringify!([<$variant:snake>]) => Self(ua::$this_t::[<$variant:upper>]),
+                                )*
 
-                                    _ => Err(PyValueError::new_err(format!("invalid attribute id: '{s}'")))?,
-                                }
+                                _ => Err(PyValueError::new_err(format!("invalid attribute id: '{s}'")))?,
                             }
                         },
 
@@ -480,6 +542,7 @@ impl NodeId {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum AttributeId {
         Value,
         DataType,
@@ -512,6 +575,7 @@ ua_enum! {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum AccessLevelType {
         None,
         CurrentRead,
@@ -525,6 +589,7 @@ ua_enum! {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum AccessLevelExType {
         None,
         Constant,
@@ -544,6 +609,7 @@ ua_enum! {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum AccessRestrictionType {
         None,
         ApplyRestrictionsToBrowse,
@@ -906,6 +972,7 @@ impl StructureField {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum EventNotifierType {
         None,
         HistoryRead,
@@ -932,6 +999,102 @@ impl EventNotifierType {
         self.0.subscribe_to_events()
     }
 }
+
+ua_struct! {
+    pub struct SecurityLevel;
+}
+
+ua_enum! {
+    pub enum ApplicationType {
+        Server,
+        Client,
+        ClientAndServer,
+        DiscoveryServer,
+    }
+}
+
+ua_struct! {
+    pub struct EndpointDescription;
+}
+
+#[pymethods]
+impl EndpointDescription {
+    #[getter]
+    fn endpoint_url(&self) -> &str {
+        self.0.endpoint_url().as_str().unwrap_or("")
+    }
+
+    #[getter]
+    fn security_mode(&self) -> MessageSecurityMode {
+        self.0.security_mode().clone().into()
+    }
+
+    #[getter]
+    fn security_policy(&self) -> &str {
+        self.0.security_policy_uri().as_str().unwrap_or("")
+    }
+
+    #[getter]
+    fn security_level(&self) -> SecurityLevel {
+        self.0.security_level().into()
+    }
+
+    #[getter]
+    fn server_certificate(&self) -> &[u8] {
+        self.0.server_certificate().as_bytes().unwrap_or(&[])
+    }
+
+    #[getter]
+    fn application_uri(&self) -> &str {
+        self.0.server().application_uri().as_str().unwrap_or("")
+    }
+
+    #[getter]
+    fn product_uri(&self) -> &str {
+        self.0.server().product_uri().as_str().unwrap_or("")
+    }
+
+    #[getter]
+    fn gateway_server_uri(&self) -> &str {
+        self.0.server().gateway_server_uri().as_str().unwrap_or("")
+    }
+
+    #[getter]
+    fn discovery_profile_uri(&self) -> &str {
+        self.0
+            .server()
+            .discovery_profile_uri()
+            .as_str()
+            .unwrap_or("")
+    }
+
+    #[getter]
+    fn discovery_urls(&self) -> Vec<&str> {
+        self.0
+            .server()
+            .discovery_urls()
+            .unwrap_or(&[])
+            .iter()
+            .map(|s| s.as_str().unwrap_or(""))
+            .collect_vec()
+    }
+
+    #[getter]
+    fn application_name(&self) -> &str {
+        self.0
+            .server()
+            .application_name()
+            .text()
+            .as_str()
+            .unwrap_or("")
+    }
+
+    #[getter]
+    fn application_type(&self) -> ApplicationType {
+        self.0.server().application_type().clone().into()
+    }
+}
+
 
 #[cfg(test)]
 mod tests {

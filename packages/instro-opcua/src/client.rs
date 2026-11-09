@@ -319,11 +319,20 @@ impl OpcUaClient {
             builder = builder.with_trust_server_certs();
         }
 
-        let client = builder.connect(endpoint_url).map_err(|e| {
-            PyValueError::new_err(format!(
-                "failed to connect to endpoint with url '{endpoint_url}': '{e}'"
-            ))
-        })?;
+        let client = rt.unblock_on(py, async {
+            let endpoint_url_clone = endpoint_url.to_string();
+
+            rt.spawn_blocking(move || builder.connect(&endpoint_url_clone))
+                .await
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!("internal async runtime error: '{e}'"))
+                })?
+                .map_err(|e| {
+                    PyRuntimeError::new_err(format!(
+                        "failed to connect to endpoint with url '{endpoint_url}': '{e}'"
+                    ))
+                })
+        })??;
 
         Ok(Self { client, rt })
     }

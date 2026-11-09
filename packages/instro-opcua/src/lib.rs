@@ -16,8 +16,6 @@ mod instro_opcua_py {
     #[pymodule_export]
     use super::client::Session;
     #[pymodule_export]
-    use super::discover::EndpointDescription;
-    #[pymodule_export]
     use super::discover::get_endpoints;
     #[pymodule_export]
     use super::instro_opcua_py_types;
@@ -67,4 +65,10 @@ mod instro_opcua_py_types {
     use super::types::StructureDefinition;
     #[pymodule_export]
     use super::types::StructureField;
+    #[pymodule_export]
+    use super::types::EndpointDescription;
+    #[pymodule_export]
+    use super::types::SecurityLevel;
+    #[pymodule_export]
+    use super::types::ApplicationType;
 }
