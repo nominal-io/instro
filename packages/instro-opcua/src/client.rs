@@ -206,7 +206,7 @@ impl OpcUaClient {
             Ok(good)
         } else {
             Err(PyValueError::new_err(
-                "failed to intepret browse path(s):\n\t".to_string() + &bad.join("\n\t"),
+                "failed to interpret browse path(s):\n\t".to_string() + &bad.join("\n\t"),
             ))
         }
     }
@@ -343,8 +343,8 @@ impl OpcUaClient {
     }
 
     #[pyo3(signature = (
-        on_data: "typing.Callable[[list[tuple[NodeId, DataValue]]], None]",
-        nodes: "Sequence[types.NodeId | types.RelativePath | str]",
+        on_data: "typing.Callable[[list[tuple[types.Node, types.DataValue]]], None]",
+        nodes: "Sequence[types.Node | types.RelativePath | str]",
         freq_hz,
         bg_poll_freq_hz=None,
         lifetime_count=None,
@@ -586,6 +586,52 @@ impl Node {
     fn node_id(&self) -> &ua::NodeId {
         &self.node_id
     }
+
+    fn get_mapped_attribute<T, A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<T>>
+    where
+        T: UaType<Inner = A::Value>,
+        A: open62541::Attribute + Send + Sync,
+    {
+        self.get_attribute(py, attr)
+            .and_then(normalize_mapped_value::<T>)
+    }
+
+    fn get_attribute<A>(
+        &self,
+        py: Python<'_>,
+        attr: A,
+    ) -> PyResult<Option<open62541::DataValue<A::Value>>>
+    where
+        A: open62541::Attribute + Send + Sync,
+    {
+        use OpcUaError::*;
+
+        self.client.rt.unblock_on(py, async {
+            match self.client.read_node(&self.node_id, attr).await {
+                Ok(value) => {
+                    if let Some(status) = value.status()
+                        && !status.is_good()
+                    {
+                        Err(PyValueError::new_err(format!(
+                            "attribute value returned a non-good status: '{status}'"
+                        )))?;
+                    }
+
+                    Ok(Some(value))
+                }
+
+                Err(Ua(e) | UaWithContext(e, _))
+                    if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID =>
+                {
+                    Ok(None)
+                }
+
+                Err(e) => Err(PyValueError::new_err(format!(
+                    "failed to read attribute: '{e}'"
+                )))?,
+            }
+        })?
+    }
 }
 
 #[pymethods]
@@ -698,7 +744,7 @@ impl Node {
                         if next_results.len() != 1 {
                             Err(PyValueError::new_err(format!(
                                 "expected 1 browse result, got {}",
-                                results.len()
+                                next_results.len()
                             )))?;
                         }
 
@@ -941,42 +987,6 @@ fn normalize_data_value<T: open62541::DataTypeExt>(
         None => Err(PyValueError::new_err(
             "querying attribute returned an invalid value",
         )),
-    }
-}
-
-impl Node {
-    fn get_mapped_attribute<T, A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<T>>
-    where
-        T: UaType<Inner = A::Value>,
-        A: open62541::Attribute + Send + Sync,
-    {
-        self.get_attribute(py, attr)
-            .and_then(normalize_mapped_value::<T>)
-    }
-
-    fn get_attribute<A>(
-        &self,
-        py: Python<'_>,
-        attr: A,
-    ) -> PyResult<Option<open62541::DataValue<A::Value>>>
-    where
-        A: open62541::Attribute + Send + Sync,
-    {
-        use OpcUaError::*;
-
-        self.client.rt.unblock_on(py, async {
-            match self.client.read_node(&self.node_id, attr).await {
-                Ok(value) => Ok(Some(value)),
-                Err(Ua(e) | UaWithContext(e, _))
-                    if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID =>
-                {
-                    Ok(None)
-                }
-                Err(e) => Err(PyValueError::new_err(format!(
-                    "failed to read attribute: '{e}'"
-                )))?,
-            }
-        })?
     }
 }
 

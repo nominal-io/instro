@@ -209,21 +209,32 @@ macro_rules! ua_enum {
     }
 }
 
-fn normalize_timestamp(dt: ua::DateTime) -> (i64, u32) {
-    let nanos = dt.as_unix_timestamp_nanos();
+/// Normalizes a number of nanoseconds to a number of seconds and nanoseconds.
+fn normalize_nanos(nanos: impl Into<i128>) -> (i64, u32) {
+    let nanos = nanos.into();
+
     let secs = nanos.div_euclid(1_000_000_000);
     let rem_nanos = nanos.rem_euclid(1_000_000_000);
+
     #[expect(clippy::as_conversions, reason = "heat death of the universe")]
     (secs as i64, rem_nanos as u32)
 }
 
+fn normalize_timestamp(dt: ua::DateTime) -> (i64, u32) {
+    let nanos = dt.as_unix_timestamp_nanos();
+    normalize_nanos(nanos)
+}
+
+// NOTE: `picos_intervals` is the number of 10-picosecond intervals, not raw picoseconds
 fn normalize_value_timestamp(
     ua_dt: Option<ua::DateTime>,
-    picos: Option<u16>,
+    picos_intervals: Option<u16>,
 ) -> Option<chrono::DateTime<chrono::Utc>> {
     let (secs, rem_nanos) = normalize_timestamp(ua_dt?);
-    let rem_nanos = rem_nanos + (picos.unwrap_or(0) as u32 / 1000);
-    chrono::DateTime::from_timestamp(secs, rem_nanos)
+    let rem_nanos = rem_nanos + picos_intervals.unwrap_or(0).saturating_div(100) as u32;
+    let (extra_secs, rem_nanos) = normalize_nanos(rem_nanos);
+
+    chrono::DateTime::from_timestamp(secs + extra_secs, rem_nanos)
 }
 
 #[pyclass]

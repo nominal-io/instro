@@ -15,7 +15,7 @@ pub trait RuntimeExt {
     /// If the current thread is associated with an existing multi-threaded
     /// runtime, the future will be driven on a newly spawned thread to avoid
     /// nested `block_on` calls. If the current thread is associated with a
-    /// current-thread runtime, the call will fail immediately at runtime and
+    /// current-thread runtime, the call will fail immediately at runtime.
     fn unblock_on<F, U>(&self, py: Python<'_>, f: F) -> PyResult<U>
     where
         F: Future<Output = U> + Send,
