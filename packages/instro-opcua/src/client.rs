@@ -433,6 +433,10 @@ impl OpcUaClient {
             NodeIdKind::Path(path) => Either::Right(path),
         });
 
+        if paths.is_empty() {
+            return Ok(ids);
+        }
+
         Ok(self
             .rt
             .block_on(self.translate_browse_paths(ua::Array::from_slice(&paths)))?
