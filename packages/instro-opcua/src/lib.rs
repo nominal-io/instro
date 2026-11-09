@@ -71,4 +71,6 @@ mod instro_opcua_py_types {
     use super::types::StructureDefinition;
     #[pymodule_export]
     use super::types::StructureField;
+    #[pymodule_export]
+    use super::types::StructureType;
 }

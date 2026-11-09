@@ -1,50 +1,28 @@
 import datetime
 import typing
 from collections.abc import Sequence
-from datetime import timedelta
-from typing import Any, final
+from types import TracebackType
+from typing import final
 
-from . import types
 from .types import (
     AccessLevelExType,
     AccessLevelType,
     AccessRestrictionType,
+    AttributeId,
     AttributeWriteMask,
     BrowsePath,
     DataValue,
+    EndpointDescription,
+    EnumDefinition,
     EventNotifierType,
     LocalizedText,
+    MessageSecurityMode,
     NodeClass,
     NodeId,
     QualifiedName,
+    RelativePath,
+    StructureDefinition,
 )
-
-@final
-class EndpointDescription:
-    @property
-    def application_name(self, /) -> str: ...
-    @property
-    def application_type(self, /) -> str: ...
-    @property
-    def application_uri(self, /) -> str: ...
-    @property
-    def discovery_profile_uri(self, /) -> str: ...
-    @property
-    def discovery_urls(self, /) -> list[str]: ...
-    @property
-    def endpoint_url(self, /) -> str: ...
-    @property
-    def gateway_server_uri(self, /) -> str: ...
-    @property
-    def product_uri(self, /) -> str: ...
-    @property
-    def security_level(self, /) -> int: ...
-    @property
-    def security_mode(self, /) -> str: ...
-    @property
-    def security_policy(self, /) -> str: ...
-    @property
-    def server_certificate(self, /) -> bytes: ...
 
 @final
 class Node:
@@ -66,7 +44,7 @@ class Node:
     @property
     def data_type(self, /) -> NodeId | None: ...
     @property
-    def data_type_definition(self, /) -> types.StructureDefinition | types.EnumDefinition | None: ...
+    def data_type_definition(self, /) -> StructureDefinition | EnumDefinition | None: ...
     @property
     def description(self, /) -> LocalizedText | None: ...
     @property
@@ -75,8 +53,8 @@ class Node:
     def event_notifier(self, /) -> EventNotifierType | None: ...
     @property
     def executable(self, /) -> bool | None: ...
-    def get_attribute(self, /, attr: "types.AttributeId | int | str") -> "types.DataValue": ...
-    def get_child(self, /, path: "types.RelativePath | str") -> "Node": ...
+    def get_attribute(self, /, attr: AttributeId | int | str) -> DataValue: ...
+    def get_child(self, /, path: RelativePath | str) -> Node: ...
     @property
     def historizing(self, /) -> bool | None: ...
     @property
@@ -84,7 +62,7 @@ class Node:
     @property
     def is_abstract(self, /) -> bool | None: ...
     @property
-    def minimum_sampling_interval(self, /) -> timedelta | None: ...
+    def minimum_sampling_interval(self, /) -> datetime.timedelta | None: ...
     @property
     def node_class(self, /) -> NodeClass: ...
     @property
@@ -105,7 +83,13 @@ class Node:
 @final
 class OpcUaClient:
     def __enter__(self, /) -> OpcUaClient: ...
-    def __exit__(self, /, _exc_type: Any | None, _exc_value: Any | None, _traceback: Any | None) -> bool: ...
+    def __exit__(
+        self,
+        /,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> bool: ...
     @staticmethod
     def connect(
         endpoint_url: str,
@@ -116,19 +100,22 @@ class OpcUaClient:
         private_key: bytes | None = None,
         ignore_server_cert: bool = False,
         use_generated_cert: bool = False,
-        security_mode: "typing.Literal['none', 'sign', 'signandencrypt'] | types.MessageSecurityMode | None" = None,
-        security_policy: "typing.Literal['none', 'basic128rsa15', 'basic256', 'basic256sha256', 'aes128sha256rsaoaep', 'aes256sha256rsapss'] | None" = None,
-        timeout: "float | datetime.timedelta | None" = None,
+        security_mode: typing.Literal["none", "sign", "signandencrypt"] | MessageSecurityMode | None = None,
+        security_policy: typing.Literal[
+            "none", "basic128rsa15", "basic256", "basic256sha256", "aes128sha256rsaoaep", "aes256sha256rsapss"
+        ]
+        | None = None,
+        timeout: float | datetime.timedelta | None = None,
     ) -> OpcUaClient: ...
     def disconnect(self, /) -> None: ...
-    def get_node(self, /, path: "types.RelativePath | str") -> "Node": ...
+    def get_node(self, /, path: RelativePath | str) -> Node: ...
     @property
     def objects(self, /) -> Node: ...
     def subscribe(
         self,
         /,
-        on_data: "typing.Callable[[list[tuple[NodeId, DataValue]]], None]",
-        nodes: "Sequence[types.NodeId | types.RelativePath | str]",
+        on_data: typing.Callable[[list[tuple[Node, DataValue]]], None],
+        nodes: Sequence[Node | RelativePath | str],
         freq_hz: float,
         bg_poll_freq_hz: float | None = None,
         lifetime_count: int | None = None,
@@ -147,7 +134,13 @@ class OpcUaClient:
 @final
 class Session:
     def __enter__(self, /) -> Session: ...
-    def __exit__(self, /, _exc_type: Any | None, _exc_value: Any | None, _traceback: Any | None) -> bool: ...
+    def __exit__(
+        self,
+        /,
+        _exc_type: type[BaseException] | None,
+        _exc_value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> bool: ...
 
 def get_endpoints(endpoint_url: str) -> list[EndpointDescription]:
-    ...
+    """Helper function to discover endpoints for a given endpoint URL."""
