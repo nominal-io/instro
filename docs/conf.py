@@ -130,7 +130,8 @@ intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 # -- HTML: the shared Nominal theme (nominal-io/nominal-sphinx-theme) ----------
 html_theme = "shibuya"
 html_title = "instro"
-html_baseurl = "https://instro.nominal.io/"
+# canonical URLs name the docs hub's copy; instro.nominal.io serves the same build
+html_baseurl = "https://dev.nominal.io/instro/"
 html_static_path = ["_static"]
 # 404.html at the site root: sends links from when the docs were under /python/ to their new paths
 html_extra_path = ["_extra"]

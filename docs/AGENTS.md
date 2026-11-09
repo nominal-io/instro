@@ -6,7 +6,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 
 - `just build-docs`: clean build into `_build/dirhtml`, warnings are errors. PR CI (`docs-check.yml`) runs it and uploads the site as a `docs-site` artifact; `deploy-docs.yml` publishes on merge.
 - `just serve-docs`: live preview on http://127.0.0.1:8000; rebuilds on page, example, and docstring edits.
-- The deploy publishes `_build/dirhtml` as is, at the root of `instro.nominal.io`. The same build also goes to the Nominal developer docs hub at `/python/instro/`, so keep every link relative (the build does): the docs must work under any prefix.
+- The deploy publishes `_build/dirhtml` as is, at the root of `instro.nominal.io`. The same build also goes to the Nominal developer docs hub at `/instro/`, which the canonical URLs name (`html_baseurl`), so keep every link relative (the build does): the docs must work under any prefix.
 - Toolchain: the `docs` dependency group (Python >=3.12).
 - URLs are folder-style (`/psu/`), so a finished build needs a server to browse: `python -m http.server -d docs/_build/dirhtml`.
 - Sidebar changes only reach unchanged pages on a clean build (`-E`, which `build-docs` does).
