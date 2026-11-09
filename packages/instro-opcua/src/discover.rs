@@ -27,7 +27,7 @@ impl EndpointDescription {
 
     #[getter]
     fn security_mode(&self) -> &str {
-        match unsafe { self.0.security_mode().as_u32_unchecked() } {
+        match self.0.security_mode().as_u32() {
             ua::MessageSecurityMode::NONE_U32 => "none",
             ua::MessageSecurityMode::SIGN_U32 => "sign",
             ua::MessageSecurityMode::SIGNANDENCRYPT_U32 => "sign_and_encrypt",
@@ -98,7 +98,7 @@ impl EndpointDescription {
     #[getter]
     fn application_type(&self) -> &str {
         // SAFETY: built-in enums only have positive values
-        match unsafe { self.0.server().application_type().as_u32_unchecked() } {
+        match self.0.server().application_type().as_u32() {
             ua::ApplicationType::SERVER_U32 => "server",
             ua::ApplicationType::CLIENT_U32 => "client",
             ua::ApplicationType::CLIENTANDSERVER_U32 => "client_and_server",
