@@ -65,3 +65,4 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 - A *channel* is a named signal for a series of measurements or computed values.
 - Concise, one idea per sentence; active voice and the imperative ("Configure the check"). No em or en dashes. Nominal in the third person, never *we*. Sentence-case headings, **bold** UI elements, `code` for files, commands, and identifiers. Lowercase data primitives (*channel*, *source*).
 - Document `instro` only; link out for Nominal Core, Nominal Connect, and the dashboard.
+
