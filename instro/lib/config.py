@@ -67,9 +67,11 @@ PublisherConfigType = Annotated[NominalCorePublisherConfig | FilePublisherConfig
 
 def build_publisher(config: NominalCorePublisherConfig | FilePublisherConfig) -> Publisher:
     """Construct the runtime Publisher described by a publisher config block."""
-    from instro.lib.publishers import FilePublisher, NominalCorePublisher
+    from instro.lib.publishers import FilePublisher
 
     if isinstance(config, NominalCorePublisherConfig):
+        from instro.lib.publishers import NominalCorePublisher
+
         return NominalCorePublisher(
             dataset_rid=config.dataset_rid, batch_size=config.batch_size, profile=config.profile
         )
