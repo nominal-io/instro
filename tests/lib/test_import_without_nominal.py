@@ -10,6 +10,7 @@ import importlib.util
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 BLOCKER = textwrap.dedent(
     """
@@ -66,6 +67,19 @@ def test_categories_import_without_nominal() -> None:
         import importlib
         for name in {CORE_MODULES + installed_vendors!r}:
             importlib.import_module(name)
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_file_publisher_config_builds_without_nominal(tmp_path: Path) -> None:
+    result = _run_blocked(
+        f"""
+        from instro.lib.config import FilePublisherConfig, build_publisher
+        from instro.lib.publishers import FilePublisher
+
+        publisher = build_publisher(FilePublisherConfig(directory={str(tmp_path)!r}, format="jsonl"))
+        assert isinstance(publisher, FilePublisher), type(publisher)
         """
     )
     assert result.returncode == 0, result.stderr
