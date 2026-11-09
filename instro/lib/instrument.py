@@ -8,7 +8,7 @@ from collections import deque
 from importlib.metadata import version
 from typing import Callable
 
-from instro.lib.publishers import NominalCorePublisher, Publisher
+from instro.lib.publishers import Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
@@ -169,6 +169,8 @@ class Instrument:
 
     def _add_core_publisher(self, rid: str):
         """Attach a NominalCorePublisher for ``rid`` (typically triggered by ``dataset_rid=``)."""
+        from instro.lib.publishers import NominalCorePublisher
+
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
         self.add_publisher(NominalCorePublisher(rid))
 

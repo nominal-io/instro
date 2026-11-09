@@ -81,6 +81,19 @@ python:
     - instro[daq]
 ```
 
+## Installing without Nominal Core
+
+`instro` depends on the `nominal` package, but only `NominalCorePublisher` and `install_nominal_core_log_handler` use it. Everything else, including the `FilePublisher`, the `NominalConnectPublisher`, and every instrument category, imports and runs without it. If you embed `instro` somewhere that publishes data its own way, you can leave out `nominal` and its dependency tree (polars, pandas, grpcio, and others).
+
+With `uv`, add an override to your project's `pyproject.toml` so `nominal` is never installed:
+
+```toml
+[tool.uv]
+override-dependencies = ["nominal; python_version < '0'"]
+```
+
+The marker never matches, so `uv` drops `nominal` from the resolution. Creating a `NominalCorePublisher` in that environment raises an `ImportError` that names the missing package.
+
 ## Driver Dependencies
 
 `instro` depends on external software to be installed for various hardware interactions to be successful.
