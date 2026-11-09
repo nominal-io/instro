@@ -32,3 +32,20 @@ macro_rules! require_both {
 }
 
 pub(crate) use require_both;
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn require_both_accepts_complete_pairs_and_rejects_partial_pairs() {
+        for (left, right, expected) in [
+            (None, None, Ok(None)),
+            (Some(1), Some(2), Ok(Some((1, 2)))),
+            (Some(1), None, Err(())),
+            (None, Some(2), Err(())),
+        ] {
+            let pair = require_both!(left, right).map_err(|_| ());
+
+            assert_eq!(pair, expected);
+        }
+    }
+}

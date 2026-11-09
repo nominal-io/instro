@@ -509,7 +509,7 @@ impl OpcUaClient {
 
         if let Some(timeout) = timeout {
             let timeout = if let Ok(timeout_float) = timeout.extract::<f64>() {
-                Duration::from_secs_f64(timeout_float)
+                duration_from_timeout_secs(timeout_float)?
             } else if let Ok(timeout_duration) = timeout.extract::<Duration>() {
                 timeout_duration
             } else {
@@ -662,9 +662,22 @@ impl OpcUaClient {
     }
 }
 
+fn duration_from_timeout_secs(seconds: f64) -> PyResult<Duration> {
+    Duration::try_from_secs_f64(seconds).map_err(|_| {
+        PyValueError::new_err(format!(
+            "timeout must be finite, nonnegative, and within the supported duration range: \
+             '{seconds}'"
+        ))
+    })
+}
+
 fn duration_from_freq(f: f64) -> PyResult<Duration> {
     if f.is_finite() && f > 0.0 {
-        Ok(Duration::from_secs_f64(f.recip()))
+        Duration::try_from_secs_f64(f.recip()).map_err(|_| {
+            PyValueError::new_err(format!(
+                "frequency produces an interval outside the supported duration range: '{f}'"
+            ))
+        })
     } else {
         Err(PyValueError::new_err(format!(
             "frequency must be finite and positive: '{f}'"
@@ -699,4 +712,86 @@ fn parse_security_policy(security_policy: &str) -> PyResult<SecurityPolicyUri> {
             });
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pre_epoch_fractional_timestamp_has_nonnegative_nanoseconds() {
+        let timestamp = ua::DateTime::try_from_unix_timestamp_nanos(-500_000_000).unwrap();
+
+        let normalized = normalize_timestamp(timestamp);
+
+        assert_eq!(normalized, (-1, 500_000_000));
+    }
+
+    #[test]
+    fn data_value_preserves_distinct_source_and_server_timestamps() {
+        let value = DataValue(
+            ua::DataValue::new(ua::Variant::scalar(ua::Double::new(1.0)))
+                .with_source_timestamp(
+                    ua::DateTime::try_from_unix_timestamp_nanos(1_250_000_000).unwrap(),
+                )
+                .with_server_timestamp(
+                    ua::DateTime::try_from_unix_timestamp_nanos(2_750_000_000).unwrap(),
+                )
+                .cast(),
+        );
+
+        let source = value.source_timestamp();
+        let server = value.server_timestamp();
+
+        assert_eq!(source, Some("1970-01-01T00:00:01.250Z".parse().unwrap()));
+        assert_eq!(server, Some("1970-01-01T00:00:02.750Z".parse().unwrap()));
+    }
+
+    #[test]
+    fn node_id_identifiers_preserve_python_types_and_values() -> PyResult<()> {
+        Python::initialize();
+        Python::attach(|py| {
+            let uuid = "12345678-1234-5678-9abc-def012345678";
+            let cases = [
+                ("ns=2;i=42", 42.into_bound_py_any(py)?),
+                ("ns=2;s=pump", "pump".into_bound_py_any(py)?),
+                (
+                    "ns=2;b=AP8=",
+                    pyo3::types::PyBytes::new(py, &[0, 255]).into_any(),
+                ),
+                (
+                    "ns=2;g=12345678-1234-5678-9abc-def012345678",
+                    py.import("uuid")?.getattr("UUID")?.call1((uuid,))?,
+                ),
+            ];
+
+            for (node_id, expected) in cases {
+                let node = NodeId::from_string(node_id)?;
+
+                let identifier = node.identifier(py)?;
+
+                assert!(identifier.get_type().is(expected.get_type()));
+                assert!(identifier.eq(expected)?);
+            }
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn invalid_timeouts_return_errors_instead_of_panicking() {
+        assert!(duration_from_timeout_secs(-1.0).is_err());
+        assert!(duration_from_timeout_secs(f64::NAN).is_err());
+        assert!(duration_from_timeout_secs(f64::MAX).is_err());
+    }
+
+    #[test]
+    fn frequency_is_converted_to_period_without_panicking_on_invalid_intervals() {
+        assert_eq!(
+            duration_from_freq(100.0).unwrap(),
+            Duration::from_millis(10)
+        );
+        assert!(duration_from_freq(0.0).is_err());
+        let frequency_with_unrepresentable_period = 1e-20;
+        assert!(duration_from_freq(frequency_with_unrepresentable_period).is_err());
+    }
 }
