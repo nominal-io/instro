@@ -7,6 +7,12 @@ use crate::types::EndpointDescription;
 #[pyfunction]
 pub fn get_endpoints(endpoint_url: &str) -> PyResult<Vec<EndpointDescription>> {
     instro_opcua::client::get_endpoints(endpoint_url)
-        .map(|endpoints| endpoints.iter().cloned().map(EndpointDescription::from).collect())
+        .map(|endpoints| {
+            endpoints
+                .iter()
+                .cloned()
+                .map(EndpointDescription::from)
+                .collect()
+        })
         .map_err(|e| PyValueError::new_err(e.to_string()))
 }

@@ -30,6 +30,8 @@ mod instro_opcua_py_types {
     #[pymodule_export]
     use super::types::AccessRestrictionType;
     #[pymodule_export]
+    use super::types::ApplicationType;
+    #[pymodule_export]
     use super::types::AttributeId;
     #[pymodule_export]
     use super::types::AttributeWriteMask;
@@ -37,6 +39,8 @@ mod instro_opcua_py_types {
     use super::types::BrowsePath;
     #[pymodule_export]
     use super::types::DataValue;
+    #[pymodule_export]
+    use super::types::EndpointDescription;
     #[pymodule_export]
     use super::types::EnumDefinition;
     #[pymodule_export]
@@ -60,15 +64,11 @@ mod instro_opcua_py_types {
     #[pymodule_export]
     use super::types::RelativePathElement;
     #[pymodule_export]
+    use super::types::SecurityLevel;
+    #[pymodule_export]
     use super::types::StatusCode;
     #[pymodule_export]
     use super::types::StructureDefinition;
     #[pymodule_export]
     use super::types::StructureField;
-    #[pymodule_export]
-    use super::types::EndpointDescription;
-    #[pymodule_export]
-    use super::types::SecurityLevel;
-    #[pymodule_export]
-    use super::types::ApplicationType;
 }

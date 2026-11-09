@@ -617,7 +617,6 @@ all = [
     { name = "instro-daq-ni" },
     { name = "instro-ethernetip" },
     { name = "instro-i2c-aardvark" },
-    { name = "instro-opcua" },
     { name = "instro-unstable" },
     { name = "plotly" },
 ]
@@ -647,9 +646,6 @@ nidaq = [
 plot = [
     { name = "anywidget" },
     { name = "plotly" },
-]
-opcua = [
-    { name = "instro-opcua" },
 ]
 unstable = [
     { name = "instro-unstable" },
@@ -706,8 +702,6 @@ requires-dist = [
     { name = "instro-i2c-aardvark", marker = "extra == 'aardvark'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'all'", editable = "packages/instro-i2c-aardvark" },
     { name = "instro-i2c-aardvark", marker = "extra == 'i2c'", editable = "packages/instro-i2c-aardvark" },
-    { name = "instro-opcua", marker = "extra == 'all'", editable = "packages/instro-opcua" },
-    { name = "instro-opcua", marker = "extra == 'opcua'", editable = "packages/instro-opcua" },
     { name = "instro-unstable", marker = "extra == 'all'", editable = "packages/instro-unstable" },
     { name = "instro-unstable", marker = "extra == 'unstable'", editable = "packages/instro-unstable" },
     { name = "nominal", specifier = ">=1.180.0,<2.0.0" },
@@ -722,7 +716,7 @@ requires-dist = [
     { name = "thermocouples", specifier = ">=2.1.2" },
     { name = "typer", specifier = ">=0.12" },
 ]
-provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "opcua", "contrib", "unstable", "plot", "all"]
+provides-extras = ["daq", "labjack", "nidaq", "mccdaq", "i2c", "aardvark", "ethernetip", "contrib", "unstable", "plot", "all"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -259,10 +259,13 @@ impl DataValue {
     #[getter]
     pub fn value<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
         // assume that status code is good if not present
-        if let Some(status) = self.0.status() && !status.is_good() {
-            Err(PyValueError::new_err(
-                format!("data value contains a non-good status code: '{}'", status.name())
-            ))?
+        if let Some(status) = self.0.status()
+            && !status.is_good()
+        {
+            Err(PyValueError::new_err(format!(
+                "data value contains a non-good status code: '{}'",
+                status.name()
+            )))?
         }
 
         let variant = match self.0.value() {
@@ -272,7 +275,9 @@ impl DataValue {
 
         let value = match variant.to_value() {
             VariantValue::Scalar(value) => value,
-            _ => Err(PyValueError::new_err("data value contains a non-scalar value".to_string()))?,
+            _ => Err(PyValueError::new_err(
+                "data value contains a non-scalar value".to_string(),
+            ))?,
         };
 
         match value {
@@ -305,7 +310,8 @@ impl DataValue {
             _ => Err(PyValueError::new_err(
                 "unknown scalar value type".to_string(),
             )),
-        }.map(Some)
+        }
+        .map(Some)
     }
 }
 
@@ -1094,7 +1100,6 @@ impl EndpointDescription {
         self.0.server().application_type().clone().into()
     }
 }
-
 
 #[cfg(test)]
 mod tests {
