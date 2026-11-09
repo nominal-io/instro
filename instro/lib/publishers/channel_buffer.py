@@ -7,8 +7,7 @@ from abc import ABC, abstractmethod
 from collections import Counter, deque
 from typing import TYPE_CHECKING, Any
 
-# numpy is imported inside the numpy-backed classes: Instrument imports this module for
-# DequeInMemoryPublisher, and importing instro must not require numpy (#626).
+# No module-level numpy: Instrument imports this module, and importing instro must not load numpy (#626).
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 

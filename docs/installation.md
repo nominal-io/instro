@@ -92,7 +92,7 @@ With `uv`, add an override to your project's `pyproject.toml` so `nominal` is ne
 override-dependencies = ["nominal; python_version < '0'"]
 ```
 
-The marker never matches, so `uv` drops `nominal` from the resolution. Creating a `NominalCorePublisher` in that environment raises an `ImportError` that names the missing package.
+The marker never matches, so `uv` drops `nominal` from the resolution. Importing `NominalCorePublisher` in that environment raises an `ImportError` that names the missing package.
 
 ## Driver Dependencies
 

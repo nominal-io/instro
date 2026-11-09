@@ -5,17 +5,21 @@ import pathlib
 from datetime import timedelta
 from typing import Literal
 
-try:
-    from nominal_streaming import NominalDatasetStream
-except ImportError as e:
-    raise ImportError(
-        "NominalCorePublisher requires the 'nominal' package, which is not installed. "
-        "Install it with: pip install nominal"
-    ) from e
-
 from instro.lib.types import Command, Measurement
 
+# Imported first so a missing `nominal` reports itself before the missing `nominal_streaming` it implies.
 from ..nominal import _resolve_nominal_client_and_dataset
+
+try:
+    from nominal_streaming import NominalDatasetStream
+except ModuleNotFoundError as e:
+    if e.name != "nominal_streaming":
+        raise
+    # nominal only pulls in nominal-streaming on the platforms it publishes wheels for.
+    raise ImportError(
+        "NominalCorePublisher requires the 'nominal-streaming' package, which is not installed. "
+        "nominal installs it only on supported platforms; try: pip install nominal-streaming"
+    ) from e
 
 
 class NominalCorePublisher:

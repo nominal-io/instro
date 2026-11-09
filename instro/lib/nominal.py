@@ -9,15 +9,19 @@ from typing import Any, TypedDict
 from instro.lib.types import Measurement
 
 try:
-    import requests.exceptions
-    import urllib3.exceptions
     from nominal.core import Dataset, NominalClient, exceptions
     from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
-except ImportError as e:
+except ModuleNotFoundError as e:
+    if e.name != "nominal":
+        raise
     raise ImportError(
-        "Publishing to Nominal Core requires the 'nominal' package, which is not installed. "
-        "Install it with: pip install nominal"
+        "Nominal Core support (NominalCorePublisher, install_nominal_core_log_handler) requires the "
+        "'nominal' package, which is not installed. Install it with: pip install nominal"
     ) from e
+
+# Installed by nominal, so imported only once nominal is known to be present.
+import requests.exceptions  # noqa: E402
+import urllib3.exceptions  # noqa: E402
 
 
 class CoreEnqueueDict(TypedDict):
