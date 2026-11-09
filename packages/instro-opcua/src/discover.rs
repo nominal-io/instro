@@ -97,7 +97,6 @@ impl EndpointDescription {
 
     #[getter]
     fn application_type(&self) -> &str {
-        // SAFETY: built-in enums only have positive values
         match self.0.server().application_type().as_u32() {
             ua::ApplicationType::SERVER_U32 => "server",
             ua::ApplicationType::CLIENT_U32 => "client",

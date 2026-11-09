@@ -53,7 +53,7 @@ mccdaq = ["instro-daq-mcc"]
 i2c = ["instro-i2c-aardvark"]
 aardvark = ["instro-i2c-aardvark"]
 ethernetip = ["instro-ethernetip"]
-opcua = ["instro-opcua"]
+# opcua = ["instro-opcua"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 # Plotly publisher; anywidget backs go.FigureWidget for live notebook plots
@@ -66,7 +66,7 @@ all = [
     "instro-ethernetip",
     "instro-contrib",
     "instro-unstable",
-    "instro-opcua",
+    # "instro-opcua",
     "plotly>=6.0",
     "anywidget>=0.11",
 ]

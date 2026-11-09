@@ -18,7 +18,6 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
-use pyo3::types::PyTuple;
 use tokio::runtime::Runtime;
 
 use self::shared_rt::get_runtime;
@@ -244,6 +243,7 @@ pub struct DataValue(UaDataValue<ua::Variant>);
 
 #[pymethods]
 impl DataValue {
+    #[getter]
     pub fn server_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
         normalize_value_timestamp(
             self.0.server_timestamp().copied(),
@@ -251,6 +251,7 @@ impl DataValue {
         )
     }
 
+    #[getter]
     pub fn source_timestamp(&self) -> Option<chrono::DateTime<Utc>> {
         normalize_value_timestamp(
             self.0.source_timestamp().copied(),
@@ -258,12 +259,25 @@ impl DataValue {
         )
     }
 
-    #[pyo3(signature = () -> "bool | int | float | str | uuid.UUID | NodeId | ExpandedNodeId | StatusCode | QualifiedName | datetime.datetime")]
-    pub fn value<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        let Some(VariantValue::Scalar(value)) = self.0.value().map(ua::Variant::to_value) else {
-            return Err(PyValueError::new_err(
-                "data value is not a scalar value".to_string(),
-            ));
+    // wake me up when pyo3 supports annotations on getters
+    // #[pyo3(signature = () -> "bool | int | float | str | uuid.UUID | NodeId | ExpandedNodeId | StatusCode | QualifiedName | datetime.datetime | None")]
+    #[getter]
+    pub fn value<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyAny>>> {
+        // assume that status code is good if not present
+        if let Some(status) = self.0.status() && !status.is_good() {
+            Err(PyRuntimeError::new_err(
+                format!("data value contains a non-good status code: '{}'", status.name())
+            ))?
+        }
+
+        let variant = match self.0.value() {
+            Some(value) => value,
+            None => return Ok(None),
+        };
+
+        let value = match variant.to_value() {
+            VariantValue::Scalar(value) => value,
+            _ => Err(PyValueError::new_err("data value contains a non-scalar value".to_string()))?,
         };
 
         match value {
@@ -296,7 +310,7 @@ impl DataValue {
             _ => Err(PyValueError::new_err(
                 "unknown scalar value type".to_string(),
             )),
-        }
+        }.map(Some)
     }
 }
 
@@ -621,12 +635,13 @@ impl OpcUaClient {
                         let node_id = NodeId(node).into_bound_py_any(py)?;
                         let data_point = DataValue(value).into_bound_py_any(py)?;
 
-                        PyTuple::new(py, [node_id, data_point])
+                        Ok((node_id, data_point))
                     })
-                    .collect::<PyResult<Vec<_>>>()
-                    .and_then(|points| points.into_bound_py_any(py))?;
+                    .collect::<PyResult<Vec<_>>>()?;
 
-                on_data.call1(py, (results,))?;
+                if let Err(e) = on_data.call1(py, (results,)) {
+                    e.write_unraisable(py, None);
+                }
 
                 Ok(())
             })
