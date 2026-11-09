@@ -6,8 +6,14 @@ import pathlib
 from datetime import timedelta
 from typing import Literal
 
-from nominal.core import Dataset, NominalClient
-from nominal_streaming import NominalDatasetStream
+try:
+    from nominal.core import Dataset, NominalClient
+    from nominal_streaming import NominalDatasetStream
+except ImportError as e:
+    raise ImportError(
+        "NominalCorePublisher requires the 'nominal' package, which is not installed. "
+        "Install it with: pip install nominal"
+    ) from e
 
 from instro.lib import _display
 from instro.lib.types import Command, Measurement

@@ -6,12 +6,18 @@ import logging
 from collections.abc import Mapping
 from typing import Any, TypedDict
 
-import requests.exceptions
-import urllib3.exceptions
-from nominal.core import Dataset, NominalClient, exceptions
-from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
-
 from instro.lib.types import Measurement
+
+try:
+    import requests.exceptions
+    import urllib3.exceptions
+    from nominal.core import Dataset, NominalClient, exceptions
+    from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
+except ImportError as e:
+    raise ImportError(
+        "Publishing to Nominal Core requires the 'nominal' package, which is not installed. "
+        "Install it with: pip install nominal"
+    ) from e
 
 
 class CoreEnqueueDict(TypedDict):

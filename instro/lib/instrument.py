@@ -1,22 +1,24 @@
 """Base instrument interface and background daemon support."""
 
+from __future__ import annotations
+
 import functools
 import logging
 import threading
 import time
 from collections import deque
 from importlib.metadata import version
-from typing import Callable
-
-from nominal.core import NominalClient
+from typing import TYPE_CHECKING, Callable
 
 from instro.lib import _display
-from instro.lib.nominal import _resolve_nominal_client_and_dataset
-from instro.lib.publishers import NominalCorePublisher, Publisher
+from instro.lib.publishers import Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
 from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
+
+if TYPE_CHECKING:
+    from nominal.core import NominalClient
 
 
 def publish_command(func: Callable) -> Callable:
@@ -174,6 +176,9 @@ class Instrument:
         self, rid: str, nominal_profile: str | None = None, nominal_client: NominalClient | None = None
     ):
         """Attach a NominalCorePublisher for ``rid`` (typically triggered by ``dataset_rid=``)."""
+        from instro.lib.nominal import _resolve_nominal_client_and_dataset
+        from instro.lib.publishers import NominalCorePublisher
+
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
         if nominal_client is None:
             self.add_publisher(NominalCorePublisher(rid, profile=nominal_profile))
