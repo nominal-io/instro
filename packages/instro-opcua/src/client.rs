@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 use std::ops::Deref;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::sync::LazyLock;
 use std::time::Duration;
 
@@ -13,6 +14,7 @@ use instro_opcua::open62541::PrivateKey;
 use instro_opcua::prelude::*;
 use itertools::Either;
 use itertools::Itertools;
+use pollster::FutureExt as _;
 use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
@@ -57,11 +59,9 @@ impl Session {
         _exc_value: Option<Bound<'_, PyAny>>,
         _traceback: Option<Bound<'_, PyAny>>,
     ) -> PyResult<bool> {
-        self.0.unblock_on(py, async {
-            if let Some(session) = self.1.take() {
-                session.stop().await
-            }
-        })?;
+        if let Some(session) = self.1.take() {
+            self.0.unblock_on(py, session.stop())?;
+        }
 
         Ok(false)
     }
@@ -212,7 +212,10 @@ impl OpcUaClient {
     }
 
     // TODO(cartercanedy): translate both node ids and paths and return a node ID-Path map
-    fn parse_nodes(&self, nodes: Vec<NodeSpec>) -> PyResult<Vec<Node>> {
+    fn normalize_node_spec(
+        &self,
+        nodes: impl IntoIterator<Item = NodeSpec>,
+    ) -> PyResult<Vec<Node>> {
         let (nodes, paths): (Vec<_>, Vec<_>) = nodes.into_iter().partition_map(|kind| match kind {
             NodeSpec::Node(node) => Either::Left(node),
             NodeSpec::Path(path) => Either::Right(path),
@@ -319,27 +322,21 @@ impl OpcUaClient {
             builder = builder.with_trust_server_certs();
         }
 
-        let client = rt.unblock_on(py, async {
-            let endpoint_url_clone = endpoint_url.to_string();
-
-            rt.spawn_blocking(move || builder.connect(&endpoint_url_clone))
-                .await
-                .map_err(|e| {
-                    PyRuntimeError::new_err(format!("internal async runtime error: '{e}'"))
-                })?
-                .map_err(|e| {
-                    PyRuntimeError::new_err(format!(
-                        "failed to connect to endpoint with url '{endpoint_url}': '{e}'"
-                    ))
-                })
-        })??;
+        let client = py.detach(move || {
+            builder.connect(endpoint_url).map_err(|e| {
+                PyRuntimeError::new_err(format!(
+                    "failed to connect to endpoint with url '{endpoint_url}': '{e}'"
+                ))
+            })
+        })?;
 
         Ok(Self { client, rt })
     }
 
     pub fn disconnect(&mut self, py: Python<'_>) -> PyResult<()> {
+        let client = self.client.clone();
         self.rt
-            .unblock_on(py, async { self.client.disconnect().await })
+            .unblock_on(py, async move { client.disconnect().await })
     }
 
     #[pyo3(signature = (
@@ -374,12 +371,23 @@ impl OpcUaClient {
             return Err(PyValueError::new_err("`on_data` must be callable"));
         }
 
-        let nodes = nodes
-            .iter()
-            .map(|item| NodeSpec::extract(item.as_borrowed()))
-            .collect::<PyResult<Vec<_>>>()?;
+        let mut extracted_nodes = Vec::with_capacity(nodes.len());
 
-        let nodes = py.detach(|| self.parse_nodes(nodes))?;
+        for item in &nodes {
+            let node = NodeSpec::extract(item.as_borrowed())?;
+
+            if let NodeSpec::Node(node) = &node
+                && !self.client.is_same_client(&node.client)
+            {
+                Err(PyValueError::new_err(
+                    "nodes must be derived from the same client",
+                ))?;
+            }
+
+            extracted_nodes.push(node);
+        }
+
+        let nodes = py.detach(|| self.normalize_node_spec(extracted_nodes))?;
 
         let sample_rate = duration_from_freq(freq_hz)?;
 
@@ -415,30 +423,46 @@ impl OpcUaClient {
 
         let node_ids = node_map.keys().cloned().collect_vec();
 
-        let on_data = move |points: Box<dyn Iterator<Item = _>>| {
-            Python::attach(|py| {
-                let results = points
-                    .map(|(node, value)| {
-                        let node = node_map.get(&node).ok_or_else(|| {
-                            PyRuntimeError::new_err(format!("node not found: '{node}'"))
-                        })?;
+        let rt_handle = self.rt.handle().clone();
 
-                        let data_point = DataValue::new(value).into_py_any(py)?;
+        let on_data = Arc::new(on_data);
+        let node_map = Arc::new(node_map);
 
-                        Ok((node, data_point))
+        let on_data = move |points: Box<dyn Iterator<Item = _> + Send>| {
+            let node_map = Arc::clone(&node_map);
+            let on_data = Arc::clone(&on_data);
+
+            rt_handle
+                .spawn_blocking(move || {
+                    Python::attach(|py| -> PyResult<()> {
+                        let results = points
+                            .map(|(node, value)| {
+                                let node = node_map.get(&node).ok_or_else(|| {
+                                    PyRuntimeError::new_err(format!("node not found: '{node}'"))
+                                })?;
+
+                                let data_point = DataValue::new(value).into_py_any(py)?;
+
+                                Ok((node, data_point))
+                            })
+                            .collect::<PyResult<Vec<_>>>()?;
+
+                        if let Err(e) = on_data.call1(py, (results,)) {
+                            e.clone_ref(py).write_unraisable(py, None);
+                            Err(e)?
+                        } else {
+                            Ok(())
+                        }
                     })
-                    .collect::<PyResult<Vec<_>>>()?;
+                })
+                .block_on()??;
 
-                if let Err(e) = on_data.call1(py, (results,)) {
-                    e.write_unraisable(py, None);
-                }
-
-                Ok(())
-            })
+            Ok(())
         };
 
-        let session = self.rt.unblock_on(py, async {
-            self.client
+        let client = self.client.clone();
+        let session = self.rt.unblock_on(py, async move {
+            client
                 .start_subscription(&node_ids, sub_config, item_config, on_data)
                 .await
                 .map_err(|e| {
@@ -495,12 +519,13 @@ impl OpcUaClient {
         .as_ua_ref()
         .clone();
 
-        self.rt.unblock_on(py, async {
+        let this = self.clone();
+        self.rt.unblock_on(py, async move {
             let path = ua::BrowsePath::init()
                 .with_relative_path(path)
                 .with_starting_node(ROOT_FOLDER_ID.clone());
 
-            self.translate_browse_paths(ua::Array::from_slice(&[path]))
+            this.translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
                 .into_iter()
                 .next()
@@ -590,7 +615,7 @@ impl Node {
     fn get_mapped_attribute<T, A>(&self, py: Python<'_>, attr: A) -> PyResult<Option<T>>
     where
         T: UaType<Inner = A::Value>,
-        A: open62541::Attribute + Send + Sync,
+        A: open62541::Attribute + Send + Sync + 'static,
     {
         self.get_attribute(py, attr)
             .and_then(normalize_mapped_value::<T>)
@@ -602,25 +627,28 @@ impl Node {
         attr: A,
     ) -> PyResult<Option<open62541::DataValue<A::Value>>>
     where
-        A: open62541::Attribute + Send + Sync,
+        A: open62541::Attribute + Send + Sync + 'static,
     {
-        use OpcUaError::*;
+        let client = self.client.clone();
+        let node_id = self.node_id.clone();
 
-        self.client.rt.unblock_on(py, async {
-            match self.client.read_node(&self.node_id, attr).await {
+        self.client.rt.unblock_on(py, async move {
+            match client.read_node(&node_id, attr).await {
                 Ok(value) => {
-                    if let Some(status) = value.status()
-                        && !status.is_good()
-                    {
-                        Err(PyValueError::new_err(format!(
-                            "attribute value returned a non-good status: '{status}'"
-                        )))?;
+                    if let Some(status) = value.status() {
+                        if status.into_raw() == open62541_sys::UA_STATUSCODE_BADATTRIBUTEIDINVALID {
+                            return Ok(None);
+                        } else if !status.is_good() {
+                            return Err(PyValueError::new_err(format!(
+                                "attribute value returned a non-good status: '{status}'"
+                            )));
+                        }
                     }
 
                     Ok(Some(value))
                 }
 
-                Err(Ua(e) | UaWithContext(e, _))
+                Err(OpcUaError::Ua(e) | OpcUaError::UaWithContext(e, _))
                     if e.status_code() == ua::StatusCode::BADATTRIBUTEIDINVALID =>
                 {
                     Ok(None)
@@ -667,10 +695,21 @@ impl Node {
             )))?;
         }
 
-        self.client.rt.unblock_on(py, async {
+        let all_elements = self
+            .browse_path
+            .relative_path()
+            .iter()
+            .chain(child_path.iter())
+            .cloned()
+            .collect::<ua::Array<_>>();
+
+        let node_id = self.node_id().clone();
+        let client = self.client.clone();
+
+        self.client.rt.unblock_on(py, async move {
             // scope the browse path translation to the parent
             let path = ua::BrowsePath::init()
-                .with_starting_node(self.node_id_py().as_ua_ref().clone())
+                .with_starting_node(node_id)
                 .with_relative_path(
                     #[expect(
                         clippy::unwrap_used,
@@ -680,21 +719,12 @@ impl Node {
                         .with_elements(ua::Array::from_slice(child_path.elements().unwrap())),
                 );
 
-            let node = self
-                .client
+            let node = client
                 .translate_browse_paths(ua::Array::from_slice(&[path]))
                 .await?
                 .into_iter()
                 .next()
                 .unwrap();
-
-            let all_elements = self
-                .browse_path
-                .relative_path()
-                .iter()
-                .chain(child_path.iter())
-                .cloned()
-                .collect::<ua::Array<_>>();
 
             let path = ua::RelativePath::init().with_elements(all_elements);
 
@@ -712,60 +742,70 @@ impl Node {
 
     #[getter]
     pub fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
-        self.client.rt.unblock_on(py, async {
-            let my_path = self.browse_path.relative_path().elements().unwrap_or(&[]);
+        let my_path = self
+            .browse_path
+            .relative_path()
+            .elements()
+            .unwrap_or(&[])
+            .to_vec();
 
+        let client = self.client.clone();
+        let node_id = self.node_id.clone();
+        let my_starting_node = self.browse_path.starting_node().clone();
+
+        self.client.rt.unblock_on(py, async move {
             static HIERARCHICAL_NODE_ID: LazyLock<ua::NodeId> =
                 LazyLock::new(|| ua::NodeId::ns0(open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES));
 
             let desc = ua::BrowseDescription::init()
                 .with_browse_direction(ua::BrowseDirection::FORWARD)
                 .with_include_subtypes(true)
-                .with_node_id(self.node_id.clone())
+                .with_node_id(node_id)
                 .with_reference_type_id(HIERARCHICAL_NODE_ID.clone())
                 .with_result_mask(ua::BrowseResultMask::ALL);
 
-            let results = self
-                .client
-                .with_client(async |client| -> PyResult<Vec<ua::ReferenceDescription>> {
-                    let (mut results, mut cont_point) =
-                        client.browse(&desc).await.map_err(|e| {
-                            PyValueError::new_err(format!("failed to browse children: '{e}'"))
-                        })?;
-
-                    while let Some(this_point) = cont_point {
-                        let next_results =
-                            client.browse_next(&[this_point]).await.map_err(|e| {
-                                PyValueError::new_err(format!(
-                                    "failed to browse next children: '{e}'"
-                                ))
+            let results = client
+                .with_client(
+                    async move |client| -> PyResult<Vec<ua::ReferenceDescription>> {
+                        let (mut results, mut cont_point) =
+                            client.browse(&desc).await.map_err(|e| {
+                                PyValueError::new_err(format!("failed to browse children: '{e}'"))
                             })?;
 
-                        if next_results.len() != 1 {
-                            Err(PyValueError::new_err(format!(
-                                "expected 1 browse result, got {}",
-                                next_results.len()
-                            )))?;
+                        while let Some(this_point) = cont_point {
+                            let next_results =
+                                client.browse_next(&[this_point]).await.map_err(|e| {
+                                    PyValueError::new_err(format!(
+                                        "failed to browse next children: '{e}'"
+                                    ))
+                                })?;
+
+                            if next_results.len() != 1 {
+                                Err(PyValueError::new_err(format!(
+                                    "expected 1 browse result, got {}",
+                                    next_results.len()
+                                )))?;
+                            }
+
+                            #[expect(
+                                clippy::unwrap_used,
+                                reason = "`next_results.len() == 1` is checked above"
+                            )]
+                            let (next_results, next_point) =
+                                next_results.into_iter().next().unwrap().map_err(|e| {
+                                    PyValueError::new_err(format!(
+                                        "browsing the continuation point failed: '{e}'"
+                                    ))
+                                })?;
+
+                            results.extend(next_results);
+
+                            cont_point = next_point;
                         }
 
-                        #[expect(
-                            clippy::unwrap_used,
-                            reason = "`next_results.len() == 1` is checked above"
-                        )]
-                        let (next_results, next_point) =
-                            next_results.into_iter().next().unwrap().map_err(|e| {
-                                PyValueError::new_err(format!(
-                                    "browsing the continuation point failed: '{e}'"
-                                ))
-                            })?;
-
-                        results.extend(next_results);
-
-                        cont_point = next_point;
-                    }
-
-                    Ok(results)
-                })
+                        Ok(results)
+                    },
+                )
                 .await
                 .map_err(|e| {
                     PyRuntimeError::new_err(format!("client was disconnected: '{e}'"))
@@ -792,10 +832,10 @@ impl Node {
                     let browse_path = ua::BrowsePath::init()
                         .with_relative_path(child_path)
                         // this should always be the Root folder
-                        .with_starting_node(self.browse_path.starting_node().clone());
+                        .with_starting_node(my_starting_node.clone());
 
                     Self {
-                        client: self.client.clone(),
+                        client: client.clone(),
                         node_id: reference.node_id().node_id().clone(),
                         browse_path,
                     }
@@ -806,10 +846,12 @@ impl Node {
 
     #[pyo3(name = "get_attribute", signature = (attr: "types.AttributeId | int | str") -> "types.DataValue")]
     pub fn get_attribute_py(&self, py: Python<'_>, attr: AttributeId) -> PyResult<DataValue> {
-        self.client.rt.unblock_on(py, async {
-            let result = self
-                .client
-                .read_node(&self.node_id, attr.as_ua_ref())
+        let node_id = self.node_id.clone();
+        let client = self.client.clone();
+
+        self.client.rt.unblock_on(py, async move {
+            let result = client
+                .read_node(&node_id, attr.as_ua_ref())
                 .await
                 .map_err(|e| PyValueError::new_err(format!("failed to read attribute: '{e}'")))?;
 

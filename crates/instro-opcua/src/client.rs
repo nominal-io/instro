@@ -119,6 +119,11 @@ impl Client {
         })
     }
 
+    /// Checks if the two clients clones share the same underlying client connection.
+    pub fn is_same_client(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.client, &other.client)
+    }
+
     /// Gracefully disconnects from the server.
     ///
     /// This method will synchronize with disconnection of the client from the server.
@@ -167,7 +172,9 @@ impl Client {
     ) -> Result<StreamSession>
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
+        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>)
+            + Send
+            + 'static,
     {
         let reader = ClientNodeReader::new(&self.client);
 
@@ -246,7 +253,7 @@ impl Client {
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
         F: FnMut(
-                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
             ) -> StdResult<(), Box<dyn StdError>>
             + Send
             + 'static,
@@ -338,7 +345,7 @@ impl Client {
         reader: R,
         nodes: NodeReadBatch,
         polling_interval: Duration,
-        mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
+        mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>),
     ) {
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
@@ -421,7 +428,7 @@ impl Client {
         R: NodeReader,
         S: Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static,
         F: FnMut(
-            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
         ) -> StdResult<(), Box<dyn StdError>>,
         T: PollTimer,
     {
@@ -1112,7 +1119,7 @@ mod tests {
     /// Collects emitted samples into batches the test forwards through `on_data`.
     fn output_sink() -> (
         impl FnMut(
-            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
         ) -> StdResult<(), Box<dyn StdError>>
         + Send
         + 'static,
@@ -1120,7 +1127,7 @@ mod tests {
     ) {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<_>>();
 
-        let on_data = move |samples: Box<dyn Iterator<Item = _> + 'static>| -> StdResult<(), Box<dyn StdError>> {
+        let on_data = move |samples: Box<dyn Iterator<Item = _> + Send + 'static>| -> StdResult<(), Box<dyn StdError>> {
             tx.send(samples.collect::<Vec<_>>())?;
             Ok(())
         };

@@ -1,23 +1,34 @@
+use std::hash::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use instro_opcua::prelude::*;
 use itertools::Itertools as _;
 use pyo3::IntoPyObjectExt as _;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
+use pyo3::py_format;
 use pyo3::types::PyString;
 
+/// Encodes the relationship between an open62541 type definition and its python wrapper.
 pub(crate) trait UaType {
     type Inner: open62541::DataTypeExt;
+
+    /// Constructs [`Self`] from a [`Self::Inner`].
     fn new(value: Self::Inner) -> Self;
+
+    /// Returns a reference to the underlying [`Self::Inner`].
     fn as_ua_ref(&self) -> &Self::Inner;
 }
 
+/// Generates a python wrapper for a UA structured type
 macro_rules! ua_struct {
-    ($(#[doc = $doc:literal])? $struct_vis:vis struct $this_t:tt;) => {
-        $(#[$doc])?
+    ($(#[$attrs:meta])* $vis:vis struct $this_t:tt;) => {
+        $(#[$attrs])*
         #[pyclass(from_py_object, eq, ord)]
         #[repr(transparent)]
-        #[derive(Clone, PartialEq, PartialOrd)]
-        $struct_vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
+        #[derive(Clone, PartialEq, PartialOrd, Debug)]
+        $vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
 
         impl std::ops::Deref for $this_t {
             type Target = ::instro_opcua::open62541::ua::$this_t;
@@ -53,16 +64,18 @@ macro_rules! ua_struct {
     }
 }
 
+/// Generates a python wrapper for a UA enumerated type.
+/// Usable both for both simple and optionset (i.e. bitmask) enums.
 macro_rules! ua_enum {
-    ($(#[$($attrs:tt)+])* $vis:vis enum $this_t:ident { $($rest:tt)+ }) => {
+    ($(#[$($attrs:tt)+])* $vis:vis enum $this_t:ident { $($variants:tt)+ }) => {
         // preserve arbitrary attributes while intercepting the #[optionset] attribute
-        ua_enum!(@declare_type [] [no] $vis enum $this_t; $(#[$($attrs)+])*);
-        ua_enum!(@impl $this_t { $($rest)+ });
+        ua_enum!(@declare_type [] [no] $vis enum $this_t; $(#[$($attrs)+])* { $($variants)+ });
     };
 
     (
         @declare_type [$(#[$attrs:meta])*] [$optionset:ident]
         $vis:vis enum $this_t:ident;
+        { $($variants:tt)+ }
     ) => {
         paste::paste! {
             impl $this_t {
@@ -81,10 +94,22 @@ macro_rules! ua_enum {
         }
 
         $(#[$attrs])*
-        #[pyclass(skip_from_py_object, eq)]
+        #[pyclass(skip_from_py_object, eq, frozen)]
         #[repr(transparent)]
-        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
         $vis struct $this_t(::instro_opcua::open62541::ua::$this_t);
+
+        #[pymethods]
+        impl $this_t {
+            pub fn __hash__(&self) -> isize {
+                let mut hasher = DefaultHasher::new();
+                self.as_u32().hash(&mut hasher);
+
+                isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+            }
+        }
+
+        ua_enum!(@impl [$optionset] $this_t { $($variants)+ });
     };
 
     (
@@ -113,7 +138,10 @@ macro_rules! ua_enum {
     (@when no { $item:item } $(else { $else:item } )?) => { $($else)? };
     (@when yes { $item:item } $(else { $else:item } )?) => { $item };
 
-    (@impl $this_t:ident { $($(#[$variant_doc:meta])* $variant:ident),* $(,)? }) => {
+    (@is_none_variant None) => { yes };
+    (@is_none_variant $_:ident) => { no };
+
+    (@impl [$optionset:ident] $this_t:ident { $($(#[$variant_doc:meta])* $variant:ident),* $(,)? }) => {
         paste::paste! {
             #[pymethods]
             impl $this_t {
@@ -123,6 +151,28 @@ macro_rules! ua_enum {
                     pub const [<$variant:snake:upper>]: $this_t = Self(::instro_opcua::open62541::ua::$this_t::[<$variant:upper>]);
                 )*
             }
+
+            ua_enum!(@when $optionset {
+                #[pymethods]
+                impl $this_t {
+                    #[classattr]
+                    pub const NONE: $this_t = Self(::instro_opcua::open62541::ua::$this_t::NONE);
+
+                    $(
+                        pub fn [<is_ $variant:snake _set>](&self) -> bool {
+                            self == &Self::[<$variant:snake:upper>]
+                        }
+                    )*
+
+                    pub fn __and__(&self, other: &$this_t) -> $this_t {
+                        Self(self.0 & other.0)
+                    }
+
+                    pub fn __or__(&self, other: &$this_t) -> $this_t {
+                        Self(self.0 | other.0)
+                    }
+                }
+            });
 
             impl From<::instro_opcua::open62541::ua::$this_t> for $this_t {
                 fn from(value: ::instro_opcua::open62541::ua::$this_t) -> $this_t {
@@ -327,11 +377,19 @@ impl DataValue {
 }
 
 ua_struct! {
+    #[derive(Hash)]
     pub struct QualifiedName;
 }
 
 #[pymethods]
 impl QualifiedName {
+    pub fn __hash__(&self) -> isize {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+    }
+
     #[getter]
     pub fn name(&self) -> &str {
         self.0.name().as_str().unwrap_or("")
@@ -365,7 +423,7 @@ impl BrowsePath {
 
     pub fn __repr__(&self) -> String {
         format!(
-            "<BrowsePath starting_node='{}' relative_path='{}'>",
+            "BrowsePath(starting_node='{}' relative_path='{}')",
             *self.starting_node(),
             *self.relative_path()
         )
@@ -376,8 +434,21 @@ ua_struct! {
     pub struct StatusCode;
 }
 
+impl Hash for StatusCode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.into_raw().hash(state);
+    }
+}
+
 #[pymethods]
 impl StatusCode {
+    pub fn __hash__(&self) -> isize {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+
+        isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+    }
+
     #[getter]
     pub fn is_good(&self) -> bool {
         self.0.is_good()
@@ -404,6 +475,10 @@ impl StatusCode {
 
     pub fn __str__(&self) -> String {
         self.0.to_string()
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("StatusCode(code='{}', name='{}')", self.name(), self.code(),)
     }
 }
 
@@ -481,8 +556,15 @@ impl RelativePath {
         Ok(Self(path))
     }
 
-    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        Ok(PyString::new(_py, &self.0.to_string()))
+    pub fn __str__(&self) -> String {
+        self.0.to_string()
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!(
+            "RelativePath(elements={:?})",
+            self.elements_py().iter().collect_vec()
+        )
     }
 
     #[getter]
@@ -499,6 +581,7 @@ impl RelativePath {
 }
 
 ua_struct! {
+    #[derive(Hash)]
     pub struct NodeId;
 }
 
@@ -531,8 +614,17 @@ impl NodeId {
         Ok(Self(id))
     }
 
-    pub fn __str__<'py>(&self, _py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
-        Ok(PyString::new(_py, &self.0.to_string()))
+    pub fn __str__(&self) -> String {
+        self.0.to_string()
+    }
+
+    pub fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyString>> {
+        py_format!(
+            py,
+            "NodeId(namespace_index={}, identifier={})",
+            self.namespace_index(),
+            self.identifier(py)?,
+        )
     }
 
     #[getter]
@@ -559,7 +651,6 @@ impl NodeId {
 }
 
 ua_enum! {
-    #[optionset]
     pub enum AttributeId {
         Value,
         DataType,
@@ -594,7 +685,6 @@ ua_enum! {
 ua_enum! {
     #[optionset]
     pub enum AccessLevelType {
-        None,
         CurrentRead,
         CurrentWrite,
         HistoryRead,
@@ -608,7 +698,6 @@ ua_enum! {
 ua_enum! {
     #[optionset]
     pub enum AccessLevelExType {
-        None,
         Constant,
         CurrentRead,
         CurrentWrite,
@@ -628,7 +717,6 @@ ua_enum! {
 ua_enum! {
     #[optionset]
     pub enum AccessRestrictionType {
-        None,
         ApplyRestrictionsToBrowse,
         EncryptionRequired,
         SessionRequired,
@@ -677,6 +765,20 @@ impl LocalizedText {
     #[getter]
     pub fn text(&self) -> String {
         self.0.text().to_string()
+    }
+
+    pub fn __repr__(&self) -> String {
+        let locale_str = if let Some(locale) = self.locale() {
+            format!("'{}'", locale)
+        } else {
+            "None".to_string()
+        };
+
+        format!(
+            "LocalizedText(locale={}, text='{}')",
+            locale_str,
+            self.text(),
+        )
     }
 }
 
@@ -991,34 +1093,10 @@ impl StructureField {
 ua_enum! {
     #[optionset]
     pub enum EventNotifierType {
-        None,
         HistoryRead,
         HistoryWrite,
         SubscribeToEvents,
     }
-}
-
-#[pymethods]
-impl EventNotifierType {
-    pub fn is_none_set(&self) -> bool {
-        self.0.none()
-    }
-
-    pub fn is_history_read_set(&self) -> bool {
-        self.0.history_read()
-    }
-
-    pub fn is_history_write_set(&self) -> bool {
-        self.0.history_write()
-    }
-
-    pub fn is_subscribe_to_events_set(&self) -> bool {
-        self.0.subscribe_to_events()
-    }
-}
-
-ua_struct! {
-    pub struct SecurityLevel;
 }
 
 ua_enum! {
@@ -1052,8 +1130,8 @@ impl EndpointDescription {
     }
 
     #[getter]
-    fn security_level(&self) -> SecurityLevel {
-        self.0.security_level().into()
+    fn security_level(&self) -> u8 {
+        self.0.security_level().into_raw()
     }
 
     #[getter]

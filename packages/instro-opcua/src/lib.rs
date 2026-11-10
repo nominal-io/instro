@@ -64,8 +64,6 @@ mod instro_opcua_py_types {
     #[pymodule_export]
     use super::types::RelativePathElement;
     #[pymodule_export]
-    use super::types::SecurityLevel;
-    #[pymodule_export]
     use super::types::StatusCode;
     #[pymodule_export]
     use super::types::StructureDefinition;

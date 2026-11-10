@@ -1,3 +1,4 @@
+use pollster::FutureExt;
 use pyo3::PyResult;
 use pyo3::Python;
 use pyo3::exceptions::PyRuntimeError;
@@ -18,25 +19,33 @@ pub trait RuntimeExt {
     /// current-thread runtime, the call will fail immediately at runtime.
     fn unblock_on<F, U>(&self, py: Python<'_>, f: F) -> PyResult<U>
     where
-        F: Future<Output = U> + Send,
-        U: Send;
+        F: Future<Output = U> + Send + 'static,
+        U: Send + 'static;
 }
 
 impl RuntimeExt for Runtime {
     fn unblock_on<F, U>(&self, py: Python<'_>, f: F) -> PyResult<U>
     where
-        F: Future<Output = U> + Send,
-        U: Send,
+        F: Future<Output = U> + Send + 'static,
+        U: Send + 'static,
     {
         py.detach(|| {
             // need to escape the existing runtime to avoid weirdness with nested `block_on` calls
-            if Handle::try_current()
-                .is_ok_and(|h| h.runtime_flavor() == RuntimeFlavor::CurrentThread)
+            if let Ok(handle) = Handle::try_current()
+                && handle.runtime_flavor() == RuntimeFlavor::CurrentThread
             {
-                Err(PyRuntimeError::new_err(
-                    "avoiding deadlock: attempted to call `block_on` from within the worker \
-                     thread of a current-thread runtime",
-                ))
+                if self.handle().id() == handle.id() {
+                    Err(PyRuntimeError::new_err(
+                        "avoiding deadlock: attempted to call `block_on` from within the worker \
+                         thread of a current-thread runtime",
+                    ))?;
+                }
+
+                self.spawn(f).block_on().map_err(|e| {
+                    PyRuntimeError::new_err(format!(
+                        "failed while waiting for offloaded future: '{e}'"
+                    ))
+                })
             } else {
                 task::block_in_place(|| Ok(self.block_on(f)))
             }
