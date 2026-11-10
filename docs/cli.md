@@ -116,3 +116,16 @@ driver_block = psu_info.config_block()
 ```
 
 `visa_config()` returns the `VisaConfig` on its own, and `driver_class()` the driver class, when you want to construct the driver yourself.
+
+### instro pymeasure
+
+Needs the `pymeasure` extra (`uv add "instro[pymeasure]"`). See [pymeasure instruments](/library/pymeasure.md).
+
+`instro pymeasure map` writes an editable JSON channel map for a pymeasure instrument class. Edit each entry's `channel`, then pass the file as `channel_map=` to `attach()` or `PymeasureInstrument`. `instro pymeasure describe` prints the same information as a table.
+
+```bash
+instro pymeasure map keysight.KeysightE36312A -o psu_map.json
+instro pymeasure describe keithley.Keithley2400
+```
+
+The class is a dotted path, either full (`pymeasure.instruments.keithley.Keithley2400`) or relative to `pymeasure.instruments`. Some drivers add channels in `__init__` rather than at class level. For those, add `--resource <VISA resource>` to connect and inspect the live instance.

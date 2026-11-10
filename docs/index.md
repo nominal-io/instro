@@ -111,6 +111,7 @@ library/config-files
 library/simulated-instruments
 library/custom-instruments
 library/contrib
+library/pymeasure
 library/exceptions
 ```
 
@@ -169,6 +170,7 @@ ref/library/registry
 ref/library/exceptions
 ref/library/publishers
 ref/library/discover
+ref/library/pymeasure
 ref/library/transports
 ```
 
