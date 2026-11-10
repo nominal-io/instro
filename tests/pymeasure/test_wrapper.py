@@ -158,6 +158,7 @@ def test_notebook_editing_and_preview_separate_commands_from_measurements():
         ({"levle": "level"}, "does not have"),
         ({"level": "x", "mode": "x"}, "same channel name"),
         ({"level": "level.cmd"}, ".cmd"),
+        ({"spectrum": "bins", "level": "bins.0"}, "numbered channels"),
     ],
 )
 def test_invalid_channel_map_is_rejected(channels, message):
@@ -204,3 +205,53 @@ def test_poll_reads_in_the_background_and_feeds_get_channel():
     ) as bench:
         bench.start()
         assert bench.get_channel("chA.temperature", wait_for_new_samples=True, timeout=2).latest == 21.5
+
+
+class FailingPublisher(RecordingPublisher):
+    def publish(self, data, **kwargs):
+        raise OSError("disk full")
+
+
+def test_publisher_failure_does_not_fail_the_instrument_access(caplog):
+    with expected_protocol(Bench, [("LEV 2", None), ("LEV?", "2")]) as bench:
+        attach(instrument=bench, name="bench", publishers=[FailingPublisher()])
+        bench.level = 2
+        assert bench.level == 2
+
+    assert "Failed to publish write of 'level'" in caplog.text
+    assert "Failed to publish read of 'level'" in caplog.text
+
+
+def test_failed_attach_leaves_the_instrument_reusable(monkeypatch):
+    from instro.pymeasure import wrapper
+
+    real = wrapper._published_class
+
+    def refuse_channels(cls):
+        if issubclass(cls, Probe):
+            raise TypeError("cannot publish this class")
+        return real(cls)
+
+    with expected_protocol(Bench, []) as bench:
+        monkeypatch.setattr(wrapper, "_published_class", refuse_channels)
+        with pytest.raises(TypeError):
+            attach(instrument=bench, name="bench")
+        assert type(bench) is Bench
+
+        monkeypatch.setattr(wrapper, "_published_class", real)
+        attach(instrument=bench, name="bench").detach()
+
+
+def test_detach_stops_background_polling():
+    recorder = PymeasureInstrument(
+        name="bench",
+        instrument=Bench(ConstantAdapter()),
+        poll=["ch_A.temperature"],
+        background_config=BackgroundDaemonConfig(interval=0.01),
+    )
+    recorder.start()
+    recorder.get_channel("chA.temperature", wait_for_new_samples=True, timeout=2)
+    recorder.detach()
+
+    assert recorder._background_thread is not None and not recorder._background_thread.is_alive()
+    recorder.close()

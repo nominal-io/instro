@@ -22,9 +22,6 @@ Deferred work for the pymeasure integration. Move items into GitHub issues once 
 - [ ] **Rejected sets.** With `check_set_errors=True`, pymeasure logs instrument errors but doesn't raise,
   so a set the instrument rejected is still published as a `.cmd`. Should we hook `check_set_errors()` and skip
   (or tag) those commands?
-- [ ] **Publisher failures.** A publisher that raises propagates into the user's pymeasure call, after the
-  instrument already acted (same as core instro). For `attach()` on existing code, logging the failure
-  might be friendlier. Decide on one rule.
 - [ ] **Units.** pymeasure has no machine-readable units on most properties. Should the channel map grow an
   optional `units` field that is sent to Nominal as channel metadata?
 - [ ] **Value transforms in the map.** Allow per-entry `scale`/`offset` (reuse `instro.lib.types.LinearScale`)?

@@ -17,6 +17,7 @@ from instro.pymeasure.inspection import ChannelSpec, describe, original_class
 MAP_FORMAT = "instro-pymeasure-channel-map/1"
 
 _ENTRY_KEYS = {"channel", "kind", "get", "set", "doc"}
+_INDEXED_NAME = re.compile(r"^(.+)\.\d+$")
 _VALID_NAME = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)*$")
 
 
@@ -279,6 +280,14 @@ class ChannelMap:
         duplicates = sorted(name for name, count in Counter(resolved.values()).items() if count > 1)
         if duplicates:
             raise ValueError(f"Channel map gives several properties the same channel name: {duplicates}")
+        # A list-valued property publishes <name>.0, <name>.1, …, so those names can't belong to another property.
+        names = set(resolved.values())
+        overlaps = sorted(name for name in names if (m := _INDEXED_NAME.match(name)) and m.group(1) in names)
+        if overlaps:
+            raise ValueError(
+                f"Channel names {overlaps} collide with the numbered channels that a list value of another "
+                "property publishes; rename one of them"
+            )
         return resolved
 
 

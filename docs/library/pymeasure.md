@@ -52,7 +52,8 @@ the background daemon and `get_channel()`:
 
 - **The pymeasure object** is available as `.device`. Pass `device_attr="smu"` to also reach it as `.smu`.
 - **`poll`** lists properties the daemon reads on every `background_interval`.
-- **`close()`** also closes the instrument's connection, unless you pass `close_device=False`.
+- **`close()`** also closes the instrument's connection, unless you pass `close_device=False`. It doesn't call the
+  driver's `shutdown()`, which on many drivers turns outputs off. Call `psu.device.shutdown()` first if you want that.
 
 ```python
 from pymeasure.instruments.keysight import KeysightE36312A
@@ -134,10 +135,11 @@ See [CLI](/cli.md#instro-pymeasure) for the commands.
 property delegates to the original pymeasure property and then publishes what it read or wrote.
 
 - **Behaviour:** `isinstance` still holds, and `DynamicProperty` and validators behave as before.
-- **Errors:** a set or read that raises publishes nothing.
+- **Errors:** a set or read that raises publishes nothing. A publisher that raises is logged, and the set or read
+  still completes, since the instrument has already acted.
 - **Threads:** a lock serializes the instrument's property access and method calls, so background polling
   doesn't interleave with your code on the same connection.
-- **Undoing it:** `close()` (or `detach()`) restores the original classes.
+- **Undoing it:** `close()` (or `detach()`) stops background polling and restores the original classes.
 
 The example notebook
 [`examples/pymeasure/pymeasure_publishing.md`](https://github.com/nominal-io/instro/blob/main/examples/pymeasure/pymeasure_publishing.md)

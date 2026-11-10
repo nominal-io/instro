@@ -22,7 +22,7 @@ PropertyKind = Literal["control", "measurement", "setting", "property"]
 _MISSING = object()
 
 # Housekeeping properties (`id`, `status`, `next_error`, …) that every pymeasure instrument inherits.
-_BASE_NAMES = frozenset(name for base in _BASE_CLASSES for name in dir(base))
+BASE_NAMES = frozenset(name for base in _BASE_CLASSES for name in dir(base))
 
 
 @dataclass(frozen=True)
@@ -106,7 +106,7 @@ def _walk(target: Any, prefix: str, specs: list[ChannelSpec], seen: set[int]) ->
     cls = original_class(target if is_class else type(target))
 
     for name in sorted(dir(cls)):
-        if name.startswith("_") or name in _BASE_NAMES:
+        if name.startswith("_") or name in BASE_NAMES:
             continue
         attr = inspect.getattr_static(cls, name)
         if isinstance(attr, property):
@@ -118,14 +118,19 @@ def _walk(target: Any, prefix: str, specs: list[ChannelSpec], seen: set[int]) ->
         _walk(child, f"{prefix}{child_name}.", specs, seen)
 
 
+def child_attributes(obj: CommonBase) -> list[tuple[str, CommonBase]]:
+    """Return ``(attribute name, child)`` for each channel or other child object of a pymeasure instance."""
+    return [
+        (name, value)
+        for name, value in list(vars(obj).items())
+        if isinstance(value, CommonBase) and name != "parent" and not name.startswith("_")
+    ]
+
+
 def _children(target: Any, cls: type) -> list[tuple[str, Any]]:
     """Return ``(attribute name, child)`` pairs: instances from ``vars``, classes from channel creators."""
     if not inspect.isclass(target):
-        return [
-            (name, value)
-            for name, value in vars(target).items()
-            if isinstance(value, CommonBase) and name != "parent" and not name.startswith("_")
-        ]
+        return list(child_attributes(target))
 
     children: list[tuple[str, Any]] = []
     for name, creator in CommonBase.get_channels(cls):

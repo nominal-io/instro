@@ -19,7 +19,7 @@ from instro.lib.instrument import Instrument
 from instro.lib.publishers import Publisher
 from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
 from instro.pymeasure.channel_map import ChannelMap
-from instro.pymeasure.inspection import describe, original_class
+from instro.pymeasure.inspection import BASE_NAMES, child_attributes, describe, original_class
 
 logger = logging.getLogger(__name__)
 
@@ -98,8 +98,11 @@ def _published_class(cls: type) -> type:
                 continue
             attr = inspect.getattr_static(cls, name)
             if isinstance(attr, property):
-                namespace[name] = _PublishingProperty(attr, name)
+                # Base-class properties (id, status, …) never publish; their I/O goes through the locked methods.
+                if name not in BASE_NAMES:
+                    namespace[name] = _PublishingProperty(attr, name)
             elif isinstance(attr, FunctionType):
+                # Includes the base write/read/ask/values, so direct I/O is serialized with background polling.
                 namespace[name] = _locked(attr)
         published = type(cls.__name__, (cls,), namespace)
         _published_classes[cls] = published
@@ -125,11 +128,18 @@ def _flatten(value: Any) -> list[tuple[str, float | str]] | None:
     scalar = _scalar(value)
     if scalar is not None:
         return [("", scalar)]
-    if isinstance(value, (list, tuple)) or getattr(value, "ndim", None) == 1:
-        items = [_scalar(item) for item in value]
-        if 0 < len(items) <= _MAX_SPLIT and all(item is not None for item in items):
-            return [(f".{index}", item) for index, item in enumerate(items) if item is not None]
-    return None
+    if not (isinstance(value, (list, tuple)) or getattr(value, "ndim", None) == 1):
+        return None
+    # Check the length first so long traces are skipped without converting every sample.
+    if not 0 < len(value) <= _MAX_SPLIT:
+        return None
+    pairs: list[tuple[str, float | str]] = []
+    for index, item in enumerate(value):
+        converted = _scalar(item)
+        if converted is None:
+            return None
+        pairs.append((f".{index}", converted))
+    return pairs
 
 
 class PymeasureInstrument(Instrument, Generic[T]):
@@ -187,7 +197,9 @@ class PymeasureInstrument(Instrument, Generic[T]):
                 ``background_interval`` seconds once `start` is called.
             device_attr: Extra attribute name for the pymeasure instrument, in addition to
                 ``device``; e.g. ``"smu"`` makes ``wrapper.smu`` work.
-            close_device: Close the pymeasure instrument's adapter in `close`.
+            close_device: Close the pymeasure instrument's adapter in `close`. `close` doesn't call the
+                driver's ``shutdown()``, which on many drivers turns outputs off; call
+                ``device.shutdown()`` first if you want the instrument left in its safe state.
             background_config: Background-daemon settings.
             **kwargs: Default tags, or ``dataset_rid=`` (see `Instrument`).
 
@@ -227,7 +239,11 @@ class PymeasureInstrument(Instrument, Generic[T]):
         if self._poll:
             self.add_background_daemon_function(self._poll_once)
 
-        self._attach(instrument, "")
+        try:
+            self._attach(instrument, "")
+        except Exception:
+            self.detach()
+            raise
         logger.info(
             "Attached pymeasure %s as '%s' (%d published properties)",
             type(instrument).__name__,
@@ -251,7 +267,9 @@ class PymeasureInstrument(Instrument, Generic[T]):
         return dict(self._channel_names)
 
     def detach(self) -> None:
-        """Stop publishing and restore the pymeasure objects' original classes. Idempotent."""
+        """Stop the background daemon, stop publishing, and restore the original classes. Idempotent."""
+        # A daemon left running would keep reading the device, through whichever recorder attaches next.
+        self.stop()
         while self._attached:
             obj, cls = self._attached.pop()
             obj.__dict__.pop(_SINK_ATTR, None)
@@ -262,9 +280,11 @@ class PymeasureInstrument(Instrument, Generic[T]):
         try:
             super().close()
         finally:
-            self.detach()
-            if self._close_device:
-                self._device.adapter.close()
+            try:
+                self.detach()
+            finally:
+                if self._close_device:
+                    self._device.adapter.close()
 
     @staticmethod
     def _load_map(channel_map: ChannelMap | dict[str, Any] | str | Path | None) -> ChannelMap:
@@ -289,10 +309,9 @@ class PymeasureInstrument(Instrument, Generic[T]):
         obj.__class__ = _published_class(cls)
         obj.__dict__[_SINK_ATTR] = _Sink(self, prefix)
         self._attached.append((obj, cls))
-        for attr, child in list(vars(obj).items()):
-            if isinstance(child, CommonBase) and attr != "parent" and not attr.startswith("_"):
-                if child.__dict__.get(_SINK_ATTR) is None:
-                    self._attach(child, f"{prefix}{attr}.")
+        for attr, child in child_attributes(obj):
+            if child.__dict__.get(_SINK_ATTR) is None:
+                self._attach(child, f"{prefix}{attr}.")
 
     def _poll_once(self) -> None:
         for path in self._poll:
@@ -303,17 +322,25 @@ class PymeasureInstrument(Instrument, Generic[T]):
     def _on_read(self, path: str, read: Callable[[], Any]) -> Any:
         with self._lock:
             value = read()
-        name = self._channel_names.get(path)
-        if name is not None:
-            self._publish_values(path, name, value, timestamp=time.time_ns(), command=False)
+        self._publish_safely(path, value, command=False)
         return value
 
     def _on_write(self, path: str, value: Any, write: Callable[[], None]) -> None:
         with self._lock:
             write()
+        self._publish_safely(path, value, command=True)
+
+    def _publish_safely(self, path: str, value: Any, *, command: bool) -> None:
         name = self._channel_names.get(path)
-        if name is not None:
-            self._publish_values(path, name, value, timestamp=time.time_ns(), command=True)
+        if name is None:
+            return
+        # The instrument already acted; raising here would hide the value, or invite a retried write.
+        try:
+            self._publish_values(path, name, value, timestamp=time.time_ns(), command=command)
+        except Exception:
+            logger.exception(
+                "Failed to publish %s of '%s' on instrument '%s'", "write" if command else "read", path, self.name
+            )
 
     def _publish_values(self, path: str, name: str, value: Any, *, timestamp: int, command: bool) -> None:
         pairs = _flatten(value)
