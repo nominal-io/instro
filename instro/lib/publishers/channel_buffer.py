@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import sys
 import threading
 import time
 from abc import ABC, abstractmethod
 from collections import Counter, deque
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-from numpy.typing import NDArray
+# No module-level numpy: Instrument imports this module, and importing instro must not load numpy (#626).
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 from instro.lib.types import Command, Measurement
 
@@ -248,7 +251,7 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
 class NumpyInMemoryPublisher(ChannelBufferPublisher):
     """String-valued channels are stored in a plain deque; a float32 ring cannot hold them."""
 
-    def __init__(self, maxlen: int, value_dtype: Any = np.float32):
+    def __init__(self, maxlen: int, value_dtype: Any = "float32"):
         super().__init__(maxlen)
         self._value_dtype = value_dtype
 
@@ -270,7 +273,7 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
 
     def _extend_timestamps(self, channel_name: str, timestamps) -> None:
         if channel_name not in self._timestamps:
-            self._timestamps[channel_name] = NumpyRingBuffer(self.maxlen, np.int64)
+            self._timestamps[channel_name] = NumpyRingBuffer(self.maxlen, "int64")
         self._timestamps[channel_name].extend(timestamps)
 
     def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
@@ -314,12 +317,16 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
 
 class NumpyRingBuffer:
     def __init__(self, maxlen: int, dtype: Any):
+        import numpy as np
+
         self._buffer: NDArray = np.zeros(maxlen, dtype=dtype)
         self._maxlen = maxlen
         self._index = 0  # Next write position
         self._size = 0  # Current number of valid elements
 
     def extend(self, values) -> None:
+        import numpy as np
+
         values = np.asarray(values, dtype=self._buffer.dtype)
         n = len(values)
 
@@ -349,6 +356,8 @@ class NumpyRingBuffer:
         self._size = min(self._size + n, self._maxlen)
 
     def get_latest(self, n: int) -> NDArray:
+        import numpy as np
+
         n = min(n, self._size)
         if n == 0:
             return np.array([], dtype=self._buffer.dtype)

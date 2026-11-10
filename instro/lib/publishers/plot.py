@@ -6,8 +6,6 @@ import threading
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 from instro.lib.publishers.channel_buffer import NumpyRingBuffer
 from instro.lib.publishers.publisher import Publisher
 from instro.lib.types import Command, Measurement
@@ -55,7 +53,7 @@ class PlotlyPublisher:
         self._flush_interval = flush_interval
         self._time_window_ns = None if time_window_s is None else int(time_window_s * 1e9)
         self._buffers: defaultdict[str, tuple[NumpyRingBuffer, NumpyRingBuffer]] = defaultdict(
-            lambda: (NumpyRingBuffer(max_points, np.int64), NumpyRingBuffer(max_points, np.float64))
+            lambda: (NumpyRingBuffer(max_points, "int64"), NumpyRingBuffer(max_points, "float64"))
         )
         self._dirty: set[str] = set()
         self._lock = threading.Lock()
@@ -89,6 +87,8 @@ class PlotlyPublisher:
             self._flush()
 
     def _flush(self) -> None:
+        import numpy as np
+
         # Copy the changed channels out of their ring buffers.
         pending = {}
         with self._lock:
