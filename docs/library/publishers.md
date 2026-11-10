@@ -48,9 +48,11 @@ Writes measurements and commands to a local file in Avro, CSV, or JSON Lines for
 **Constructor**
 ```py
 FilePublisher(
-    directory: str | Path,                            # Directory where the file will be written
+    directory: str | Path | None = None,              # Created if missing; defaults to ./instro-measurements
     format: Literal["json", "jsonl", "csv", "avro"] = "avro",  # Output file format
     custom_file_name: str | None = None,              # Optional base name (no extension)
+    *,
+    file: IO | None = None,                           # Open stream to write to instead of a file
 )
 ```
 
@@ -71,6 +73,8 @@ daq = InstroDAQ(
 - **`avro`** (default): Compact binary format. Uses the same schema as Nominal Core ingest, so captured files can be uploaded after the fact without transformation. Recommended for production captures.
 - **`csv`**: One row per `(timestamp, channel, value, tags)` tuple. Good for quick inspection in spreadsheet tools.
 - **`jsonl`**: Newline-delimited JSON, one record per publish. Recommended when you want human-readable output: each record is appended and flushed in constant time, and every flushed line is a complete record.
+
+**Streams:** pass an open stream as `file` instead of `directory`: binary for `avro`, text for `csv` and `jsonl` (`json` is not supported). The publisher leaves the stream open. See [Publishers: publish file stream](/examples/publishers/publish_file_stream.md).
 
 ### {py:obj}`NominalCorePublisher <instro.lib.publishers.nominal_core.NominalCorePublisher>`
 
@@ -174,6 +178,43 @@ def main(client: connect_python.Client):
         publishers=[NominalConnectPublisher(client=client, stream_id=stream_id)],
     )
 ```
+
+### {py:obj}`PlotlyPublisher <instro.lib.publishers.plot.PlotlyPublisher>`
+
+Plots measurements and commands on a [Plotly](https://plotly.com/python/) figure, one trace per channel.
+
+**Constructor Parameters:**
+
+```python
+PlotlyPublisher(
+    figure: go.Figure | go.FigureWidget | None = None,  # Optional: figure to plot on; created and displayed when omitted
+    max_points: int = 10_000,                           # Points kept per channel; older points drop off the plot
+    flush_interval: float = 0.1,                        # Seconds between writes to the figure
+)
+```
+
+`PlotlyPublisher` requires the `plot` optional dependency: `pip install "instro[plot]"`.
+
+**Example:**
+
+```python
+import plotly.graph_objects as go
+
+from instro.lib.publishers import PlotlyPublisher
+from instro.psu import InstroPSU
+from instro.psu.drivers import SimulatedPSU
+
+figure = go.Figure(layout_title_text="PSU voltage sweep")
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SimulatedPSU("TCPIP0::127.0.0.1::5025::SOCKET"),
+    num_channels=2,
+    publishers=[PlotlyPublisher(figure)],
+)
+```
+
+See [Publishers: plot with Plotly](/examples/publishers/publish_plotly.md) for a full example.
 
 ## Attaching Publishers
 {py:obj}`Publishers <instro.lib.publishers.publisher.Publisher>`   can be attached after Instrument construction also.

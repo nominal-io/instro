@@ -1,12 +1,12 @@
 # instro docs: agent instructions
 
-Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API reference (`sdk/`), deployed from `main` to GitHub Pages. Docstring rules: root [`AGENTS.md`](../AGENTS.md#doc-string-style). `docs/guides/` is the retired Mintlify site, excluded from the build and frozen until the domain moves ([`DOCS_MIGRATION.md`](./DOCS_MIGRATION.md)); never edit it.
+Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API reference (`ref/`), deployed from `main` to GitHub Pages. Docstring rules: root [`AGENTS.md`](../AGENTS.md#doc-string-style). `docs/guides/` is the retired Mintlify site, excluded from the build and frozen until the domain moves ([`DOCS_MIGRATION.md`](./DOCS_MIGRATION.md)); never edit it.
 
 ## Build
 
 - `just build-docs`: clean build into `_build/dirhtml`, warnings are errors. PR CI (`docs-check.yml`) runs it and uploads the site as a `docs-site` artifact; `deploy-docs.yml` publishes on merge.
 - `just serve-docs`: live preview on http://127.0.0.1:8000; rebuilds on page, example, and docstring edits.
-- The deploy publishes `_build/dirhtml` as is, at the root of `instro.nominal.io`. The same build also goes to the Nominal developer docs hub at `/python/instro/`, so keep every link relative (the build does): the docs must work under any prefix.
+- The deploy publishes `_build/dirhtml` as is, at the root of `instro.nominal.io`. The same build also goes to the Nominal developer docs hub at `/instro/`, which the canonical URLs name (`html_baseurl`), so keep every link relative (the build does): the docs must work under any prefix.
 - Toolchain: the `docs` dependency group (Python >=3.12).
 - URLs are folder-style (`/psu/`), so a finished build needs a server to browse: `python -m http.server -d docs/_build/dirhtml`.
 - Sidebar changes only reach unchanged pages on a clean build (`-E`, which `build-docs` does).
@@ -24,9 +24,9 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `library/` | Concepts and reference: publishers, config files, custom instruments (all "Driver Development" sections), contrib, protocols, transports. |
 | `images/` | Shared images. |
 | `examples/` | Generated at build time by `_ext/examples.py` (gitignored). Never edit. |
-| `sdk/` | API reference: category pages, library modules, protocols, changelog. |
+| `ref/` | API reference: category pages, library modules, protocols, changelog. |
 
-- **Sections:** the header tabs (Guides, Examples, SDK) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`sdk/`, `examples/`, else guides), from `nav_links` in `conf.py`.
+- **Sections:** the header tabs (Guides, Examples, Reference) are sections; `nominal_sphinx_theme` trims the sidebar to the current one by the tab's folder (`ref/`, `examples/`, else guides), from `nav_links` in `conf.py`.
 - **Theme:** styling comes from `nominal_sphinx_theme` (nominal-io/nominal-sphinx-theme); change it there, and the daily bump PR (`.github/workflows/bump-theme.yml`) takes it here. To take it now, run that workflow by hand, or run `uv lock --upgrade-package nominal-sphinx-theme` and open a PR. Keep `_static/custom.css` to instro-only styles.
 - **Hidden pages:** pages outside the sidebar set `orphan: true` in front matter. Driver pages and protocol sub-pages are orphans.
 - **Page head:** `# Title`, then an optional `{.lead}` paragraph (grey subtitle), with `myst: html_meta: description:` (and optionally `seo_title:`) in front matter for search engines; see the README's "Search engines".
@@ -37,10 +37,10 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 - Components: `:::{note}` / `tip` / `warning` admonitions; `::::{grid}` + `:::{grid-item-card}` cards (`{octicon}` icons); `::::{tab-set}` + `:::{tab-item}` tabs; `::::{container} steps` with `:::{container} step` numbered steps; `` {abbr}`channel (explanation)` `` tooltips. An outer directive needs more colons than the ones it contains.
 - `:::{driver-cards} <folder>` renders the card grid of every driver page in `<folder>/`, sorted by card title.
 
-## API pages (`sdk/`)
+## API pages (`ref/`)
 
-- Each `sdk/instruments/<category>.md`: `# Title` + description; `## Instrument and Abstract Driver` (autosummary of `Instro<Category>`, `<Category>DriverBase`); `## Vendor Drivers` (hand-written Vendor / Model / Description table, Description as `` {pysummary}`<path>` ``); `## Simulated Driver` if any; `## Types & Configuration`; `---` then the Exceptions notice.
-- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary writes a gitignored stub (`instro.*.rst`) per table entry next to the SDK page that lists it, so class URLs read `/sdk/<section>/instro.psu.InstroPSU/`; `_templates/autosummary/class.rst` puts each class on one page: data types (pydantic, dataclass, enum) with their fields inline, other classes with member summary tables linking down to each member's details.
+- Each `ref/instruments/<category>.md`: `# Title` + description; `## Instrument and Abstract Driver` (autosummary of `Instro<Category>`, `<Category>DriverBase`); `## Vendor Drivers` (hand-written Vendor / Model / Description table, Description as `` {pysummary}`<path>` ``); `## Simulated Driver` if any; `## Types & Configuration`; `---` then the Exceptions notice.
+- Autodoc emits reST, so API directives go in `{eval-rst}` blocks. Autosummary writes a gitignored stub (`instro.*.rst`) per table entry next to the Reference page that lists it, so class URLs read `/ref/<section>/instro.psu.InstroPSU/`; `_templates/autosummary/class.rst` puts each class on one page: data types (pydantic, dataclass, enum) with their fields inline, other classes with member summary tables linking down to each member's details.
 - `conf.py`: vendor packages load from `packages/` source with native SDKs in `autodoc_mock_imports` (a new vendor package needs both); `autosummary_context["extra_methods"]` opts private methods in; a hook resolves re-exported names to their documented original, so document each object once, where defined.
 
 ## Tasks
@@ -48,8 +48,8 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 ### Add a vendor driver
 
 1. `docs/<category>/<Driver>.md` and `<Driver>.png`. Copy a sibling: front matter `orphan: true`, `card: <Vendor Model>`, `image: <Driver>.png`; no description (it is generated from `card:`); `# <Driver>`, a `{.lead}` line ("Control the <card> <instrument> from Python through [`Instro<Category>`](/<category>.md)."), the image, a `## Creating an Instro<Category> with <Driver>` example. The category's `driver-cards` grid picks it up.
-2. In `sdk/instruments/<category>.md`, add a Vendor Drivers table row and the class path to the hidden `.. only:: autosummary_stubs` list beneath it (the table is hand-written, so this block is what generates the class page).
-3. `just build-docs`. `_ext/driver_docs.py` warns, and so fails the build, for each name in `instro.<category>.drivers.__all__` (except `*DriverBase`) that has no step 1 page or no dotted `instro.` reference on its step 2 page. For a name that cannot meet a check (a simulator, a multi-category device class), add `"<category>.<Name>": {"sdk", "guide"}` (or one of the two) to `driver_docs_exempt` in `conf.py`, with a comment that gives the reason. An exemption that no longer applies is also a warning.
+2. In `ref/instruments/<category>.md`, add a Vendor Drivers table row and the class path to the hidden `.. only:: autosummary_stubs` list beneath it (the table is hand-written, so this block is what generates the class page).
+3. `just build-docs`. `_ext/driver_docs.py` warns, and so fails the build, for each name in `instro.<category>.drivers.__all__` (except `*DriverBase`) that has no step 1 page or no dotted `instro.` reference on its step 2 page. For a name that cannot meet a check (a simulator, a multi-category device class), add `"<category>.<Name>": {"ref", "guide"}` (or one of the two) to `driver_docs_exempt` in `conf.py`, with a comment that gives the reason. An exemption that no longer applies is also a warning.
 
 ### Add an instrument category
 
@@ -57,7 +57,7 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 2. Add it to the Instruments toctree in `index.md`, and a heading plus `driver-cards` block to `instruments.md`.
 3. Add a section to `library/custom-instruments.md`, and to `library/config-files.md` if it accepts `config=`.
 4. Examples: add scripts under `examples/<category>/`; add a title and icon to `CATEGORIES` in `_ext/examples.py`.
-5. API: `sdk/instruments/<category>.md` in the layout above, added to the SDK Instruments toctree in `index.md`.
+5. API: `ref/instruments/<category>.md` in the layout above, added to the Reference section's Instruments toctree in `index.md`.
 
 ## Terminology and style
 
@@ -65,3 +65,4 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 - A *channel* is a named signal for a series of measurements or computed values.
 - Concise, one idea per sentence; active voice and the imperative ("Configure the check"). No em or en dashes. Nominal in the third person, never *we*. Sentence-case headings, **bold** UI elements, `code` for files, commands, and identifiers. Lowercase data primitives (*channel*, *source*).
 - Document `instro` only; link out for Nominal Core, Nominal Connect, and the dashboard.
+

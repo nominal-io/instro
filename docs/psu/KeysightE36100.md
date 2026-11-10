@@ -26,4 +26,4 @@ psu = InstroPSU(
 )
 ```
 
-Parameters and methods specific to {py:obj}`KeysightE36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`KeysightE36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>` can be found in the [Reference](/ref/index.md).

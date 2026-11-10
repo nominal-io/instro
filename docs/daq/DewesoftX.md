@@ -29,4 +29,4 @@ daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftX())
 
 Pass `dxd_name` to control the `.dxd` file `start()` stores to; the default names it after the run time.
 
-Parameters and methods specific to {py:obj}`DewesoftX <instro.unstable.daq.drivers.dewesoftx.DewesoftX>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`DewesoftX <instro.unstable.daq.drivers.dewesoftx.DewesoftX>` can be found in the [Reference](/ref/index.md).

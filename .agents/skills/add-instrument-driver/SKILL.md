@@ -186,7 +186,7 @@ Per `AGENTS.md` "Documentation":
 - **`docs/<category>/<Driver>.md`** plus `<Driver>.png` — the driver's guide
   page, copied from a sibling; its front-matter card puts it in the category's
   card grid. Then add a row to the Vendor Drivers table in
-  `docs/sdk/instruments/<category>.md` and the class to the hidden autosummary
+  `docs/ref/instruments/<category>.md` and the class to the hidden autosummary
   list beneath it (see `docs/AGENTS.md` "Add a vendor driver"). Check with
   `just build-docs`.
 - If a new public API/category was introduced (rare for a single driver), also

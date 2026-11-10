@@ -26,4 +26,4 @@ awg = InstroAWG(
 )
 ```
 
-Parameters and methods specific to {py:obj}`Keysight33521B <instro.awg.drivers.keysight_33521b.Keysight33521B>` can be found in the [SDK](/sdk/index.md).
+Parameters and methods specific to {py:obj}`Keysight33521B <instro.awg.drivers.keysight_33521b.Keysight33521B>` can be found in the [Reference](/ref/index.md).

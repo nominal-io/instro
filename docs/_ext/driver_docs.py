@@ -1,11 +1,11 @@
 """Warn when a driver exported by ``instro.<category>.drivers`` is missing from the docs.
 
-For each ``sdk/instruments/<category>.md`` whose category has a core ``drivers``
+For each ``ref/instruments/<category>.md`` whose category has a core ``drivers``
 module, every name in that module's ``__all__`` (except ``*DriverBase``) must pass
 two checks:
 
-``sdk``
-    The SDK page references the class by a dotted ``instro.`` path.
+``ref``
+    The category's page in ``ref/`` (the Reference tab) references the class by a dotted ``instro.`` path.
 ``guide``
     A driver page ``<category>/<Name>.md`` exists.
 
@@ -22,7 +22,7 @@ from sphinx.util import logging
 
 logger = logging.getLogger(__name__)
 
-CHECKS = ("sdk", "guide")
+CHECKS = ("ref", "guide")
 
 
 def _exported_drivers(category: str) -> list[str] | None:
@@ -44,23 +44,23 @@ def _check_driver_docs(app: Sphinx) -> None:
             logger.warning(f"driver_docs: {key}: unknown checks {sorted(unknown)} in driver_docs_exempt")
 
     seen: set[str] = set()
-    for sdk_page in sorted((srcdir / "sdk" / "instruments").glob("*.md")):
-        category = sdk_page.stem
+    for ref_page in sorted((srcdir / "ref" / "instruments").glob("*.md")):
+        category = ref_page.stem
         names = _exported_drivers(category)
         if names is None:
             continue
-        sdk_text = sdk_page.read_text(encoding="utf-8")
+        ref_text = ref_page.read_text(encoding="utf-8")
         for name in names:
             key = f"{category}.{name}"
             seen.add(key)
             missing = {
-                "sdk": not re.search(rf"\binstro(?:\.\w+)+\.{name}\b", sdk_text),
+                "ref": not re.search(rf"\binstro(?:\.\w+)+\.{name}\b", ref_text),
                 "guide": not (srcdir / category / f"{name}.md").is_file(),
             }
             skipped = exempt.get(key, set())
             for check in CHECKS:
                 if missing[check] and check not in skipped:
-                    where = sdk_page.relative_to(srcdir) if check == "sdk" else f"{category}/{name}.md"
+                    where = ref_page.relative_to(srcdir) if check == "ref" else f"{category}/{name}.md"
                     logger.warning(f"driver_docs: {key} is exported but missing from {where}")
                 elif check in skipped and not missing[check]:
                     logger.warning(f"driver_docs: {key} passes {check!r}; remove it from driver_docs_exempt")

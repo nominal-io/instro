@@ -6,16 +6,20 @@
   <title>Page not found · instro</title>
   <script>
     // The docs were under /python/ until #607; send those links to the same page at the root.
-    const path = location.pathname;
+    let path = location.pathname;
     // Collapse leading slashes: "//host" would be read as another site.
     if (path === "/python" || path.startsWith("/python/")) {
       const rest = path.slice("/python".length).replace(/^\/+/, "");
       location.replace("/" + rest + location.search + location.hash);
     } else {
+      // The API reference was under /sdk/ until it took the Reference tab's name: the same page is
+      // under /ref/. Mapped first, so an old generated/ link below lands in one step.
+      const renamed = path === "/sdk" || path.startsWith("/sdk/");
+      if (renamed) path = "/ref" + path.slice("/sdk".length);
       // API pages sat in generated/ folders, one page per member, until the class pages took in
-      // their members: /sdk/x/generated/instro.a.B/ is now /sdk/x/instro.a.B/, and a member's
-      // old page is an anchor on its class's page. Anchored to /sdk/ so the target stays on this site.
-      const old = path.match(/^(\/sdk(?:\/[\w-]+)*)\/generated\/(instro\.[\w.]+?)(?:\/(?:index\.html)?)?$/);
+      // their members: /ref/x/generated/instro.a.B/ is now /ref/x/instro.a.B/, and a member's
+      // old page is an anchor on its class's page. Anchored to /ref/ so the target stays on this site.
+      const old = path.match(/^(\/ref(?:\/[\w-]+)*)\/generated\/(instro\.[\w.]+?)(?:\/(?:index\.html)?)?$/);
       if (old) {
         const [, dir, name] = old;
         const page = (n) => dir + "/" + n + "/";
@@ -23,6 +27,8 @@
         fetch(page(name), { method: "HEAD" })
           .then((r) => location.replace(r.ok ? page(name) + location.hash : member))
           .catch(() => location.replace(page(name) + location.hash));
+      } else if (renamed) {
+        location.replace(path + location.search + location.hash);
       }
     }
   </script>

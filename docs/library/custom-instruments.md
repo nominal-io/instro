@@ -1600,7 +1600,7 @@ Any method decorated with `@publish_measurement` must return a `Measurement` (or
 The `_package_measurement(channel, value, timestamp, **tags)` helper on `Instrument` does the build for you: it prefixes the channel with `{self.name}.`, passes a `str` value through untouched and coerces anything else to `float`, merges in `self.default_tags`, and returns a single-channel `Measurement`.
 
 :::{note}
-`_package_measurement` and `_package_command` are stable, supported extension points for `Instrument` subclass authors. The leading underscore marks them as protected (for subclasses, not external callers), which is standard Python. Both are documented on the [Instrument reference page](/sdk/library/instrument.md).
+`_package_measurement` and `_package_command` are stable, supported extension points for `Instrument` subclass authors. The leading underscore marks them as protected (for subclasses, not external callers), which is standard Python. Both are documented on the [Instrument reference page](/ref/library/instrument.md).
 :::
 
 ```python

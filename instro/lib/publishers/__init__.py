@@ -3,6 +3,7 @@
 from instro.lib.publishers.files import FilePublisher
 from instro.lib.publishers.nominal_connect import NominalConnectPublisher
 from instro.lib.publishers.nominal_core import NominalCorePublisher
+from instro.lib.publishers.plot import PlotlyPublisher
 from instro.lib.publishers.publisher import (
     BasicBufferedPublisher,
     BufferedPublisher,
@@ -15,6 +16,7 @@ __all__ = [
     "FilePublisher",
     "NominalConnectPublisher",
     "NominalCorePublisher",
+    "PlotlyPublisher",
     "Publisher",
     "BufferedPublisher",
     "BasicBufferedPublisher",
