@@ -139,6 +139,7 @@ def test_overvoltage_trip_latches_output_off_until_cleared(driver: SiglentSPS504
     assert driver.get_output_status(channel=CHANNEL) is False
 
     driver.clear_protection(channel=CHANNEL)
+    assert driver.get_output_status(channel=CHANNEL) is False
     driver.output_enable(True, channel=CHANNEL)
     time.sleep(SETTLE_S)
     assert driver.get_output_status(channel=CHANNEL) is True
