@@ -161,21 +161,37 @@ def test_keysight_digitize_raises_timeout_and_clears(keysight: Keysight1200X, ke
     keysight_visa.clear.assert_called_once()
 
 
-def test_keysight_fetch_waveform_uses_query_binary_values(keysight: Keysight1200X, keysight_visa: MagicMock) -> None:
-    # First three queries are :SYSTem:ERRor? (error check), then :WAVeform:PREamble?
+def test_keysight_fetch_waveform_requests_max_points_and_sizes_from_preamble(
+    keysight: Keysight1200X, keysight_visa: MagicMock
+) -> None:
+    n = 100_000
     keysight_visa.query.side_effect = [
         '0,"No error"',  # check_errors after setup
-        "+0,+0,4,+0,1.0E-9,0.0,0,1.0E-3,0,32768",  # PREamble
+        f"+0,+0,{n},+0,1.0E-9,0.0,0,1.0E-3,0,32768",  # PREamble
     ]
-    keysight_visa.query_binary_values.return_value = [32768, 32769, 32770, 32771]
+    keysight_visa.query_binary_values.return_value = [32768] * n
 
     waveform = keysight.fetch_waveform(channel=1)
 
+    calls = [(c[0], c[1][0]) for c in keysight_visa.mock_calls if c[0] in ("write", "query")]
+    mode = ("write", ":WAVeform:POINts:MODE MAXimum")
+    assert calls.index(mode) < calls.index(("query", ":SYSTem:ERRor?")) < calls.index(("query", ":WAVeform:PREamble?"))
     keysight_visa.query_binary_values.assert_called_once_with(
         ":WAVeform:DATA?", datatype="H", is_big_endian=False, container=list
     )
-    assert len(waveform.voltages) == 4
-    assert len(waveform.times) == 4
+    assert len(waveform.times) == len(waveform.voltages) == n
+
+
+def test_keysight_fetch_waveform_rounds_time_axis_to_nearest_ns(
+    keysight: Keysight1200X, keysight_visa: MagicMock
+) -> None:
+    # int(1.5e-8 * 1e9) == 14 because of float error; the axis must step by exactly 15 ns.
+    keysight_visa.query.side_effect = ['0,"No error"', "+0,+0,3,+0,1.5E-8,0.0,0,1.0E-3,0,32768"]
+    keysight_visa.query_binary_values.return_value = [32768] * 3
+
+    waveform = keysight.fetch_waveform(channel=1)
+
+    assert waveform.times == [0, 15, 30]
 
 
 def test_keysight_measure_vpp_installs_then_queries(keysight: Keysight1200X, keysight_visa: MagicMock) -> None:
