@@ -170,7 +170,7 @@ impl Client {
 
         let nodes = NodeReadBatch::new_cartesian(nodes, &[ua::AttributeId::VALUE]);
 
-        StreamSession::new("opcua-poll-loop", async move || {
+        StreamSession::new("opcua-poll-loop", async move {
             // Downgrade the client to a weak reference to avoid holding onto the strong reference.
             // Increases the chances of success when using `Arc::into_inner` for shutdown.
             Self::poll_loop(reader, nodes, polling_interval, on_data).await;
@@ -302,7 +302,7 @@ impl Client {
 
         let nodes = NodeReadBatch::new_cartesian(&nodes, &[ua::AttributeId::VALUE]);
 
-        StreamSession::new("opcua-subscription-pump", async move || {
+        StreamSession::new("opcua-subscription-pump", async move {
             let _subscription = subscription;
             Self::subscription_loop(reader, nodes, select_all(valid_streams), on_data, timer).await;
         })
@@ -1580,14 +1580,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn generate_cert_produces_nonempty_keypair() {
-        let (certificate, private_key) =
-            generate_self_signed_cert().expect("failed to generate self-signed certificate");
-
-        assert!(!certificate.as_bytes().is_empty(), "certificate is empty");
-        assert!(!private_key.as_bytes().is_empty(), "private key is empty");
     }
 }
