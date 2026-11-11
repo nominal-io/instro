@@ -946,7 +946,6 @@ mod tests {
     use super::PollTimer;
     use super::ReadNodeItem;
     use super::VariantValue;
-    use super::generate_self_signed_cert;
     use crate::Result;
     use crate::error::OpcUaError;
 

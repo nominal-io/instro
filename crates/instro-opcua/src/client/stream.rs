@@ -282,7 +282,8 @@ mod tests {
         let session = StreamSession::new("test-session", async {
             let _ = start_tx.send(());
             f.await;
-        }).unwrap();
+        })
+        .unwrap();
 
         start_rx.await.expect("session should start");
 
@@ -306,7 +307,8 @@ mod tests {
             loop {
                 yield_now().await;
             }
-        }).await;
+        })
+        .await;
 
         timeout(Duration::from_millis(2), session.stop())
             .await
