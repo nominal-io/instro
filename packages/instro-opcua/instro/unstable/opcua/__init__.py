@@ -4,9 +4,10 @@ import threading
 from abc import abstractmethod
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Callable, Concatenate, Literal, ParamSpec, Protocol, TypeVar, final, override
+from typing import Any, Callable, Concatenate, Literal, ParamSpec, Protocol, TypeVar, final
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
+from typing_extensions import override
 
 from instro.lib import Instrument, Measurement
 from instro.lib.publishers import Publisher
