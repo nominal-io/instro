@@ -29,6 +29,6 @@ python -m http.server 8000 -d docs/_build/dirhtml
   - Guide pages: `seo_title:` and `myst: html_meta: description:` in front matter. Category pages target searches like "python control power supply"; without them, the page title and first paragraph are used.
   - Driver pages: generated from `card:` and the folder's entry in `_DRIVER_CATEGORIES`, e.g. "B&K Precision 9115 Python Driver (BK9115)". A new category needs an entry.
   - API pages: the object and module ("InstroPSU (instro.psu) - instro Python API") and the docstring summary.
-- **CI**: PRs run a strict build and upload the site as a `docs-site` artifact; merges to `main` deploy to GitHub Pages.
+- **CI**: PRs run a strict build. The PR's "docs preview" status links to the rendered site; merges to `main` deploy to GitHub Pages.
 
 Conventions and common tasks are in [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
