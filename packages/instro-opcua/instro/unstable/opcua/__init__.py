@@ -4,7 +4,7 @@ import threading
 from abc import abstractmethod
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Callable, Concatenate, Final, Literal, ParamSpec, Protocol, TypeVar, override
+from typing import Any, Callable, Concatenate, Literal, ParamSpec, Protocol, TypeVar, final, override
 
 from pydantic import AnyUrl, BaseModel, ConfigDict, Field, PrivateAttr, ValidationError, model_validator
 
@@ -31,6 +31,7 @@ class OpcUaAuthModel(OpcUaBaseModel):
     @abstractmethod
     def as_auth_params(self) -> Any:
         """Return the authentication parameters as a dictionary."""
+
 
 class SubscriptionConfig(OpcUaAuthModel):
     """instro-opcua subscription configuration."""
@@ -90,7 +91,7 @@ class OpcUaBasicAuthConfig(OpcUaAuthModel):
 
     @property
     def password(self) -> str:
-        return self._password  # pyright: ignore[reportReturnType]
+        return self._password  # type: ignore[return-value]
 
     @override
     def as_auth_params(self) -> Any:
@@ -126,7 +127,9 @@ class OpcUaConnectionConfig(OpcUaBaseModel):
     Must be one of: `none`, `sign`, `signandencrypt`, `encrypt`, `max`.
     """
 
-    security_policy: Literal["none", "basic128rsa15", "basic256", "basic256sha256", "aes128sha256rsaoaep", "aes256sha256rsapss"]
+    security_policy: Literal[
+        "none", "basic128rsa15", "basic256", "basic256sha256", "aes128sha256rsaoaep", "aes256sha256rsapss"
+    ]
     """
     The encryption policy to use for the connection.
 
@@ -191,6 +194,7 @@ class OpcUaConnectionConfig(OpcUaBaseModel):
             **self.authentication.as_auth_params(),
         }
 
+
 class OpcUaConfig(OpcUaBaseModel):
     """OPC UA device connection configuration."""
 
@@ -221,26 +225,31 @@ class OpcUaConfig(OpcUaBaseModel):
 
         return self
 
+
 ConfigLike = OpcUaConfig | Path | str
+
 
 class Lockable(Protocol):
     _lock: threading.RLock
 
+
 _L = TypeVar("_L", bound=Lockable)
 _R = TypeVar("_R")
 _P = ParamSpec("_P")
-_Concat = Concatenate
-_Fn = Callable
 
-def interlocked(fn: _Fn[_Concat[_L, _P], _R]) -> _Fn[_Concat[_L, _P], _R]:
+
+def interlocked(fn: Callable[Concatenate[_L, _P], _R]) -> Callable[Concatenate[_L, _P], _R]:
     """Decorator to lock the instance before calling the method."""
+
     def locked_wrapper(self: _L, *args: _P.args, **kwargs: _P.kwargs) -> _R:
         with self._lock:
             return fn(self, *args, **kwargs)
 
     return locked_wrapper
 
-class OpcUaDevice(Final, Instrument):
+
+@final
+class OpcUaDevice(Instrument):
     def __init__(
         self,
         name: str,
@@ -250,8 +259,8 @@ class OpcUaDevice(Final, Instrument):
     ) -> None:
         self._lock = threading.RLock()
         self._config = (cfg := self._resolve_config(config))
-        self._client = OpcUaClient.connect(**cfg.connection.as_connection_params())
-        self._nodes = { path: self._client.get_node(path) for path in cfg.node_paths }
+        self._client: OpcUaClient | None = OpcUaClient.connect(**cfg.connection.as_connection_params())
+        self._nodes = {path: self._client.get_node(path) for path in cfg.node_paths}
         self._session: Session | None = None
 
         super().__init__(name, publishers, **kwargs)
@@ -292,14 +301,14 @@ class OpcUaDevice(Final, Instrument):
             elif not isinstance((value := data.value), (bool, int, float, str)):
                 raise ValueError("value must be a boolean, integer, float, or string")
 
-            self.publish(Measurement(
-                channel_data={
-                    str(node.browse_path): [
-                        float(value) if isinstance(value, (int, float, bool)) else value
-                    ]
-                },
-                timestamps=[ts]
-            ))
+            self.publish(
+                Measurement(
+                    channel_data={
+                        str(node.browse_path): [float(value) if isinstance(value, (int, float, bool)) else value]  # type: ignore[dict-item]
+                    },
+                    timestamps=[ts],
+                )
+            )
 
     @interlocked
     def start(self) -> None:
