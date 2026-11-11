@@ -836,10 +836,14 @@ version = "0.1.0"
 source = { editable = "packages/instro-opcua" }
 dependencies = [
     { name = "instro" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "instro", editable = "." }]
+requires-dist = [
+    { name = "instro", editable = "." },
+    { name = "pydantic", specifier = ">=2.0" },
+]
 
 [[package]]
 name = "instro-unstable"

@@ -5,7 +5,7 @@ description = "Python bindings for instro OPC UA"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11,<3.15"
-dependencies = ["instro"]
+dependencies = ["instro", "pydantic>=2.0"]
 
 [build-system]
 requires = ["maturin>=1.9.4,<2.0"]

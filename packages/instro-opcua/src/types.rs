@@ -101,11 +101,10 @@ macro_rules! ua_enum {
 
         #[pymethods]
         impl $this_t {
-            pub fn __hash__(&self) -> isize {
+            pub fn __hash__(&self) -> u64 {
                 let mut hasher = DefaultHasher::new();
                 self.as_u32().hash(&mut hasher);
-
-                isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+                hasher.finish()
             }
         }
 
@@ -160,7 +159,7 @@ macro_rules! ua_enum {
 
                     $(
                         pub fn [<is_ $variant:snake _set>](&self) -> bool {
-                            self == &Self::[<$variant:snake:upper>]
+                            self.0 & (Self::[<$variant:snake:upper>].0) == Self::[<$variant:snake:upper>].0
                         }
                     )*
 
@@ -259,32 +258,14 @@ macro_rules! ua_enum {
     }
 }
 
-/// Normalizes a number of nanoseconds to a number of seconds and nanoseconds.
-fn normalize_nanos(nanos: impl Into<i128>) -> (i64, u32) {
-    let nanos = nanos.into();
-
-    let secs = nanos.div_euclid(1_000_000_000);
-    let rem_nanos = nanos.rem_euclid(1_000_000_000);
-
-    #[expect(clippy::as_conversions, reason = "heat death of the universe")]
-    (secs as i64, rem_nanos as u32)
-}
-
-fn normalize_timestamp(dt: ua::DateTime) -> (i64, u32) {
-    let nanos = dt.as_unix_timestamp_nanos();
-    normalize_nanos(nanos)
-}
-
 // NOTE: `picos_intervals` is the number of 10-picosecond intervals, not raw picoseconds
 fn normalize_value_timestamp(
-    ua_dt: Option<ua::DateTime>,
+    ua_dt: ua::DateTime,
     picos_intervals: Option<u16>,
-) -> Option<chrono::DateTime<chrono::Utc>> {
-    let (secs, rem_nanos) = normalize_timestamp(ua_dt?);
-    let rem_nanos = rem_nanos + picos_intervals.unwrap_or(0).saturating_div(100) as u32;
-    let (extra_secs, rem_nanos) = normalize_nanos(rem_nanos);
-
-    chrono::DateTime::from_timestamp(secs + extra_secs, rem_nanos)
+) -> i128 {
+    let nanos = ua_dt.as_unix_timestamp_nanos();
+    let extra_nanos = picos_intervals.unwrap_or(0).saturating_div(100) as i128;
+    nanos + extra_nanos
 }
 
 #[pyclass]
@@ -300,19 +281,19 @@ impl DataValue {
 #[pymethods]
 impl DataValue {
     #[getter]
-    pub fn server_timestamp(&self) -> Option<chrono::DateTime<chrono::Utc>> {
-        normalize_value_timestamp(
-            self.0.server_timestamp().copied(),
+    pub fn server_timestamp(&self) -> Option<i128> {
+        Some(normalize_value_timestamp(
+            self.0.server_timestamp().copied()?,
             self.0.server_picoseconds(),
-        )
+        ))
     }
 
     #[getter]
-    pub fn source_timestamp(&self) -> Option<chrono::DateTime<chrono::Utc>> {
-        normalize_value_timestamp(
-            self.0.source_timestamp().copied(),
+    pub fn source_timestamp(&self) -> Option<i128> {
+        Some(normalize_value_timestamp(
+            self.0.source_timestamp().copied()?,
             self.0.source_picoseconds(),
-        )
+        ))
     }
 
     // wake me up when pyo3 supports annotations on getters
@@ -359,14 +340,7 @@ impl DataValue {
             ScalarValue::ExpandedNodeId(enid) => ExpandedNodeId::new(enid).into_bound_py_any(py),
             ScalarValue::StatusCode(sc) => StatusCode::new(sc).into_bound_py_any(py),
             ScalarValue::QualifiedName(qn) => QualifiedName::new(qn).into_bound_py_any(py),
-            ScalarValue::DateTime(dt) => {
-                let (secs, rem_nanos) = normalize_timestamp(dt);
-                let dt = chrono::DateTime::from_timestamp(secs, rem_nanos).ok_or(
-                    PyValueError::new_err("failed to convert timestamp to datetime".to_string()),
-                )?;
-
-                dt.into_bound_py_any(py)
-            }
+            ScalarValue::DateTime(dt) => dt.as_unix_timestamp_nanos().into_bound_py_any(py),
 
             _ => Err(PyValueError::new_err(
                 "unknown scalar value type".to_string(),
@@ -586,6 +560,12 @@ ua_struct! {
 }
 
 impl NodeId {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     pub fn objects() -> Self {
         Self(ua::NodeId::ns0(open62541_sys::UA_NS0ID_OBJECTSFOLDER))
     }
@@ -783,6 +763,7 @@ impl LocalizedText {
 }
 
 ua_enum! {
+    #[optionset]
     pub enum AttributeWriteMask {
         AccessLevel,
         AccessLevelEx,
@@ -810,139 +791,6 @@ ua_enum! {
         ValueForVariableType,
         ValueRank,
         WriteMask,
-    }
-}
-
-#[pymethods]
-impl AttributeWriteMask {
-    #[getter]
-    pub fn is_access_level_set(&self) -> bool {
-        self.0.access_level()
-    }
-
-    #[getter]
-    pub fn is_access_level_ex_set(&self) -> bool {
-        self.0.access_level_ex()
-    }
-
-    #[getter]
-    pub fn is_access_restrictions_set(&self) -> bool {
-        self.0.access_restrictions()
-    }
-
-    #[getter]
-    pub fn array_dimensions(&self) -> bool {
-        self.0.array_dimensions()
-    }
-
-    #[getter]
-    pub fn browse_name(&self) -> bool {
-        self.0.browse_name()
-    }
-
-    #[getter]
-    pub fn contains_no_loops(&self) -> bool {
-        self.0.contains_no_loops()
-    }
-
-    #[getter]
-    pub fn data_type(&self) -> bool {
-        self.0.data_type()
-    }
-
-    #[getter]
-    pub fn data_type_definition(&self) -> bool {
-        self.0.data_type_definition()
-    }
-
-    #[getter]
-    pub fn description(&self) -> bool {
-        self.0.description()
-    }
-
-    #[getter]
-    pub fn display_name(&self) -> bool {
-        self.0.display_name()
-    }
-
-    #[getter]
-    pub fn event_notifier(&self) -> bool {
-        self.0.event_notifier()
-    }
-
-    #[getter]
-    pub fn executable(&self) -> bool {
-        self.0.executable()
-    }
-
-    #[getter]
-    pub fn historizing(&self) -> bool {
-        self.0.historizing()
-    }
-
-    #[getter]
-    pub fn inverse_name(&self) -> bool {
-        self.0.inverse_name()
-    }
-
-    #[getter]
-    pub fn is_abstract(&self) -> bool {
-        self.0.is_abstract()
-    }
-
-    #[getter]
-    pub fn minimum_sampling_interval(&self) -> bool {
-        self.0.minimum_sampling_interval()
-    }
-
-    #[getter]
-    pub fn node_class(&self) -> bool {
-        self.0.node_class()
-    }
-
-    #[getter]
-    pub fn node_id(&self) -> bool {
-        self.0.node_id()
-    }
-
-    #[getter]
-    pub fn role_permissions(&self) -> bool {
-        self.0.role_permissions()
-    }
-
-    #[getter]
-    pub fn symmetric(&self) -> bool {
-        self.0.symmetric()
-    }
-
-    #[getter]
-    pub fn user_access_level(&self) -> bool {
-        self.0.user_access_level()
-    }
-
-    #[getter]
-    pub fn user_executable(&self) -> bool {
-        self.0.user_executable()
-    }
-
-    #[getter]
-    pub fn user_write_mask(&self) -> bool {
-        self.0.user_write_mask()
-    }
-
-    #[getter]
-    pub fn value_for_variable_type(&self) -> bool {
-        self.0.value_for_variable_type()
-    }
-
-    #[getter]
-    pub fn value_rank(&self) -> bool {
-        self.0.value_rank()
-    }
-
-    #[getter]
-    pub fn write_mask(&self) -> bool {
-        self.0.write_mask()
     }
 }
 
@@ -1193,15 +1041,6 @@ impl EndpointDescription {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn pre_epoch_fractional_timestamp_has_nonnegative_nanoseconds() {
-        let timestamp = ua::DateTime::try_from_unix_timestamp_nanos(-500_000_000).unwrap();
-
-        let normalized = normalize_timestamp(timestamp);
-
-        assert_eq!(normalized, (-1, 500_000_000));
-    }
 
     #[test]
     fn data_value_preserves_distinct_source_and_server_timestamps() {
