@@ -1170,16 +1170,18 @@ mod tests {
                 .with_source_timestamp(
                     ua::DateTime::try_from_unix_timestamp_nanos(1_250_000_000).unwrap(),
                 )
+                .with_source_picoseconds(100)
                 .with_server_timestamp(
                     ua::DateTime::try_from_unix_timestamp_nanos(2_750_000_000).unwrap(),
                 )
+                .with_server_picoseconds(200)
                 .cast(),
         );
 
         let source = value.source_timestamp();
         let server = value.server_timestamp();
 
-        assert_eq!(source, Some("1970-01-01T00:00:01.250Z".parse().unwrap()));
-        assert_eq!(server, Some("1970-01-01T00:00:02.750Z".parse().unwrap()));
+        assert_eq!(source, Some(1_250_000_001));
+        assert_eq!(server, Some(2_750_000_002));
     }
 }
