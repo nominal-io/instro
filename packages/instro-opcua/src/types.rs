@@ -259,10 +259,7 @@ macro_rules! ua_enum {
 }
 
 // NOTE: `picos_intervals` is the number of 10-picosecond intervals, not raw picoseconds
-fn normalize_value_timestamp(
-    ua_dt: ua::DateTime,
-    picos_intervals: Option<u16>,
-) -> i128 {
+fn normalize_value_timestamp(ua_dt: ua::DateTime, picos_intervals: Option<u16>) -> i128 {
     let nanos = ua_dt.as_unix_timestamp_nanos();
     let extra_nanos = picos_intervals.unwrap_or(0).saturating_div(100) as i128;
     nanos + extra_nanos
@@ -556,9 +553,7 @@ impl Hash for RelativePath {
                 for element in elements {
                     // SAFETY: we know that the elements are `ua::RelativePathElement`s
                     // and `RelativePathElement` is repr(transparent) for its inner type
-                    unsafe {
-                        std::mem::transmute::<&_, &RelativePathElement>(element).hash(state)
-                    };
+                    unsafe { std::mem::transmute::<&_, &RelativePathElement>(element).hash(state) };
                 }
             }
 

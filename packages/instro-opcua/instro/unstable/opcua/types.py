@@ -60,4 +60,3 @@ else:
     # patch in the types module so that direct imports from the types module work
     # i.e. so `from instro.unstable.opcua.types import AccessLevelType` works
     sys.modules[__name__] = types
-
