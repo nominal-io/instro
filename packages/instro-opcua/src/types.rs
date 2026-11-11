@@ -357,11 +357,10 @@ ua_struct! {
 
 #[pymethods]
 impl QualifiedName {
-    pub fn __hash__(&self) -> isize {
+    pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
-
-        isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+        hasher.finish()
     }
 
     #[getter]
@@ -416,11 +415,10 @@ impl Hash for StatusCode {
 
 #[pymethods]
 impl StatusCode {
-    pub fn __hash__(&self) -> isize {
+    pub fn __hash__(&self) -> u64 {
         let mut hasher = DefaultHasher::new();
         self.hash(&mut hasher);
-
-        isize::from_ne_bytes(hasher.finish().to_ne_bytes())
+        hasher.finish()
     }
 
     #[getter]
@@ -460,8 +458,22 @@ ua_struct! {
     pub struct ExpandedNodeId;
 }
 
+impl Hash for ExpandedNodeId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.node_id().hash(state);
+        self.0.server_index().hash(state);
+        self.0.namespace_uri().as_bytes().hash(state);
+    }
+}
+
 #[pymethods]
 impl ExpandedNodeId {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[getter]
     pub fn node_id(&self) -> NodeId {
         NodeId(self.0.node_id().clone())
@@ -492,8 +504,23 @@ ua_struct! {
     pub struct RelativePathElement;
 }
 
+impl Hash for RelativePathElement {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.reference_type_id().hash(state);
+        self.0.is_inverse().hash(state);
+        self.0.include_subtypes().hash(state);
+        self.0.target_name().hash(state);
+    }
+}
+
 #[pymethods]
 impl RelativePathElement {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[getter]
     pub fn target_name(&self) -> QualifiedName {
         QualifiedName(self.0.target_name().clone())
@@ -519,8 +546,35 @@ ua_struct! {
     pub struct RelativePath;
 }
 
+impl Hash for RelativePath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match self.0.elements() {
+            Some(elements) => {
+                true.hash(state);
+                elements.len().hash(state);
+
+                for element in elements {
+                    // SAFETY: we know that the elements are `ua::RelativePathElement`s
+                    // and `RelativePathElement` is repr(transparent) for its inner type
+                    unsafe {
+                        std::mem::transmute::<&_, &RelativePathElement>(element).hash(state)
+                    };
+                }
+            }
+
+            None => false.hash(state),
+        }
+    }
+}
+
 #[pymethods]
 impl RelativePath {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[staticmethod]
     pub fn parse(path_str: &str) -> PyResult<Self> {
         let path = path_str
@@ -560,12 +614,6 @@ ua_struct! {
 }
 
 impl NodeId {
-    pub fn __hash__(&self) -> u64 {
-        let mut hasher = DefaultHasher::new();
-        self.hash(&mut hasher);
-        hasher.finish()
-    }
-
     pub fn objects() -> Self {
         Self(ua::NodeId::ns0(open62541_sys::UA_NS0ID_OBJECTSFOLDER))
     }
@@ -585,6 +633,12 @@ impl NodeId {
 
 #[pymethods]
 impl NodeId {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[staticmethod]
     pub fn from_string(id_str: &str) -> PyResult<Self> {
         let id = id_str
@@ -730,8 +784,21 @@ ua_struct! {
     pub struct LocalizedText;
 }
 
+impl Hash for LocalizedText {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.locale().as_bytes().hash(state);
+        self.0.text().as_bytes().hash(state);
+    }
+}
+
 #[pymethods]
 impl LocalizedText {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[getter]
     pub fn locale(&self) -> Option<String> {
         let locale_str = self.0.locale();
@@ -960,8 +1027,67 @@ ua_struct! {
     pub struct EndpointDescription;
 }
 
+impl Hash for EndpointDescription {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let endpoint = &self.0;
+        endpoint.endpoint_url().as_bytes().hash(state);
+        endpoint.security_policy_uri().as_bytes().hash(state);
+        endpoint.transport_profile_uri().as_bytes().hash(state);
+        endpoint.server_certificate().as_bytes().hash(state);
+        endpoint.security_mode().as_u32().hash(state);
+        endpoint.security_level().hash(state);
+
+        let server = endpoint.server();
+        server.application_uri().as_bytes().hash(state);
+        server.product_uri().as_bytes().hash(state);
+        server.application_name().locale().as_bytes().hash(state);
+        server.application_name().text().as_bytes().hash(state);
+        server.application_type().as_u32().hash(state);
+        server.gateway_server_uri().as_bytes().hash(state);
+        server.discovery_profile_uri().as_bytes().hash(state);
+        hash_ua_strings(server.discovery_urls(), state);
+        hash_user_token_policies(endpoint.user_identity_tokens(), state);
+    }
+}
+
+fn hash_ua_strings<H: Hasher>(values: Option<&[ua::String]>, state: &mut H) {
+    match values {
+        Some(values) => {
+            true.hash(state);
+            values.len().hash(state);
+            for value in values {
+                value.as_bytes().hash(state);
+            }
+        }
+        None => false.hash(state),
+    }
+}
+
+fn hash_user_token_policies<H: Hasher>(policies: Option<&[ua::UserTokenPolicy]>, state: &mut H) {
+    match policies {
+        Some(policies) => {
+            true.hash(state);
+            policies.len().hash(state);
+            for policy in policies {
+                policy.policy_id().as_bytes().hash(state);
+                policy.token_type().as_u32().hash(state);
+                policy.issued_token_type().as_bytes().hash(state);
+                policy.issuer_endpoint_url().as_bytes().hash(state);
+                policy.security_policy_uri().as_bytes().hash(state);
+            }
+        }
+        None => false.hash(state),
+    }
+}
+
 #[pymethods]
 impl EndpointDescription {
+    pub fn __hash__(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     #[getter]
     fn endpoint_url(&self) -> &str {
         self.0.endpoint_url().as_str().unwrap_or("")
