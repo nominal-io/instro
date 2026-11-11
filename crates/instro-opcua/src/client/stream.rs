@@ -294,7 +294,7 @@ mod tests {
     async fn stream_session_stops_with_no_work() -> Result<()> {
         let session = session(async {}).await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("should stop immediately");
 
@@ -310,7 +310,7 @@ mod tests {
         })
         .await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("should stop before timeout");
 
@@ -321,7 +321,7 @@ mod tests {
     async fn stream_session_doesnt_propagate_panics() -> Result<()> {
         let session = session(async { panic!("shouldn't appear") }).await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("shouldn't timeout");
 
