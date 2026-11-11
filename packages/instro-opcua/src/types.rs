@@ -158,6 +158,7 @@ macro_rules! ua_enum {
                     pub const NONE: $this_t = Self(::instro_opcua::open62541::ua::$this_t::NONE);
 
                     $(
+                        #[getter]
                         pub fn [<is_ $variant:snake _set>](&self) -> bool {
                             self.0 & (Self::[<$variant:snake:upper>].0) == Self::[<$variant:snake:upper>].0
                         }
