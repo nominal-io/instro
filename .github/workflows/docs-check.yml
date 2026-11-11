@@ -9,6 +9,10 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
+    # statuses: write posts the "docs preview" commit status on PRs
+    permissions:
+      contents: read
+      statuses: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install uv
@@ -23,14 +27,14 @@ jobs:
         run: rustup show
       - name: Build docs (warnings fail the build)
         run: just build-docs
-      # Download from the run's Artifacts to preview a PR's docs: unzip, then
-      # `python -m http.server -d <dir>` (the folder-style URLs need a server).
-      - name: Upload built site
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      # Uploads the site as the PR's docs-site artifact, which the renderdoc Worker serves,
+      # and links the preview, or the failed run, as the "docs preview" commit status
+      - name: "Built docs: upload and preview"
+        if: always() && github.event_name == 'pull_request'
+        uses: nominal-io/nominal-sphinx-theme/.github/actions/docs-preview@3c82e356cb791063fb5bd09bfaf64be1c03ce383 # main, 2026-11-04
         with:
-          name: docs-site
           path: docs/_build/dirhtml
-          retention-days: 7
+          job-status: ${{ job.status }}
 
   # The check main's ruleset requires: a theme bump PR needs a passing docs build, and every other
   # PR passes. See nominal-sphinx-theme's README, "CI".
