@@ -22,21 +22,13 @@ psu.start()
 psu  # shows the card
 ```
 
-An instrument's card shows:
+An instrument's card shows its driver, background daemon, publishers, default tags and, once `start()` has been called, the latest value of every channel. A card shows only what `instro` already holds in memory, so displaying an instrument never talks to the hardware.
 
-- its driver, and category details such as the channel count
-- the background daemon: whether it runs, its interval, and the last loop time
-- its publishers, with a link to the Nominal dataset each one writes to
-- the latest value of every channel, once `start()` has been called
-- its default tags
-
-A card shows only what `instro` already holds in memory, so displaying an instrument is safe while the background daemon runs.
-
-Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card shows the dataset with an **Open in Nominal** link, its RID with a copy button, where the credentials came from, and the stream settings. It never shows an API key.
+Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card links its dataset in Nominal.
 
 ## Display options
 
-{py:func}`~instro.lib._display.set_display_options` changes every card, as a call or for the length of a `with` block:
+{py:func}`instro.lib.set_display_options` changes every card, as a call or for the length of a `with` block:
 
 ```python
 from instro.lib import set_display_options
@@ -59,6 +51,18 @@ with set_display_options(show_link=False):
 
 ## Custom instruments and publishers
 
-A custom {py:class}`~instro.lib.Instrument` subclass gets a card without extra code. To add rows, override `_display_fields()` and return `(label, html)` pairs built from in-memory state only.
+A custom {py:class}`~instro.lib.Instrument` subclass gets a default card automatically. To customize the card, override `_display_fields()` and return `(label, html)` pairs built from in-memory state only. A category such as {py:class}`~instro.psu.InstroPSU` already returns rows of its own, so start from `super()._display_fields()` to keep them:
 
-A custom publisher appears in an instrument's card under its class name. Define `_display_summary()`, returning one line of HTML, to describe it there.
+```python
+from instro.lib import _display
+from instro.psu import InstroPSU
+
+
+class BenchPSU(InstroPSU):
+    def _display_fields(self):
+        return [*super()._display_fields(), ("Location", _display.escape("bench 3"))]
+```
+
+To replace the whole card, override `_repr_html_()`.
+
+An instrument's card describes each publisher in one line. A publisher without `_display_summary()` shows its class name. Define `_display_summary()`, returning one line of HTML, to describe it there; a subclass of a built-in publisher can extend the built-in line with `super()._display_summary()`.

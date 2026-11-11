@@ -11,6 +11,7 @@ from typing import Callable
 from nominal.core import NominalClient
 
 from instro.lib import _display
+from instro.lib.nominal import _resolve_nominal_client_and_dataset
 from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
@@ -174,7 +175,11 @@ class Instrument:
     ):
         """Attach a NominalCorePublisher for ``rid`` (typically triggered by ``dataset_rid=``)."""
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
-        self.add_publisher(NominalCorePublisher(rid, profile=nominal_profile, client=nominal_client))
+        if nominal_client is None:
+            self.add_publisher(NominalCorePublisher(rid, profile=nominal_profile))
+            return
+        _, dataset = _resolve_nominal_client_and_dataset(rid, nominal_profile, client=nominal_client)
+        self.add_publisher(NominalCorePublisher(dataset))
 
     def publish(self, data: Measurement | Command, **kwargs):
         """Fan ``data`` out to every configured publisher; ``kwargs`` pass through."""

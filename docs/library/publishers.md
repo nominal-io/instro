@@ -84,31 +84,27 @@ Sends measurement and command data to [Nominal Core](https://nominal.io/products
 
 ```python
 NominalCorePublisher(
-    dataset_rid: str | None = None,  # RID of your Nominal dataset (or pass dataset=)
+    dataset: str | Dataset,          # Required: RID of your Nominal dataset, or an already-fetched nominal.core.Dataset
     batch_size: int | None = None,   # Optional: Batch size before writing
     max_wait: timedelta | None = None,  # Optional: Max time before flush
     file_fallback: pathlib.Path | None = None,  # Optional: Path of fallback file (.avro) used if network connectivity is lost.
     profile: str | None = None,      # Optional: Nominal profile name, "default" when omitted
     api_key: str | None = None,      # Optional: API key for authentication
-    *,
-    dataset: Dataset | None = None,  # Optional: an already-fetched nominal.core.Dataset, instead of dataset_rid
-    client: NominalClient | None = None,  # Optional: an existing NominalClient, instead of profile or api_key
-    base_url: str | None = None,     # Optional: API base URL to use with api_key
 )
 ```
 
-Pass exactly one of `dataset_rid` and `dataset`. Credentials come from `client`, `api_key` (with `base_url`), or the on-disk `profile`, and combining them raises `ValueError`.
+A RID is looked up with `api_key`, or else the on-disk `profile`. A `Dataset` already carries its client's credentials, so it takes neither. Older code passes the RID as `dataset_rid=`, which still works.
 
 After construction, `dataset`, `dataset_rid`, `client`, `profile`, `batch_size`, `max_wait`, `file_fallback`, `write_stream` and `closed` are public attributes. The API key is not stored.
 
-**Reusing a client:**
+**Using your own client:** fetch the dataset with it, for example to use an API key with another deployment's base URL.
 
 ```python
 from nominal.core import NominalClient
 from instro.lib.publishers import NominalCorePublisher
 
-client = NominalClient.from_profile("staging")
-publisher = NominalCorePublisher(dataset=client.get_dataset("ri.catalog.main.dataset.abc123"))
+client = NominalClient.from_token("<api key>", "https://api.gov.nominal.io/api")
+publisher = NominalCorePublisher(client.get_dataset("ri.catalog.main.dataset.abc123"))
 ```
 
 **Example:**
@@ -123,7 +119,7 @@ DATASET_RID = "ri.catalog.main.dataset.abc123..."
 daq = InstroDAQ(
     name="myDAQ",
     driver=LabJackTSeriesDriver(device_id="440020473"),
-    publishers=[NominalCorePublisher(dataset_rid=DATASET_RID)],
+    publishers=[NominalCorePublisher(DATASET_RID)],
 )
 ```
 

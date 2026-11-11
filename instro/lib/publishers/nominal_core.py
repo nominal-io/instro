@@ -20,38 +20,35 @@ logger = logging.getLogger(__name__)
 class NominalCorePublisher:
     def __init__(
         self,
-        dataset_rid: str | None = None,
+        dataset: str | Dataset | None = None,
         batch_size: int | None = None,
         max_wait: timedelta | None = None,
         file_fallback: pathlib.Path | None = None,
         profile: str | None = None,
         api_key: str | None = None,
         *,
-        dataset: Dataset | None = None,
-        client: NominalClient | None = None,
-        base_url: str | None = None,
+        dataset_rid: str | None = None,
     ):
         """Stream Measurement/Command data to a Nominal dataset.
 
-        Name the dataset with ``dataset_rid`` or pass a `Dataset` you already fetched as ``dataset``. Credentials
-        come from, in order: ``client``, ``api_key`` (with ``base_url``), or the on-disk ``profile``, which
-        defaults to ``"default"``. Omitted optional args fall through to the Nominal Python client defaults.
+        ``dataset`` is a dataset RID or a `Dataset` you already fetched. A RID is looked up with ``api_key``, or
+        else the on-disk ``profile``, which defaults to ``"default"``. A `Dataset` carries the credentials of the
+        client that fetched it, so pass one to use any other client. Omitted optional args fall through to the
+        Nominal Python client defaults.
 
         Args:
-            dataset_rid: Target dataset RID.
+            dataset: Target dataset RID, or an already-fetched `Dataset`.
             batch_size: Max items per write batch.
             max_wait: Max time a batch can age before being flushed.
             file_fallback: ``.avro`` path used when connectivity is intermittent.
             profile: Named profile from the on-disk config (defaults to ``"default"``).
             api_key: Inline API key; falls back to on-disk credentials when omitted.
                 See https://docs.nominal.io/core/sdk/python-client/authentication#using-the-api-key
-            dataset: An already-fetched dataset to write to, instead of ``dataset_rid``.
-            client: An existing `NominalClient` to fetch ``dataset_rid`` with, instead of ``profile`` or ``api_key``.
-            base_url: API base URL for ``api_key``, such as ``"https://api.gov.nominal.io/api"``.
+            dataset_rid: The dataset RID, under the keyword older code uses; same as passing it as ``dataset``.
 
         Raises:
-            ValueError: If both or neither of ``dataset_rid`` and ``dataset`` are given, or credential options
-                conflict.
+            ValueError: If no dataset is given, both ``dataset`` and ``dataset_rid`` are, ``profile`` and
+                ``api_key`` are both given, or either is given with a `Dataset`.
 
         Example:
             .. code-block:: python
@@ -59,35 +56,34 @@ class NominalCorePublisher:
                 from nominal.core import NominalClient
                 from instro.lib.publishers import NominalCorePublisher
 
-                publisher = NominalCorePublisher(dataset_rid="ri.catalog.main.dataset.abc123", profile="staging")
+                publisher = NominalCorePublisher("ri.catalog.main.dataset.abc123", profile="staging")
 
-                client = NominalClient.from_profile("staging")
-                publisher = NominalCorePublisher(dataset=client.get_dataset("ri.catalog.main.dataset.abc123"))
+                client = NominalClient.from_token("<api key>", "https://api.gov.nominal.io/api")
+                publisher = NominalCorePublisher(client.get_dataset("ri.catalog.main.dataset.abc123"))
         """
-        if (dataset_rid is None) == (dataset is None):
-            raise ValueError("Pass exactly one of dataset_rid or dataset.")
+        if dataset_rid is not None:
+            if dataset is not None:
+                raise ValueError("Pass either dataset or dataset_rid, not both.")
+            dataset = dataset_rid
+        if dataset is None:
+            raise ValueError("Pass a dataset RID or Dataset as dataset.")
         if file_fallback is not None and not str(file_fallback).endswith(".avro"):
             raise ValueError(f"The 'file_fallback' path must end with '.avro'. You provided: '{file_fallback}'.")
 
         self.client: NominalClient | None
-        """The client used to fetch the dataset, or `None` when ``dataset`` was passed in directly."""
+        """The client used to fetch the dataset, or `None` when a `Dataset` was passed in."""
         self.dataset: Dataset
-        if dataset is not None:
-            if profile or api_key or base_url:
-                raise ValueError("A Dataset carries its own credentials; don't pass profile, api_key or base_url.")
-            self.client = client
-            self.dataset = dataset
+        if isinstance(dataset, str):
+            self.client, self.dataset = _resolve_nominal_client_and_dataset(dataset, profile, api_key)
         else:
-            assert dataset_rid is not None
-            self.client, self.dataset = _resolve_nominal_client_and_dataset(
-                dataset_rid, profile, api_key, client=client, base_url=base_url
-            )
+            if profile or api_key:
+                raise ValueError("A Dataset carries its own credentials; don't pass profile or api_key.")
+            self.client = None
+            self.dataset = dataset
 
-        self._client_provided: bool = client is not None
         self.dataset_rid: str = self.dataset.rid
-        self.profile: str | None = None if (dataset or client or api_key) else (profile or "default")
+        self.profile: str | None = None if (self.client is None or api_key) else (profile or "default")
         """The on-disk profile the credentials came from, or `None` when they came from elsewhere."""
-        self.base_url: str | None = base_url
         self.file_fallback: pathlib.Path | None = file_fallback
         self.closed: bool = False
 
@@ -160,11 +156,7 @@ class NominalCorePublisher:
     def _credentials(self) -> str:
         if self.profile is not None:
             return f"profile {self.profile!r}"
-        if self._client_provided:
-            return "provided client"
-        if self.client is None:
-            return "from the dataset passed in"
-        return "API key" if self.base_url is None else f"API key, {self.base_url}"
+        return "from the dataset passed in" if self.client is None else "API key"
 
     def __repr__(self) -> str:
         """Name the dataset and where the credentials came from; never the API key."""

@@ -31,20 +31,17 @@ def _resolve_nominal_client(
     client: NominalClient | None = None,
     profile: str | None = None,
     api_key: str | None = None,
-    base_url: str | None = None,
 ) -> NominalClient:
     """Return ``client``, or build one from an API key or an on-disk profile (``"default"`` when omitted)."""
     if client is not None:
-        if profile or api_key or base_url:
-            raise ValueError("Pass either client or profile/api_key/base_url, not both.")
+        if profile or api_key:
+            raise ValueError("Pass either client or profile/api_key, not both.")
         return client
-    if base_url and not api_key:
-        raise ValueError("base_url is only used with api_key; a profile stores its own base URL.")
     if api_key and profile:
         raise ValueError("Pass either profile or api_key, not both.")
     try:
         if api_key:
-            return NominalClient.from_token(api_key, base_url) if base_url else NominalClient.from_token(api_key)
+            return NominalClient.from_token(api_key)
         return NominalClient.from_profile(profile if profile else "default")
     except (exceptions.NominalConfigError, FileNotFoundError) as e:
         url = "https://docs.nominal.io/core/sdk/python-client/authentication"
@@ -63,10 +60,9 @@ def _resolve_nominal_client_and_dataset(
     api_key: str | None = None,
     *,
     client: NominalClient | None = None,
-    base_url: str | None = None,
 ) -> tuple[NominalClient, Dataset]:
     """Resolve a NominalClient and dataset from a dataset RID."""
-    resolved_client = _resolve_nominal_client(client, profile, api_key, base_url)
+    resolved_client = _resolve_nominal_client(client, profile, api_key)
     try:
         dataset = resolved_client.get_dataset(dataset_rid)
     except (

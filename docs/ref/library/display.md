@@ -7,7 +7,7 @@ Options for how instruments and publishers display in notebooks. See the [notebo
    :toctree: .
    :nosignatures:
 
-   ~instro.lib._display.DisplayOptions
-   ~instro.lib._display.get_display_options
-   ~instro.lib._display.set_display_options
+   ~instro.lib.DisplayOptions
+   ~instro.lib.get_display_options
+   ~instro.lib.set_display_options
 ```
