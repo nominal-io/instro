@@ -22,7 +22,7 @@ jobs:
 
   python-test:
     name: Python tests (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.group.name }})
-    needs: discover-python-tests
+    needs: [discover-python-tests, rust-check]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -41,12 +41,15 @@ jobs:
         with:
           enable-cache: false
           python-version: ${{ matrix.python-version }}
-      - name: Install Rust
-        run: rustup show
-      - name: Cache Rust build output
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Download native Python wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: eip-wheel-${{ matrix.os }}
+          path: dist/ci
       - name: Install dependencies
-        run: uv sync --locked
+        run: |
+          uv sync --locked --no-install-package instro-ethernetip
+          uv pip install --no-deps --no-build dist/ci/*.whl
       - name: Run Python test group
         env:
           TEST_PATHS: ${{ toJSON(matrix.group.paths) }}
@@ -65,6 +68,7 @@ jobs:
 
   python-check:
     name: Python checks and packaging (${{ matrix.os }}, ${{ matrix.python-version }})
+    needs: rust-check
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -84,29 +88,33 @@ jobs:
         with:
           enable-cache: false
           python-version: ${{ matrix.python-version }}
-      - name: Install just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-      # `rustup` is available by default on GitHub runners
-      - name: Install Rust
-        run: rustup show
-      - name: Cache Rust build output
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Download native Python wheel
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: eip-wheel-${{ matrix.os }}
+          path: dist/ci
       - name: Install dependencies
-        run: uv sync --locked
+        run: |
+          uv sync --locked --no-install-package instro-ethernetip
+          uv pip install --no-deps --no-build dist/ci/*.whl
       - name: Check uv lockfile metadata
         run: |
           if ! uv lock --check; then echo '::error::uv lock --check failed; update uv and run uv sync'; exit 1; fi
       - name: Check format
         run: |
-          just check-format
+          uv run --no-sync ruff format --check
       - name: Check import order
         run: |
-          just check-imports
+          uv run --no-sync ruff check
       - name: Static type check
         run: |
-          just check-types
-      - name: Check EtherNet/IP source and wheel packages
-        run: just eip-sdist-smoke-test eip-wheel-smoke-test
+          uv run --no-sync mypy
+      - name: Check installed EtherNet/IP wheel
+        run: |
+          wheels=(dist/ci/*.whl)
+          INSTRO_EIP_WHEEL="${wheels[0]}" uv run --isolated --no-dev --no-cache \
+            --with-editable . --with "${wheels[0]}" --with mypy \
+            python tests/ethernetip/ethernetip_wheel_smoke.py
 
   rust-check:
     runs-on: ${{ matrix.os }}
@@ -122,6 +130,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          python-version: "3.11"
       - name: Install just
         uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       # `rustup` is available by default on GitHub runners
@@ -141,6 +154,18 @@ jobs:
           just check-rust
       - name: Run Rust tests
         run: just test-rust
+      - name: Build shared native Python artifacts
+        run: |
+          uv build --wheel --package instro-ethernetip --out-dir dist/ci
+          uv build --sdist --package instro-ethernetip --out-dir dist/ci
+      - name: Check EtherNet/IP source package
+        run: uv run --no-project python tests/ethernetip/check_ethernetip_sdist.py sdist dist/ci/instro_ethernetip-*.tar.gz
+      - name: Upload native Python wheel
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eip-wheel-${{ matrix.os }}
+          path: dist/ci/*.whl
+          if-no-files-found: error
 
   # Keep the existing required status names while gating every test group.
   check-and-test:
