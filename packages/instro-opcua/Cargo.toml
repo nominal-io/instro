@@ -12,10 +12,14 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 anyhow.workspace = true
+async-scoped = { version = "0.9", features = ["use-tokio"] }
 chrono.workspace = true
+futures-util.workspace = true
 instro-opcua = { path = "../../crates/instro-opcua" }
 tokio = { workspace = true, features = ["time", "rt-multi-thread"] }
 tracing.workspace = true
 itertools.workspace = true
 pyo3.workspace = true
 zips.workspace = true
+paste = "1"
+pollster = "0.3"
