@@ -54,7 +54,7 @@ class NominalCorePublisher:
             .. code-block:: python
 
                 from nominal.core import NominalClient
-                from instro.lib.publishers import NominalCorePublisher
+                from instro.lib import NominalCorePublisher
 
                 publisher = NominalCorePublisher("ri.catalog.main.dataset.abc123", profile="staging")
 

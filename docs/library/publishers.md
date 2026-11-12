@@ -16,9 +16,9 @@ Publishers are the mechanism by which `instro` handles data coming from instrume
 ### Example
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq import InstroDAQ
-from instro.lib.publishers import NominalCorePublisher, FilePublisher
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+from instro.lib import FilePublisher, NominalCorePublisher
 
 publishers = [
     NominalCorePublisher(dataset_rid="ri.catalog.main.dataset.abc123"),
@@ -59,9 +59,9 @@ FilePublisher(
 **Example:**
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq import InstroDAQ
-from instro.lib.publishers import FilePublisher
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+from instro.lib import FilePublisher
 
 daq = InstroDAQ(
     name="myDAQ",
@@ -101,7 +101,7 @@ After construction, `dataset`, `dataset_rid`, `client`, `profile`, `batch_size`,
 
 ```python
 from nominal.core import NominalClient
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib import NominalCorePublisher
 
 client = NominalClient.from_token("<api key>", "https://api.gov.nominal.io/api")
 publisher = NominalCorePublisher(client.get_dataset("ri.catalog.main.dataset.abc123"))
@@ -110,9 +110,9 @@ publisher = NominalCorePublisher(client.get_dataset("ri.catalog.main.dataset.abc
 **Example:**
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq import InstroDAQ
-from instro.lib.publishers import NominalCorePublisher
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+from instro.lib import NominalCorePublisher
 
 DATASET_RID = "ri.catalog.main.dataset.abc123..."
 
@@ -158,9 +158,9 @@ NominalConnectPublisher(
 **Example, from a typical Connect app:**
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq import InstroDAQ
-from instro.lib.publishers import NominalConnectPublisher
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+from instro.lib import NominalConnectPublisher
 
 import connect_python
 
@@ -196,9 +196,9 @@ PlotlyPublisher(
 ```python
 import plotly.graph_objects as go
 
-from instro.lib.publishers import PlotlyPublisher
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import PlotlyPublisher
 
 figure = go.Figure(layout_title_text="PSU voltage sweep")
 
@@ -228,7 +228,7 @@ All {py:obj}`Publisher <instro.lib.publishers.publisher.Publisher>` implementati
 ```python
 from typing import Protocol
 
-from instro.lib.types import Measurement, Command
+from instro.lib import Command, Measurement
 
 class Publisher(Protocol):
     def publish(self, data: Measurement | Command, **kwargs) -> None:
@@ -246,7 +246,7 @@ class Publisher(Protocol):
  The example below prints to the console every time a `Measurement` is published corresponding to a predefined {abbr}`channel (A named signal for a series of measurements or computed values, example: voltage, pressure, system state.)` name.
 
 ```python
-from instro.lib.types import Measurement, Command
+from instro.lib import Command, Measurement
 
 class PrintChannelPublisher:
     def __init__(self, channel_name: str):
@@ -290,7 +290,7 @@ SharedPublisher(
 **Example:**
 
 ```python
-from instro.lib.publishers import FilePublisher, SharedPublisher
+from instro.lib import FilePublisher, SharedPublisher
 
 file_publisher = FilePublisher(directory="./captures", format="avro")
 shared_publisher = SharedPublisher(file_publisher)
@@ -326,10 +326,9 @@ BasicBufferedPublisher(
 
 ```python
 import time
-from instro.psu.drivers import SimulatedPSU
-from instro.psu import InstroPSU
-from instro.lib.publishers import BasicBufferedPublisher
-from instro.lib.types import Measurement, Command
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import BasicBufferedPublisher, Command, Measurement
 
 # Custom publisher that prints to console
 class PrintChannelPublisher:
@@ -394,10 +393,9 @@ QueuedPublisher(
 
 ```python
 import time
-from instro.psu.drivers import SimulatedPSU
-from instro.psu import InstroPSU
-from instro.lib.publishers import QueuedPublisher
-from instro.lib.types import Measurement, Command
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import Command, Measurement, QueuedPublisher
 
 # Custom publisher with artificial delay to simulate slow I/O
 class SlowPublisher:

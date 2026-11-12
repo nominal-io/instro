@@ -12,7 +12,7 @@ Handling Instro-specific errors
 Instro-specific errors inherit from `InstroError`.
 
 ```python
-from instro.lib.exceptions import InstroError
+from instro.lib import InstroError
 
 try:
     ...
@@ -27,7 +27,7 @@ When a capability is unavailable, the library raises one of two distinct excepti
 `FeatureNotSupportedError` (a subclass of `InstroError`) is raised by a concrete driver to declare that the connected instrument genuinely lacks a capability. For example, the `BK9115` power supply has no overcurrent protection or remote sense, so its driver raises `FeatureNotSupportedError` for those methods.
 
 ```python
-from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib import FeatureNotSupportedError
 
 try:
     psu.set_remote_sense_enabled(True, channel=1)
@@ -42,7 +42,7 @@ Because it inherits from `InstroError`, `except InstroError` catches it.
 `InstrumentNotOpenError` (a subclass of `InstroError`) is raised when a device-touching method is called before `open()`. It points at the missing lifecycle call instead of surfacing a low-level transport or vendor-SDK error. The message names the instrument instance so you can tell which one you forgot to open.
 
 ```python
-from instro.lib.exceptions import InstrumentNotOpenError
+from instro.lib import InstrumentNotOpenError
 
 daq = InstroDAQ(name="myDAQ", driver=...)
 try:
@@ -79,7 +79,7 @@ It depends on the driver behind the HAL:
 To handle both in one place, catch them together:
 
 ```python
-from instro.lib.exceptions import FeatureNotSupportedError
+from instro.lib import FeatureNotSupportedError
 
 try:
     psu.set_overcurrent_protection_level(5.0, channel=1)

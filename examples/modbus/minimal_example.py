@@ -9,7 +9,7 @@ Then in another shell:
 
 from pathlib import Path
 
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020}

@@ -2,9 +2,8 @@
 
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor
-from instro.lib.publishers import NominalCorePublisher
+from instro import DAQVendor, InstroDAQ
+from instro.lib import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.KEYSIGHT_34980
@@ -13,7 +12,7 @@ VENDOR = DAQVendor.KEYSIGHT_34980
 # owns its transport at construction time.
 match VENDOR:
     case DAQVendor.KEYSIGHT_34980:
-        from instro.daq.drivers import Keysight34980A
+        from instro.drivers import Keysight34980A
 
         CHANNEL_0 = "8001"
         CHANNEL_1 = "8002"

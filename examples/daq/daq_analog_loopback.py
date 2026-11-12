@@ -2,9 +2,8 @@
 
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor
-from instro.lib.publishers import NominalCorePublisher
+from instro import DAQVendor, InstroDAQ
+from instro.lib import NominalCorePublisher
 
 # Configuration: Choose your vendor.
 VENDOR = DAQVendor.LABJACK_T_SERIES
@@ -13,7 +12,7 @@ VENDOR = DAQVendor.LABJACK_T_SERIES
 # owns its transport at construction time.
 match VENDOR:
     case DAQVendor.LABJACK_T_SERIES:
-        from instro.daq.drivers.labjack import LabJackTSeriesDriver
+        from instro.drivers import LabJackTSeriesDriver
 
         AO_CH0 = "DAC0"
         AO_CH1 = "DAC1"
@@ -21,7 +20,7 @@ match VENDOR:
         AI_CH1 = "AIN1"
         driver = LabJackTSeriesDriver(device_id="440020473")  # LabJack serial number
     case DAQVendor.NI:
-        from instro.daq.drivers.ni import NIDAQDriver
+        from instro.drivers import NIDAQDriver
 
         AO_CH0 = "Dev1/ao0"
         AO_CH1 = "Dev1/ao1"
@@ -29,7 +28,7 @@ match VENDOR:
         AI_CH1 = "Dev1/ai1"
         driver = NIDAQDriver(device_id="Dev1")  # NI device name, as defined in MAX
     case DAQVendor.MCC:
-        from instro.daq.drivers.mcc import MCCDriver
+        from instro.drivers import MCCDriver
 
         AO_CH0 = "0"
         AO_CH1 = "1"

@@ -29,8 +29,8 @@ Publishing Modbus data to Nominal Core with instro
 ```python
 import time
 
-from instro.lib.publishers import NominalCorePublisher
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
+from instro.lib import NominalCorePublisher
 
 RID = "<dataset_rid>" # Replace with your dataset RID.
 
@@ -624,7 +624,7 @@ python -m instro.modbus.sim_server
 The sim server listens on `127.0.0.1:5020` and exposes holding registers, input registers, coils, and discrete inputs seeded with representative values. Point any TCP config at it by overriding the connection at construction:
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 device = ModbusDevice(
     config="my_device.json",
@@ -637,8 +637,8 @@ device = ModbusDevice(
 An RS-485 multi-drop line, or a TCP-to-serial gateway fronting one, often serves several physical devices at different unit addresses over what is one physical connection. Build a single transport and pass it as each device's `connection`, with each device's own `unit_id`:
 
 ```python
-from instro.lib.transports import ModbusTCPTransport
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
+from instro.lib import ModbusTCPTransport
 
 transport = ModbusTCPTransport(host="192.168.1.100", port=502)
 
@@ -661,7 +661,7 @@ The connection opens for the first device and stays open until the last one clos
 :::{tab-item} From JSON File
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 device = ModbusDevice(config="my_device.json")
 device.open()
@@ -671,7 +671,7 @@ device.open()
 :::{tab-item} From JSON + Separate Connection
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 # Connection is separate: useful when config is shared across environments
 connection = {"transport": "tcp", "host": "192.168.1.100", "port": 502}
@@ -683,11 +683,9 @@ device.open()
 :::{tab-item} Programmatic Config
 
 ```python
-from instro.lib.transports import ModbusTCPTransport
-from instro.modbus import ModbusConfig, ModbusDevice
-from instro.modbus import (
-    DeviceInfo, LinearScale, RegisterDef, TimingConfig,
-)
+from instro import ModbusConfig, ModbusDevice, RegisterDef
+from instro.lib import DeviceInfo, LinearScale, ModbusTCPTransport
+from instro.modbus import TimingConfig
 
 config = ModbusConfig(
     device=DeviceInfo(name="my_device", manufacturer="Acme", model="X-100"),
@@ -735,7 +733,7 @@ The `connection` parameter allows you to separate device-specific register maps 
 Use `add_publisher()` to attach a [publisher](/library/publishers.md) for automatic data streaming:
 
 ```python
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib import NominalCorePublisher
 
 device.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 ```
@@ -745,7 +743,7 @@ device.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))
 #### Basic Read and Write
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 device = ModbusDevice(config="temperature_controller.json")
 device.open()
@@ -781,8 +779,8 @@ When a `timing` section is present in the config, you can use `autostart=True` f
 :::{tab-item} With autostart
 
 ```python
-from instro.modbus import ModbusDevice
-from instro.lib.publishers import NominalCorePublisher
+from instro import ModbusDevice
+from instro.lib import NominalCorePublisher
 
 # autostart opens the connection and begins polling immediately
 device = ModbusDevice(config="heat_exchanger.json", autostart=True)
@@ -802,8 +800,8 @@ device.close()
 :::{tab-item} Explicit open/start
 
 ```python
-from instro.modbus import ModbusDevice
-from instro.lib.publishers import NominalCorePublisher
+from instro import ModbusDevice
+from instro.lib import NominalCorePublisher
 
 device = ModbusDevice(config="heat_exchanger.json")
 device.add_publisher(NominalCorePublisher(dataset_rid="ri.datasets.main.dataset.abc123"))
@@ -824,7 +822,7 @@ device.close()
 Write value maps eliminate magic numbers, and write limits provide protection against accidental out-of-range writes:
 
 ```python
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 device = ModbusDevice(config="heat_exchanger.json", autostart=True)
 
@@ -883,7 +881,7 @@ This example demonstrates programming a thermal profile on a Watlow F4T controll
 ```python
 import time
 
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 connection = {"transport": "tcp", "host": "192.168.5.222", "port": 502}
 f4t = ModbusDevice(config="watlow_f4t.json", connection=connection, autostart=True)

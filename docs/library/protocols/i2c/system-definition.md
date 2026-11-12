@@ -30,7 +30,7 @@ The `SystemDefinition` enables I2CInterface to:
 The `SystemDefinition` is a container that holds all device definitions:
 
 ```python
-from instro.i2c.types import SystemDefinition
+from instro import SystemDefinition
 
 system = SystemDefinition()
 ```
@@ -70,12 +70,8 @@ Both device types require:
 ### RegisterDevice Configuration
 
 ```python
-from instro.i2c.types import (
-    DataFormat,
-    FieldDef,
-    RegisterDevice,
-    RegisterDef,
-)
+from instro import DataFormat, FieldDef, RegisterDevice
+from instro.i2c import RegisterDef
 
 device = RegisterDevice(
     name="power_gpio", # User defined name for the device
@@ -113,7 +109,7 @@ Each register is defined with a `RegisterDef`. Registers can be simple (no bit f
 A temperature sensor register that returns a 16-bit signed value:
 
 ```python
-from instro.i2c.types import DataFormat
+from instro import DataFormat
 
 RegisterDef(
     alias="TEMPERATURE",  # Human-readable name
@@ -130,7 +126,7 @@ RegisterDef(
 A GPIO output register where each bit controls an LED:
 
 ```python
-from instro.i2c.types import DataFormat, FieldDef
+from instro import DataFormat, FieldDef
 
 RegisterDef(
     alias="LED_OUTPUT_STATE",  # Human-readable name
@@ -163,7 +159,7 @@ Bit fields allow you to access specific bits within a register without manually 
 **Example with Multi-Bit Fields:**
 
 ```python
-from instro.i2c.types import FieldDef
+from instro import FieldDef
 
 fields = {
     "enable": FieldDef(name="enable", lsb=0, width_bits=1),  # Single bit (Bit 0)
@@ -192,7 +188,7 @@ all_leds = i2c.read("gpio_expander", "LED_OUTPUT_STATE")
 ### CommandDevice Configuration
 
 ```python
-from instro.i2c.types import CommandDevice, CommandDef, DataFormat
+from instro import CommandDef, CommandDevice, DataFormat
 from enum import Enum
 
 class ADCChannel(Enum):
@@ -244,7 +240,7 @@ The `DataFormat` class defines how raw I2C data is interpreted, extracted, and s
 ### DataFormat Overview
 
 ```python
-from instro.i2c.types import DataFormat, LinearScaling
+from instro import DataFormat, LinearScaling
 
 format = DataFormat(
     transfer_bits=16,  # Total bits transferred over I2C
@@ -296,7 +292,7 @@ Scaling functions convert raw integer values to physical units and vice versa.
 Most sensors use linear scaling:
 
 ```python
-from instro.i2c.types import LinearScaling
+from instro import LinearScaling
 
 # Temperature sensor: 0.1°C per count, -40°C offset
 # Raw value 500 → (500 * 0.1) - 40 = 10.0°C
@@ -310,7 +306,7 @@ scaling = LinearScaling(gain=0.1, offset=-40.0)
 For non-linear sensors or complex conversions:
 
 ```python
-from instro.i2c.types import CustomScaling
+from instro import CustomScaling
 
 # ADC with voltage divider: V = (ADC_value / 4095) * 5.0 * 7.2
 scaling = CustomScaling(
@@ -336,13 +332,8 @@ If you plan to write values to registers that use custom scaling, you must provi
 A common use case: configuring a GPIO expander with multiple registers and bit fields.
 
 ```python
-from instro.i2c.types import (
-    SystemDefinition,
-    RegisterDevice,
-    RegisterDef,
-    FieldDef,
-    DataFormat,
-)
+from instro import DataFormat, FieldDef, RegisterDevice, SystemDefinition
+from instro.i2c import RegisterDef
 
 system = SystemDefinition()
 
@@ -389,8 +380,8 @@ system.add_device(gpio)
 **Usage:**
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
+from instro import I2CInterface
+from instro.drivers import Aardvark
 
 i2c = I2CInterface(
     name="main_i2c",
@@ -418,13 +409,7 @@ interrupt_enabled = i2c.read("gpio_expander", "CONFIG", field="interrupt_enable"
 A command-based ADC that reads temperature when sent a command.
 
 ```python
-from instro.i2c.types import (
-    SystemDefinition,
-    CommandDevice,
-    CommandDef,
-    DataFormat,
-    LinearScaling,
-)
+from instro import CommandDef, CommandDevice, DataFormat, LinearScaling, SystemDefinition
 from enum import Enum
 
 class TempCommand(Enum):

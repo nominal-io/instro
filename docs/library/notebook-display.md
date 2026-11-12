@@ -14,8 +14,8 @@ Instruments and publishers display as cards in Jupyter, VS Code and Colab notebo
 In Jupyter, VS Code and Colab, an instrument or publisher at the end of a cell displays as a card. Outside a notebook, `repr()` gives a one-line summary.
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import VirtualPSU
+from instro import InstroPSU
+from instro.drivers import VirtualPSU
 
 psu = InstroPSU(name="bench", driver=VirtualPSU(), num_channels=2, dataset_rid="<dataset RID>")
 psu.start()
@@ -55,7 +55,7 @@ A custom {py:class}`~instro.lib.Instrument` subclass gets a default card automat
 
 ```python
 from instro.lib import _display
-from instro.psu import InstroPSU
+from instro import InstroPSU
 
 
 class BenchPSU(InstroPSU):

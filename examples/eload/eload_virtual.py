@@ -6,8 +6,8 @@ follow a cell's state of charge. Swap in a real driver (BK85XXB, RigolDL30xx, ..
 battery, drop the source updates, and the rest is unchanged.
 """
 
-from instro.eload import InstroELoad, LoadMode
-from instro.eload.drivers import VirtualELoad
+from instro import InstroELoad, LoadMode
+from instro.drivers import VirtualELoad
 
 source = VirtualELoad(source_voltage=4.2, source_resistance=0.1)  # a full Li-ion cell
 
