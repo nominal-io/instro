@@ -26,6 +26,8 @@ An instrument's card shows its driver, background daemon, publishers, default ta
 
 Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card links its dataset in Nominal.
 
+The [notebook display example](/examples/notebooks/notebook_display.md) shows each card and needs no hardware or Nominal credentials. From a clone of the repository, `just notebook` opens it in JupyterLab: open `notebook_display.md` with **Open With → Jupytext Notebook**.
+
 ## Display options
 
 {py:func}`instro.lib.set_display_options` changes every card, as a call or for the length of a `with` block:
