@@ -221,6 +221,26 @@ daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473")
 daq.add_publisher(NominalCorePublisher(dataset_rid="ri.catalog..."))
 ```
 
+## Publisher errors and stats
+
+An instrument counts, for each publisher, the objects it accepted and the errors it raised. A publisher that raises doesn't stop the instrument: the publishers after it still get the data, and the instrument method returns normally. The instrument logs each publisher's first error with its traceback, then at most one summary a minute.
+
+{py:attr}`~instro.lib.Instrument.publisher_stats` returns a {py:class}`~instro.lib.stats.PublisherStats` snapshot per publisher, in the order of `publishers`:
+
+```python
+for stats in daq.publisher_stats:
+    print(stats.publisher, stats.sent, stats.errors, stats.last_error)
+```
+
+{py:attr}`~instro.lib.Instrument.channel_stats` returns the latest value, sample count and arrival rate of every channel published so far, commands included. Unlike {py:meth}`~instro.lib.Instrument.get_channel`, it doesn't need `start()`:
+
+```python
+for state in daq.channel_stats:
+    print(state.channel, state.value, state.count, f"{state.rate(5.0):.1f}/s")
+```
+
+Both also appear in the instrument's [notebook card](/library/notebook-display.md).
+
 ## Custom Publisher
 
 All {py:obj}`Publisher <instro.lib.publishers.publisher.Publisher>` implementations follow a simple protocol with two required methods `publish` and `close`:

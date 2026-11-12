@@ -385,21 +385,17 @@ def test_open_failure_after_a_channel_succeeds_drops_the_configured_channels(val
             awg.start()
 
 
-def test_open_failure_in_a_publisher_drops_the_configured_channel(valid_config):
-    """set_waveform records the channel before it publishes, so a publisher raising must still roll the channel back."""
+def test_a_failing_publisher_does_not_fail_open(valid_config):
+    """A publisher error is counted, not raised, so the programmed channel stays configured."""
     bad_publisher = MagicMock()
     bad_publisher.publish.side_effect = RuntimeError("publisher backend unreachable")
     with _patch_driver() as mock_cls:
         awg = InstroAWG(config=valid_config, publishers=[bad_publisher])
-        with pytest.raises(RuntimeError, match="publisher backend unreachable"):
-            awg.open()
+        awg.open()
 
-        # the driver call landed and cached the waveform before the publish blew up
         mock_cls.return_value.set_waveform.assert_called_once()
-        assert awg._channel_waveforms == {}
-        assert awg._channel_config_applied is False
-        with pytest.raises(ValueError, match="set_waveform must be called"):
-            awg.start()
+        assert 1 in awg._channel_waveforms
+        assert awg.publisher_stats[0].errors >= 1
 
 
 def test_close_drops_the_cached_waveforms(valid_config):
