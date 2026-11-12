@@ -1,4 +1,4 @@
-"""Minimal EtherNet/IP example: read a PLC tag and optionally write a setpoint.
+"""Minimal EtherNet/IP example: read and write PLC tags.
 
 Configure the PLC endpoint with environment variables:
     export ETHERNETIP_HOST=192.168.1.10

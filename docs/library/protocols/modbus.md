@@ -12,7 +12,7 @@ Using ModbusDevice for Modbus TCP and RTU device communication
 
 ## ModbusDevice
 
-ModbusDevice is a config-driven Modbus TCP/RTU client that provides **alias-based register access**, automatic background polling, and full integration with the `instro` publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
+ModbusDevice is a config-driven [Modbus TCP](/library/protocols/modbus/ModbusTCP.md) and [Modbus RTU](/library/protocols/modbus/ModbusRTU.md) client that provides **alias-based register access**, automatic background polling, and full integration with the `instro` publisher system. Instead of writing raw Modbus function calls, you define your device's register map in a JSON configuration file (or build it programmatically in Python) and access registers by semantic names.
 
 :::{note}
 [Modbus Application Protocol Specification](https://www.modbus.org/modbus-specifications)

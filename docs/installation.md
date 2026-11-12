@@ -180,7 +180,7 @@ Total Phase USB Drivers are required to communicate with Total Phase Aardvark I2
 
 ### Used By
 
-- **`I2CInterface`**: Total Phase Aardvark I2C/SPI Host Adapter (via `Aardvark`)
+- **`I2CInterface`**: Total Phase Aardvark I2C/SPI Host Adapter (via [`Aardvark`](/i2c/Aardvark.md))
 
 ### Installation
 

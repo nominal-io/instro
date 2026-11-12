@@ -1,4 +1,4 @@
-"""Example: Discharge a virtual battery with a virtual E-Load, with no hardware or server.
+"""Example: Discharge a virtual battery with a virtual E-Load.
 
 VirtualELoad simulates the load and the source it draws from in-process, so this runs as-is.
 The source's voltage and internal resistance are attributes you can change mid-run; here they

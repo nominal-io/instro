@@ -1,4 +1,4 @@
-"""Minimal ModbusDevice example: read and write against the sim server.
+"""Minimal ModbusDevice example: read and write the sim server.
 
 Start the sim server first:
     python -m instro.modbus.sim_server

@@ -1,4 +1,4 @@
-"""Example: one hardware-timed and one software-timed acquisition with two InstroDAQ instances.
+"""Example: hardware- and software-timed acquisition on one NI chassis.
 
 Runs two analog input tasks on one NI CompactDAQ chassis by giving each task
 its own InstroDAQ instance: one streams from the device's hardware sample

@@ -31,4 +31,6 @@ i2c = I2CInterface(
 )
 ```
 
+To define the devices, registers and commands in `system`, see [System Definition](/library/protocols/i2c/system-definition.md).
+
 Parameters and methods specific to {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>` can be found in the [Reference](/ref/index.md).

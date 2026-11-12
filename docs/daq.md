@@ -284,7 +284,7 @@ Digital driver support:
 
 #### LabJack thermocouple channels
 
-The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. More info about using thermocouples with a LabJack device can be found [here](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
+The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. For more on using thermocouples with a LabJack device, see LabJack's [thermocouple guide](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
 
 ```python
 from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
