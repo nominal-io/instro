@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Check and test
 
 on:
@@ -10,7 +7,64 @@ on:
     branches: ["main"]
 
 jobs:
-  check-and-test:
+  discover-python-tests:
+    name: Discover Python test groups
+    runs-on: ubuntu-latest
+    outputs:
+      groups: ${{ steps.discover.outputs.groups }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Discover groups
+        id: discover
+        run: |
+          groups="$(python3 tests/ci/python_test_groups.py)"
+          echo "groups=$groups" >> "$GITHUB_OUTPUT"
+
+  python-test:
+    name: Python tests (${{ matrix.os }}, ${{ matrix.python-version }}, ${{ matrix.group.name }})
+    needs: discover-python-tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 12
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+        group: ${{ fromJSON(needs.discover-python-tests.outputs.groups) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          enable-cache: false
+          python-version: ${{ matrix.python-version }}
+      - name: Install Rust
+        run: rustup show
+      - name: Cache Rust build output
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Run Python test group
+        env:
+          TEST_PATHS: ${{ toJSON(matrix.group.paths) }}
+        run: |
+          uv run --no-sync python - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+
+          paths = json.loads(os.environ["TEST_PATHS"])
+          if not paths:
+              sys.exit("Python test group has no paths")
+          sys.exit(subprocess.call([sys.executable, "-m", "pytest", *paths]))
+          PY
+
+  python-check:
+    name: Python checks and packaging (${{ matrix.os }}, ${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -35,18 +89,13 @@ jobs:
       # `rustup` is available by default on GitHub runners
       - name: Install Rust
         run: rustup show
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
-        with:
-          tool: cargo-nextest
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Install dependencies
-        run: |
-          just install
+        run: uv sync --locked
       - name: Check uv lockfile metadata
         run: |
-          if ! uv lock --check; then echo "::error::`uv lock --check` has failed, ensure you have the latest `uv` version installed with `uv self update` and run `uv sync`"; exit 1; fi
+          if ! uv lock --check; then echo '::error::uv lock --check failed; update uv and run uv sync'; exit 1; fi
       - name: Check format
         run: |
           just check-format
@@ -56,9 +105,8 @@ jobs:
       - name: Static type check
         run: |
           just check-types
-      - name: Run unit tests
-        run: |
-          just test
+      - name: Check EtherNet/IP source and wheel packages
+        run: just eip-sdist-smoke-test eip-wheel-smoke-test
 
   rust-check:
     runs-on: ${{ matrix.os }}
@@ -82,8 +130,35 @@ jobs:
       # `check-rust` runs `cargo +nightly fmt`, which needs its own toolchain + component.
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
+        with:
+          tool: cargo-nextest
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Rust format and lint checks
         run: |
           just check-rust
+      - name: Run Rust tests
+        run: just test-rust
+
+  # Keep the existing required status names while gating every test group.
+  check-and-test:
+    if: ${{ always() }}
+    needs: [discover-python-tests, python-test, python-check, rust-check]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - name: Require all checks and tests to pass
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        shell: bash
+        run: |
+          if [[ "$RESULTS" == *'"failure"'* || "$RESULTS" == *'"cancelled"'* || "$RESULTS" == *'"skipped"'* ]]; then
+            echo "::error::A required check did not succeed: $RESULTS"
+            exit 1
+          fi
