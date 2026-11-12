@@ -152,7 +152,11 @@ jobs:
       - name: Rust format and lint checks
         run: |
           just check-rust
+      - name: Install simulator dependencies
+        run: uv sync --locked --no-install-package instro-ethernetip
       - name: Run Rust tests
+        env:
+          UV_NO_SYNC: "true"
         run: just test-rust
       - name: Build shared native Python artifacts
         run: |
