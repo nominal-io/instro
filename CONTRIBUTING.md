@@ -127,7 +127,7 @@ just test-rust       # Rust library/integration/doc tests only
 
 Notes:
 
-- The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
+- The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`, including completed dependency builds from failed test runs).
 - `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
 - Add vendor extras only when needed, for example `uv sync --extra nidaq`. `uv sync --extra all` selects the extras listed in [pyproject.toml](./pyproject.toml); it does not install proprietary system SDKs or every workspace member.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
@@ -222,6 +222,14 @@ Individual commits should follow the same Conventional Commits format. Each comm
 ### Tests and checks
 
 Every PR must pass `just check` and `just test`. [Build/test CI](./.github/workflows/build-check-test.yml) runs the checks across Windows, macOS, Linux, and the supported Python versions, and separately checks `uv lock --check`. Passing locally covers your current environment; it does not guarantee that the full CI matrix passes. [Docs CI](./.github/workflows/docs-check.yml) runs `just build-docs`, which fails on any docs warning, and [PR title CI](./.github/workflows/lint-pr-title.yml) checks Conventional Commits formatting. Example pages are generated from `examples/` at build time, so there is nothing to regenerate by hand.
+
+Python tests run in four discovered groups across all 12 OS/Python combinations (48 test jobs, with no workflow concurrency cap). The discovery script, [`tests/ci/python_test_groups.py`](./tests/ci/python_test_groups.py), assigns sorted top-level test directories and root-level test files round-robin, so new test directories need no workflow edits. Keeping each directory in one pytest process preserves its session-scoped fixtures. Pytest still applies the hardware marker exclusions and optional-package ignores from `pyproject.toml`.
+
+Rust formatting, Clippy, and workspace tests run once per OS, followed by an EtherNet/IP wheel build and source-distribution check. The Rust integration tests use a Python simulator; its dependencies are installed before the tests, and synchronization is disabled during simulator startup. The binding uses Python's stable ABI, so one wheel per OS serves Python 3.11–3.14. Each OS runs an independent [platform workflow](./.github/workflows/check-test-platform.yml). Its Python matrices start as soon as its own Rust job finishes, synchronize the locked dependencies without the source `instro-ethernetip` package, and install the matching OS wheel; they do not wait for the other platforms. Subsequent project commands use `uv run --no-sync` to retain that wheel. Lint, type, lockfile, and isolated wheel import/type-stub checks run once per OS/Python combination outside the test groups.
+
+The uv package cache persists downloads and built wheels between runs, with keys based on the platform, Python version, and dependency files. Test groups only restore the cache; Rust and Python check jobs save it. Wheel checks refresh only `instro-ethernetip` to use the current artifact without discarding cached dependencies.
+
+The existing `check-and-test (OS, Python)` statuses aggregate these jobs, so a failed, cancelled, or skipped dependency prevents them from passing. Local `just test` is unchanged. Compare complete workflow elapsed time and runner minutes during rollout before increasing the group count: each group still provisions a runner and installs its Python dependencies.
 
 A separate [scheduled workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests. If that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile.
 

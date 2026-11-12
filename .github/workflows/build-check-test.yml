@@ -1,6 +1,3 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Check and test
 
 on:
@@ -10,80 +7,48 @@ on:
     branches: ["main"]
 
 jobs:
+  discover-python-tests:
+    name: Discover Python test groups
+    runs-on: ubuntu-latest
+    outputs:
+      groups: ${{ steps.discover.outputs.groups }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Discover groups
+        id: discover
+        run: |
+          groups="$(python3 tests/ci/python_test_groups.py)"
+          echo "groups=$groups" >> "$GITHUB_OUTPUT"
+
+  platform:
+    name: Platform (${{ matrix.os }})
+    needs: discover-python-tests
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    uses: ./.github/workflows/check-test-platform.yml
+    with:
+      os: ${{ matrix.os }}
+      groups: ${{ needs.discover-python-tests.outputs.groups }}
+
+  # Keep the existing required status names while gating every test group.
   check-and-test:
+    if: ${{ always() }}
+    needs: [discover-python-tests, platform]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13", "3.14"]
-    # Run every step under bash so the bash-syntax steps below (e.g. the
-    # `uv lock --check` guard) work on Windows runners, which default to pwsh.
-    defaults:
-      run:
-        shell: bash
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install uv
-        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
-        with:
-          enable-cache: false
-          python-version: ${{ matrix.python-version }}
-      - name: Install just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-      # `rustup` is available by default on GitHub runners
-      - name: Install Rust
-        run: rustup show
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
-        with:
-          tool: cargo-nextest
-      - name: Cache Rust build output
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: Install dependencies
-        run: |
-          just install
-      - name: Check uv lockfile metadata
-        run: |
-          if ! uv lock --check; then echo "::error::`uv lock --check` has failed, ensure you have the latest `uv` version installed with `uv self update` and run `uv sync`"; exit 1; fi
-      - name: Check format
-        run: |
-          just check-format
-      - name: Check import order
-        run: |
-          just check-imports
-      - name: Static type check
-        run: |
-          just check-types
-      - name: Run unit tests
-        run: |
-          just test
-
-  rust-check:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    # Run every step under bash so the bash-syntax steps below work on
-    # Windows runners, which default to pwsh.
-    defaults:
-      run:
+      - name: Require all checks and tests to pass
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
         shell: bash
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install just
-        uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-      # `rustup` is available by default on GitHub runners
-      - name: Install Rust
-        run: rustup show
-      # `check-rust` runs `cargo +nightly fmt`, which needs its own toolchain + component.
-      - name: Install nightly rustfmt
-        run: rustup toolchain install nightly --profile minimal --component rustfmt
-      - name: Cache Rust build output
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: Rust format and lint checks
         run: |
-          just check-rust
+          if [[ "$RESULTS" == *'"failure"'* || "$RESULTS" == *'"cancelled"'* || "$RESULTS" == *'"skipped"'* ]]; then
+            echo "::error::A required check did not succeed: $RESULTS"
+            exit 1
+          fi
