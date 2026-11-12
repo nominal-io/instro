@@ -22,7 +22,7 @@ psu.start()
 psu  # shows the card
 ```
 
-An instrument's card shows its driver, background daemon, publishers, default tags and, once `start()` has been called, the latest value of every channel. A card shows only what `instro` already holds in memory, so displaying an instrument never talks to the hardware.
+An instrument's card shows its driver, background daemon, publishers with their sent and error counts, default tags and, once `start()` has been called, the latest value, rate and count of every channel. A card shows only what `instro` already holds in memory, so displaying an instrument never talks to the hardware. See [publisher errors and stats](/library/publishers.md#publisher-errors-and-stats).
 
 Each publisher has a card too. A {py:class}`~instro.lib.publishers.nominal_core.NominalCorePublisher` card links its dataset in Nominal.
 

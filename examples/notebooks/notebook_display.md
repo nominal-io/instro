@@ -10,7 +10,7 @@ kernelspec:
 
 # Notebook display for instruments and publishers
 
-Watch a bench power supply from a notebook: its settings, the latest value of every channel, and where its data goes. Instruments and publishers display as cards, described in the [notebook display guide](https://github.com/nominal-io/instro/blob/main/docs/library/notebook-display.md).
+Watch a bench power supply from a notebook: its settings, the latest value of every channel, and what each publisher has done with the data. Instruments and publishers display as cards, described in the [notebook display guide](https://github.com/nominal-io/instro/blob/main/docs/library/notebook-display.md).
 
 The example uses a `VirtualPSU`, so it needs no hardware. With a `default` Nominal [profile](https://docs.nominal.io/core/sdk/python-client/authentication), it streams the supply's channels to a Nominal dataset. Without one, it uses an offline stand-in for the dataset and uploads nothing.
 
@@ -61,7 +61,7 @@ print(repr(psu))
 
 ## While it runs
 
-Once the background daemon runs, the card has a **running** badge and the last loop time. The **Channels** table lists every channel published so far, with its latest value and time. Settings you send, such as the voltage, appear as `.cmd` channels.
+Once the background daemon runs, the card has a **running** badge and the last loop time. The **Channels** table lists every channel published so far, with its latest value, rate and sample count. Settings you send, such as the voltage, appear as `.cmd` channels.
 
 ```{code-cell} ipython3
 # Each setter publishes a .cmd channel.
@@ -84,7 +84,7 @@ psu.publishers[0].publisher
 
 ## Stream to Nominal
 
-A `NominalCorePublisher` streams every value the instrument publishes to a Nominal dataset. Add it to the running instrument with `add_publisher`, and the instrument's card lists it with a link to the dataset. A publisher only gets values published after you add it, so the current limit set above isn't in the dataset.
+A `NominalCorePublisher` streams every value the instrument publishes to a Nominal dataset. Add it to the running instrument with `add_publisher`, and the instrument's card lists it with a link to the dataset and a count of what it has sent. A publisher only gets values published after you add it, so the current limit set above isn't in the dataset.
 
 ```{code-cell} ipython3
 :tags: [hide-input]
@@ -135,6 +135,46 @@ nominal = NominalCorePublisher(dataset=dataset)
 psu.add_publisher(nominal)
 time.sleep(2.0)
 psu
+```
+
+## A failing publisher
+
+A publisher that raises doesn't stop the instrument. The instrument counts the error, sends the data to its other publishers, and logs the first error with its traceback. The publisher below fails on every other call: one error is logged, and the card gets an error badge.
+
+```{code-cell} ipython3
+# A publisher whose upload fails on every second call.
+class FlakyPublisher:
+    def __init__(self):
+        self.calls = 0
+
+    def publish(self, data, **kwargs):
+        self.calls += 1
+        if self.calls % 2 == 0:
+            raise ConnectionError("upload endpoint unreachable")
+
+    def close(self):
+        pass
+
+    # How the publisher is described in the instrument's card.
+    def _display_summary(self):
+        return "flaky test publisher"
+
+
+psu.add_publisher(FlakyPublisher())
+time.sleep(1.0)
+psu
+```
+
+`publisher_stats` and `channel_stats` return the counters from the card as snapshots.
+
+```{code-cell} ipython3
+for stats in psu.publisher_stats:
+    print(f"{stats.publisher:24} sent={stats.sent:<5} errors={stats.errors:<4} last_error={stats.last_error}")
+```
+
+```{code-cell} ipython3
+for state in psu.channel_stats:
+    print(f"{state.channel:32} {state.kind:11} value={state.value!s:<10} count={state.count:<5} {state.rate(5.0):5.1f}/s")
 ```
 
 ## Display options

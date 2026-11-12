@@ -16,6 +16,7 @@ from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
+from instro.lib.stats import ChannelState, MonitorState, PublisherStats, _PublisherCounter
 from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
 
 
@@ -128,6 +129,10 @@ class Instrument:
         self._channel_buffer_length: int = 10
         self._channel_buffer: DequeInMemoryPublisher | None = None
 
+        self._channel_stats = MonitorState()
+        self._publisher_counters: dict[int, _PublisherCounter] = {}
+        self._publisher_counters_lock = threading.Lock()
+
         self._process_kwargs(**kwargs)
         logger.info(
             "Initialized instrument '%s' (n_publishers=%d, default_tag_keys=%s)",
@@ -182,9 +187,47 @@ class Instrument:
         self.add_publisher(NominalCorePublisher(dataset))
 
     def publish(self, data: Measurement | Command, **kwargs):
-        """Fan ``data`` out to every configured publisher; ``kwargs`` pass through."""
+        """Fan ``data`` out to every configured publisher; ``kwargs`` pass through.
+
+        A publisher that raises is counted and logged, and the publishers after it still receive ``data``.
+        See `publisher_stats`.
+        """
+        self._channel_stats.ingest(self.name, data)
         for publisher in self.publishers:
-            publisher.publish(data, **kwargs)
+            counter = self._publisher_counter(publisher)
+            try:
+                publisher.publish(data, **kwargs)
+            except Exception as e:
+                counter.record_error(e, self.name)
+            else:
+                counter.record_sent()
+
+    def _publisher_counter(self, publisher: Publisher) -> _PublisherCounter:
+        counter = self._publisher_counters.get(id(publisher))
+        if counter is None:
+            with self._publisher_counters_lock:
+                counter = self._publisher_counters.get(id(publisher))
+                if counter is None:
+                    counter = _PublisherCounter(publisher)
+                    # A reader that copied `publishers` before stop() removed a buffer must not bring its counter
+                    # back: the counter would keep the closed buffer alive. Such a reader gets a throwaway counter.
+                    if publisher in self.publishers:
+                        self._publisher_counters[id(publisher)] = counter
+        return counter
+
+    @property
+    def publisher_stats(self) -> list[PublisherStats]:
+        """Sends and errors so far for each current publisher, in the order of `publishers`."""
+        return [self._publisher_counter(publisher).snapshot() for publisher in list(self.publishers)]
+
+    @property
+    def channel_stats(self) -> list[ChannelState]:
+        """Latest value, sample count and arrival times of every channel published so far, sorted by name.
+
+        Unlike `get_channel`, this covers commands too and doesn't need `start`. Use ``state.rate(5.0)`` for the
+        samples per second over the last 5 seconds.
+        """
+        return self._channel_stats.snapshot()
 
     def _package_command(self, channel: str, data: float | bool | str, timestamp: int, **kwargs) -> Command:
         """Build a single-channel `Command` namespaced under this instrument.
@@ -324,8 +367,10 @@ class Instrument:
             # buffer entirely; the next start() builds and registers a fresh one.
             assert self._channel_buffer
             self._channel_buffer.close()
-            if self._channel_buffer in self.publishers:
-                self.publishers.remove(self._channel_buffer)
+            with self._publisher_counters_lock:
+                if self._channel_buffer in self.publishers:
+                    self.publishers.remove(self._channel_buffer)
+                self._publisher_counters.pop(id(self._channel_buffer), None)
             self._channel_buffer = None
             logger.info("Stopped background daemon for instrument '%s'", self.name)
         else:
@@ -404,30 +449,50 @@ class Instrument:
         cadence = "free-running" if interval <= 0 else f"every {_display.seconds(interval)}"
         return f"running, {cadence}" if self.background_running else f"stopped ({cadence} when started)"
 
-    def _channels_section(self, latest: dict[str, tuple[int, float | str]]) -> _display.Section:
+    def _channels_section(self, channels: list[ChannelState]) -> _display.Section:
         prefix = f"{self.name}."
+        now = time.monotonic()
         return _display.Section(
             "Channels",
             [
                 [
-                    _display.code(name.removeprefix(prefix)),
-                    _display.value(sample),
-                    _display.timestamp(timestamp),
+                    _display.code(state.channel.removeprefix(prefix)),
+                    "command" if state.kind == "command" else "measurement",
+                    _display.value(state.value),
+                    _display.escape(f"{state.rate(self._channel_stats.rate_window_s, now):.3g}/s"),
+                    _display.escape(state.count),
+                    _display.timestamp(state.timestamp),
                 ]
-                for name, (timestamp, sample) in latest.items()
+                for state in channels
             ],
-            columns=("Channel", "Latest", "Time"),
+            columns=("Channel", "Kind", "Latest", "Rate", "Count", "Time"),
         )
+
+    def _publishers_section(self) -> _display.Section:
+        rows = []
+        for publisher in list(self.publishers):
+            stats = self._publisher_counter(publisher).snapshot()
+            last_error = (
+                f"{_display.escape(stats.last_error)} ({_display.timestamp(stats.last_error_ns)})"
+                if stats.last_error is not None and stats.last_error_ns is not None
+                else ""
+            )
+            rows.append(
+                [_display.summary(publisher), _display.escape(stats.sent), _display.escape(stats.errors), last_error]
+            )
+        return _display.Section("Publishers", rows, columns=("Publisher", "Sent", "Errors", "Last error"))
 
     def _repr_html_(self) -> str | None:
         """Show the instrument as a notebook card, built from in-memory state; never talks to the hardware."""
         driver = getattr(self, "_driver", None)
         # Only categories with numbered channels (PSU, scope, AWG) set this.
         num_channels = getattr(self, "_num_channels", None)
-        # Read once: stop() can drop the buffer from another thread while the card is built.
-        buffer = self._channel_buffer if self.background_running else None
-        latest = buffer.latest() if buffer is not None else {}
-        loop_time = latest.get(f"{self.name}.loop_time")
+        channels = self._channel_stats.snapshot()
+        loop_time = next((c for c in channels if c.channel == f"{self.name}.loop_time"), None)
+        errors = sum(self._publisher_counter(p).snapshot().errors for p in list(self.publishers))
+        badges = ["running"] if self.background_running else []
+        if errors:
+            badges.append(f"{errors} publish error{'s' if errors != 1 else ''}")
         return _display.render(
             kind=type(self).__name__,
             title=self.name,
@@ -437,15 +502,20 @@ class Instrument:
                 ("Channel count", _display.escape(num_channels) if num_channels is not None else None),
                 *self._display_fields(),
                 ("Background", self._background_text()),
-                ("Loop time", _display.seconds(float(loop_time[1])) if loop_time else None),
+                (
+                    "Loop time",
+                    _display.seconds(float(loop_time.value))
+                    if self.background_running and loop_time is not None and isinstance(loop_time.value, float)
+                    else None,
+                ),
                 ("Legacy naming", "on" if self.legacy_naming else None),
             ],
             sections=[
-                _display.Section("Publishers", [[_display.summary(p)] for p in self.publishers]),
-                _display.built("Channels", lambda: self._channels_section(latest)),
+                _display.built("Publishers", self._publishers_section),
+                _display.built("Channels", lambda: self._channels_section(channels)),
                 _display.properties_section(self.default_tags, title="Default tags"),
             ],
-            badges=["running"] if self.background_running else [],
+            badges=badges,
         )
 
     @property
