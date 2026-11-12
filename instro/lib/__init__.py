@@ -1,5 +1,6 @@
 """Cross-category building blocks: base instrument, transports, publishers, shared scaling types."""
 
+from instro.lib._display import DisplayOptions, get_display_options, set_display_options
 from instro.lib.discover import (
     DiscoveredInstrument,
     DriverMatch,
@@ -22,6 +23,7 @@ __all__ = [
     "Command",
     "DeviceInfo",
     "DiscoveredInstrument",
+    "DisplayOptions",
     "DriverMatch",
     "FeatureNotSupportedError",
     "IdnFields",
@@ -37,8 +39,10 @@ __all__ = [
     "VisaScanError",
     "VisaScanResult",
     "VisaUnrecognizedInstrument",
+    "get_display_options",
     "install_nominal_core_log_handler",
     "match_idn",
     "parse_idn",
     "scan_visa_resources",
+    "set_display_options",
 ]

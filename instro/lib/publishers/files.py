@@ -12,6 +12,7 @@ from typing import IO, Any, AnyStr, Generic, Literal
 
 import fastavro
 
+from instro.lib import _display
 from instro.lib.types import Command, Measurement
 
 
@@ -118,7 +119,7 @@ class FilePublisher:
         # Attach the writer to the stream, and close the file this publisher opened if that fails
         self._file = file
         try:
-            self._writer = writer_class(file)
+            self.writer = writer_class(file)
         except Exception:
             self.close()
             raise
@@ -126,7 +127,7 @@ class FilePublisher:
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Publish data to file using the appropriate writer."""
         try:
-            self._writer.write(data)
+            self.writer.write(data)
         except Exception as e:
             e.add_note("If you're attempting to publish from multiple instruments, consider using SharedPublisher.")
             raise
@@ -139,6 +140,28 @@ class FilePublisher:
         """Close the file this publisher opened. A stream passed as ``file`` stays open."""
         if self.file_path is not None:
             self._file.close()
+
+    def __repr__(self) -> str:
+        """Name the file this publisher writes to."""
+        target = str(self.file_path) if self.file_path is not None else "<stream>"
+        return f"FilePublisher(file_path={target!r}, format={self.format!r})"
+
+    def _target(self) -> str:
+        if self.file_path is not None:
+            return _display.code(self.file_path)
+        return _display.escape(getattr(self._file, "name", "<stream>"))
+
+    def _display_summary(self) -> str:
+        return f"{_display.escape(self.format)} file {self._target()}"
+
+    def _repr_html_(self) -> str | None:
+        """Show the file this publisher writes to."""
+        return _display.render(
+            kind="FilePublisher",
+            title=self.file_path.name if self.file_path is not None else "stream",
+            fallback=repr(self),
+            fields=[("Path", self._target()), ("Format", _display.escape(self.format))],
+        )
 
 
 class JsonFileWriter(FileWriter[str]):
@@ -226,9 +249,9 @@ class CsvFileWriter(FileWriter[str]):
             ValueError: If the stream is not writable or is not a text stream.
         """
         super().__init__(file)
-        self._writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
+        self.writer = csv.DictWriter(self._file, fieldnames=["timestamp", "channel", "value", "tags"])
         if not self._file.seekable() or self._file.tell() == 0:
-            self._writer.writeheader()
+            self.writer.writeheader()
             self._file.flush()
 
     def write(self, data: Measurement | Command) -> None:
@@ -248,14 +271,14 @@ class CsvFileWriter(FileWriter[str]):
                 # but handle edge case where they don't match
                 timestamp = data.timestamps[i] if i < len(data.timestamps) else data.timestamps[-1]
                 tags = json.dumps(data.tags) if data.tags else ""
-                self._writer.writerow({"timestamp": timestamp, "channel": channel_name, "value": value, "tags": tags})
+                self.writer.writerow({"timestamp": timestamp, "channel": channel_name, "value": value, "tags": tags})
 
     def _write_command(self, data: Command):
         """Write Command data as individual rows."""
         # Write each channel's data as separate rows
         for channel_name, value in data.channel_data.items():
             tags = json.dumps(data.tags) if data.tags else ""
-            self._writer.writerow({"timestamp": data.timestamp, "channel": channel_name, "value": value, "tags": tags})
+            self.writer.writerow({"timestamp": data.timestamp, "channel": channel_name, "value": value, "tags": tags})
 
 
 class AvroFileWriter(FileWriter[bytes]):
@@ -286,7 +309,7 @@ class AvroFileWriter(FileWriter[bytes]):
         self._parsed_schema = fastavro.parse_schema(self.schema)
 
         # Using snappy compression requires cramjam package
-        self._writer = fastavro.write.Writer(self._file, self._parsed_schema, codec="snappy")
+        self.writer = fastavro.write.Writer(self._file, self._parsed_schema, codec="snappy")
 
     def write(self, data: Measurement | Command) -> None:
         """Append data as Avro records and flush them to the stream."""
@@ -294,12 +317,12 @@ class AvroFileWriter(FileWriter[bytes]):
             self._write_measurement(data)
         elif isinstance(data, Command):
             self._write_command(data)
-        self._writer.flush()
+        self.writer.flush()
 
     def _write_measurement(self, data: Measurement):
         """Write Measurement data as batches."""
         for channel_name, values in data.channel_data.items():
-            self._writer.write(
+            self.writer.write(
                 {
                     "channel": channel_name,
                     "timestamps": data.timestamps,
@@ -311,7 +334,7 @@ class AvroFileWriter(FileWriter[bytes]):
     def _write_command(self, data: Command):
         """Write Command data as a batch."""
         for channel_name, value in data.channel_data.items():
-            self._writer.write(
+            self.writer.write(
                 {
                     "channel": channel_name,
                     "timestamps": [data.timestamp],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, TypeVar
 
@@ -50,6 +51,12 @@ class NominalCorePublisherConfig(BaseModel):
     profile: str | None = Field(
         default=None, description="On-disk Nominal credential profile name; defaults to 'default'."
     )
+    max_wait_s: float | None = Field(
+        default=None, gt=0, description="Max seconds a batch can age before being flushed."
+    )
+    file_fallback: str | None = Field(
+        default=None, description="Path of an .avro file written to when Nominal can't be reached."
+    )
 
 
 class FilePublisherConfig(BaseModel):
@@ -71,6 +78,10 @@ def build_publisher(config: NominalCorePublisherConfig | FilePublisherConfig) ->
 
     if isinstance(config, NominalCorePublisherConfig):
         return NominalCorePublisher(
-            dataset_rid=config.dataset_rid, batch_size=config.batch_size, profile=config.profile
+            dataset_rid=config.dataset_rid,
+            batch_size=config.batch_size,
+            max_wait=timedelta(seconds=config.max_wait_s) if config.max_wait_s is not None else None,
+            file_fallback=Path(config.file_fallback) if config.file_fallback is not None else None,
+            profile=config.profile,
         )
     return FilePublisher(directory=config.directory, format=config.format, custom_file_name=config.custom_file_name)

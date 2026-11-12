@@ -8,6 +8,10 @@ from collections import deque
 from importlib.metadata import version
 from typing import Callable
 
+from nominal.core import NominalClient
+
+from instro.lib import _display
+from instro.lib.nominal import _resolve_nominal_client_and_dataset
 from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
@@ -101,8 +105,9 @@ class Instrument:
             **kwargs: Default tags applied to every emitted
                 :class:`~instro.lib.types.Measurement` or
                 :class:`~instro.lib.types.Command`.
-                Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher
-                (uses the on-disk 'default' Nominal credential).
+                Pass ``dataset_rid="<rid>"`` to auto-create a NominalCorePublisher. It uses the
+                on-disk ``"default"`` Nominal profile, unless you also pass ``nominal_profile="<name>"``
+                or an existing ``nominal_client=NominalClient(...)``. These three keywords are not tags.
         """
         self.name = name
         self.legacy_naming = legacy_naming
@@ -132,18 +137,16 @@ class Instrument:
         )
 
     def _process_kwargs(self, **kwargs):
-        """Route known kwargs to their handler; store the rest as default tags."""
-        # Known kwargs mapped to their handler methods
-        known_kwargs = {
-            "dataset_rid": self._add_core_publisher,
-        }
+        """Route the Nominal kwargs to a NominalCorePublisher; store the rest as default tags."""
+        dataset_rid = kwargs.pop("dataset_rid", None)
+        nominal_options = {key: kwargs.pop(key) for key in ("nominal_profile", "nominal_client") if key in kwargs}
+        if nominal_options and dataset_rid is None:
+            raise ValueError(f"{' and '.join(sorted(nominal_options))} only apply together with dataset_rid.")
+        if dataset_rid is not None:
+            self._add_core_publisher(dataset_rid, **nominal_options)
 
-        # Handle known kwargs
         for key, value in kwargs.items():
-            if key in known_kwargs:
-                known_kwargs[key](value)
-            else:
-                self.default_tags[key] = str(value)
+            self.default_tags[key] = str(value)
 
     def _add_package_tags(self):
         """Tag every publication with this distribution's name and version."""
@@ -167,10 +170,16 @@ class Instrument:
             len(self.publishers),
         )
 
-    def _add_core_publisher(self, rid: str):
+    def _add_core_publisher(
+        self, rid: str, nominal_profile: str | None = None, nominal_client: NominalClient | None = None
+    ):
         """Attach a NominalCorePublisher for ``rid`` (typically triggered by ``dataset_rid=``)."""
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
-        self.add_publisher(NominalCorePublisher(rid))
+        if nominal_client is None:
+            self.add_publisher(NominalCorePublisher(rid, profile=nominal_profile))
+            return
+        _, dataset = _resolve_nominal_client_and_dataset(rid, nominal_profile, client=nominal_client)
+        self.add_publisher(NominalCorePublisher(dataset))
 
     def publish(self, data: Measurement | Command, **kwargs):
         """Fan ``data`` out to every configured publisher; ``kwargs`` pass through."""
@@ -370,6 +379,74 @@ class Instrument:
             pass
 
         return None
+
+    @property
+    def background_running(self) -> bool:
+        """Whether the background daemon thread is running."""
+        return self._background_thread is not None and self._background_thread.is_alive()
+
+    def __repr__(self) -> str:
+        """Summarize the instrument from in-memory state; never talks to the hardware."""
+        parts = [f"name={self.name!r}"]
+        driver = getattr(self, "_driver", None)
+        if driver is not None:
+            parts.append(f"driver={type(driver).__name__}")
+        parts.append(f"publishers=[{', '.join(type(p).__name__ for p in self.publishers)}]")
+        parts.append(f"background_running={self.background_running}")
+        return f"{type(self).__name__}({', '.join(parts)})"
+
+    def _display_fields(self) -> list[tuple[str, str | None]]:
+        """Category-specific rows for the notebook card, as label and escaped HTML. Must not talk to the hardware."""
+        return []
+
+    def _background_text(self) -> str:
+        interval = self._background_config.interval
+        cadence = "free-running" if interval <= 0 else f"every {_display.seconds(interval)}"
+        return f"running, {cadence}" if self.background_running else f"stopped ({cadence} when started)"
+
+    def _channels_section(self, latest: dict[str, tuple[int, float | str]]) -> _display.Section:
+        prefix = f"{self.name}."
+        return _display.Section(
+            "Channels",
+            [
+                [
+                    _display.code(name.removeprefix(prefix)),
+                    _display.value(sample),
+                    _display.timestamp(timestamp),
+                ]
+                for name, (timestamp, sample) in latest.items()
+            ],
+            columns=("Channel", "Latest", "Time"),
+        )
+
+    def _repr_html_(self) -> str | None:
+        """Show the instrument as a notebook card, built from in-memory state; never talks to the hardware."""
+        driver = getattr(self, "_driver", None)
+        # Only categories with numbered channels (PSU, scope, AWG) set this.
+        num_channels = getattr(self, "_num_channels", None)
+        # Read once: stop() can drop the buffer from another thread while the card is built.
+        buffer = self._channel_buffer if self.background_running else None
+        latest = buffer.latest() if buffer is not None else {}
+        loop_time = latest.get(f"{self.name}.loop_time")
+        return _display.render(
+            kind=type(self).__name__,
+            title=self.name,
+            fallback=repr(self),
+            fields=[
+                ("Driver", _display.code(type(driver).__name__) if driver is not None else None),
+                ("Channel count", _display.escape(num_channels) if num_channels is not None else None),
+                *self._display_fields(),
+                ("Background", self._background_text()),
+                ("Loop time", _display.seconds(float(loop_time[1])) if loop_time else None),
+                ("Legacy naming", "on" if self.legacy_naming else None),
+            ],
+            sections=[
+                _display.Section("Publishers", [[_display.summary(p)] for p in self.publishers]),
+                _display.built("Channels", lambda: self._channels_section(latest)),
+                _display.properties_section(self.default_tags, title="Default tags"),
+            ],
+            badges=["running"] if self.background_running else [],
+        )
 
     @property
     def channel_names(self) -> tuple[str, ...]:
