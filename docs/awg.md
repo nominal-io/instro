@@ -15,8 +15,8 @@ Using InstroAWG for SCPI-based arbitrary waveform generators
 ## Creating an InstroAWG
 
 ```python
-from instro.awg.drivers import RigolDG1022Z
-from instro.awg import InstroAWG
+from instro import InstroAWG
+from instro.drivers import RigolDG1022Z
 
 awg = InstroAWG(
     name="myAWG",
@@ -64,7 +64,7 @@ The typical InstroAWG workflow:
 
 ### Waveform Definitions
 
-InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses in `instro.awg`.
+InstroAWG supports programming a channel with the following waveforms: `Sine`, `Square`, `Sawtooth`, `Triangle`, `Pulse`, `Arbitrary`, or `StaticValue`. These are all frozen dataclasses; import them from `instro`.
 
 `Arbitrary` requires a sample rate field (`sample_rate_sas`, in samples per second) to specify the number of samples that the internal DAC outputs per second.
 
@@ -115,7 +115,7 @@ Certain features are only available on particular waveforms. Drivers own their i
 ```
 
 ```python
-from instro.awg import InstroAWG
+from instro import InstroAWG
 
 awg = InstroAWG(config="bench_awg.json")
 ```

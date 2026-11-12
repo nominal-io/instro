@@ -16,8 +16,8 @@ The {py:obj}`GWInstekGPD3303 <instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD33
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`GWInstekGPD3303 <instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303>`
 
 ```python
-from instro.psu.drivers import GWInstekGPD3303
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import GWInstekGPD3303
 
 psu = InstroPSU(
     name="myPSU",

@@ -20,7 +20,7 @@ The {py:obj}`Keysight3000TX <instro.unstable.scope.drivers.keysight_3000tx.Keysi
 
 ```python
 from instro.unstable.scope.drivers import Keysight3000TX
-from instro.scope import InstroScope
+from instro import InstroScope
 
 scope = InstroScope(
     name="myScope",

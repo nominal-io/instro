@@ -12,6 +12,30 @@ Using instro with some more detail
 
 This page discusses details about using `instro`.
 
+## Imports
+
+Import each name from the shallowest module that has it. For almost every name, that is one of three namespaces:
+
+| Namespace | What it holds | Example |
+| --- | --- | --- |
+| `instro` | Instrument classes, abstract driver bases, and each category's types and config models | `from instro import InstroPSU, LoadMode, MeasurementFunction` |
+| `instro.drivers` | Every concrete driver, including the drivers in vendor packages | `from instro.drivers import BK9115, NIDAQDriver, VirtualDMM` |
+| `instro.lib` | Shared building blocks: publishers, transports, measurement types, exceptions | `from instro.lib import NominalCorePublisher, VisaConfig` |
+
+```python
+from instro import InstroDMM, InstroELoad, InstroPSU, LoadMode, MeasurementFunction
+from instro.drivers import VirtualDMM, VirtualELoad, VirtualPSU
+from instro.lib import BackgroundDaemonConfig, NominalCorePublisher
+```
+
+Code that imports from the deeper module paths (`instro.psu.drivers`, `instro.lib.publishers`, ...) keeps working unchanged, but write new code against the namespaces above.
+
+A driver from a vendor package (`NIDAQDriver`, `LabJackTSeriesDriver`, `MCCDriver`, `Aardvark`) loads when you first import it. If its package is missing, the `ImportError` names the extra to install, for example `pip install 'instro[nidaq]'`. Community drivers have their own flat namespace, `instro.contrib.drivers`.
+
+Two names are not in `instro` because they mean different things in different protocols, so their shallowest module is the category package: import Modbus `TimingConfig` from `instro.modbus`, and the I2C `RegisterDef` from `instro.i2c` (`instro.RegisterDef` is the Modbus one).
+
+`import instro` is cheap: each name loads on first use. In IPython, `dir(instro)` and tab completion list every name before anything loads.
+
 ## Instruments
 
 ### Two ways to get data
@@ -34,8 +58,8 @@ Instruments can also be open/closed automatically using a `with` block.
 Best when the instrument's lifetime spans many functions, or when you want to interleave setup and teardown across event handlers, fixtures, or REPL sessions.
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
 
 psu = InstroPSU(
     name="bench_psu",
@@ -61,8 +85,8 @@ psu.close()
 Best for scripts and tests where the instrument is used inside a single scope. `close()` runs automatically on the way out, even if an exception is raised.
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
 
 with InstroPSU(
     name="bench_psu",

@@ -16,8 +16,8 @@ The {py:obj}`RigolDP800 <instro.psu.drivers.rigol_dp800.RigolDP800>` provides a 
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`RigolDP800 <instro.psu.drivers.rigol_dp800.RigolDP800>`
 
 ```python
-from instro.psu.drivers import RigolDP800
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import RigolDP800
 
 psu = InstroPSU(
     name="myPSU",

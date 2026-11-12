@@ -4,10 +4,9 @@ Requires the Aardvark vendor package: install with ``uv sync --extra i2c``
 (or ``pip install 'instro[i2c]'``).
 """
 
-from instro.i2c import I2CInterface
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c.types import SystemDefinition
-from instro.lib.publishers import NominalCorePublisher
+from instro import I2CInterface, SystemDefinition
+from instro.drivers import Aardvark
+from instro.lib import NominalCorePublisher
 
 RESOURCE_ID = "2239-764425"
 
@@ -21,7 +20,7 @@ def my_system_definition() -> SystemDefinition:
     """
     from enum import Enum
 
-    from instro.i2c.types import CommandDef, CommandDevice, CustomScaling, DataFormat
+    from instro import CommandDef, CommandDevice, CustomScaling, DataFormat
 
     # For use with ltc2309 ADC
     ADCChannel = Enum(

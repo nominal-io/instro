@@ -1,8 +1,7 @@
 """Example: Read a digital port (all lines as one N-bit integer)."""
 
-from instro.daq import InstroDAQ
-from instro.daq.types import DAQVendor, DigitalPortWidth, Direction, Logic
-from instro.lib.publishers import NominalCorePublisher
+from instro import DAQVendor, DigitalPortWidth, Direction, InstroDAQ, Logic
+from instro.lib import NominalCorePublisher
 
 # Configuration: Choose your vendor. Port-mode I/O is supported on NI, Keysight, and MCC.
 VENDOR = DAQVendor.NI
@@ -11,17 +10,17 @@ VENDOR = DAQVendor.NI
 # owns its transport at construction time.
 match VENDOR:
     case DAQVendor.NI:
-        from instro.daq.drivers.ni import NIDAQDriver
+        from instro.drivers import NIDAQDriver
 
         PORT = "Dev1/port0"
         driver = NIDAQDriver(device_id="Dev1")
     case DAQVendor.KEYSIGHT_34980:
-        from instro.daq.drivers import Keysight34980A
+        from instro.drivers import Keysight34980A
 
         PORT = "5101"
         driver = Keysight34980A("USB0::0x0957::0x0507::MY44001757::INSTR")
     case DAQVendor.MCC:
-        from instro.daq.drivers.mcc import MCCDriver
+        from instro.drivers import MCCDriver
 
         PORT = "FIRSTPORTB"
         driver = MCCDriver(

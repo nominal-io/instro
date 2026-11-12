@@ -8,7 +8,7 @@ setup before running:
 import time
 from pathlib import Path
 
-from instro.eload import InstroELoad
+from instro import InstroELoad
 
 CONFIG_PATH = Path(__file__).parent / "eload_config_bk85xxb.json"
 

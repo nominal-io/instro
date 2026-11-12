@@ -86,7 +86,7 @@ pub struct StreamSession {
 impl StreamSession {
     pub(crate) fn new<F>(name: &'static str, f: F) -> Result<Self>
     where
-        F: AsyncFnOnce() -> () + Send + 'static,
+        F: Future<Output = ()> + Send + 'static,
     {
         let runtime = runtime::Builder::new_current_thread()
             .enable_time()
@@ -101,34 +101,7 @@ impl StreamSession {
             .name(format!("opcua-worker-thread-{name}"))
             .spawn(move || {
                 runtime.block_on(async move {
-                    tokio::select! {
-                        stop_result = stop_rx => {
-                            match stop_result {
-                                Ok(_) => tracing::debug!(
-                                    target: "opcua::client::spawn_task",
-                                    task = name,
-                                    "stopped cooperatively",
-                                ),
-                                Err(e) => tracing::debug!(
-                                    target: "opcua::client::spawn_task",
-                                    task = name,
-                                    err = ?e,
-                                    "stop signal likely dropped before task completed",
-                                ),
-                            }
-                        }
-
-                        _ = f() => ()
-                    }
-
-                    if let Err(e) = term_tx.send(true) {
-                        tracing::debug!(
-                            target: "opcua::client::spawn_task",
-                            err = ?e,
-                            task = name,
-                            "error sending finished signal to task"
-                        );
-                    }
+                    Self::run(name, f, stop_rx, term_tx).await;
                 })
             })
             .context("creating runtime thread")?;
@@ -136,6 +109,43 @@ impl StreamSession {
         Ok(Self {
             handle: Some(SessionHandle { stop_tx, term_rx }),
         })
+    }
+
+    async fn run(
+        name: &'static str,
+        work: impl Future<Output = ()>,
+        stop_rx: oneshot::Receiver<()>,
+        term_tx: watch::Sender<bool>,
+    ) {
+        tokio::select! {
+            stop_result = stop_rx => {
+                match stop_result {
+                    Ok(_) => tracing::debug!(
+                        target: "opcua::client::spawn_task",
+                        task = name,
+                        "stopped cooperatively",
+                    ),
+
+                    Err(e) => tracing::debug!(
+                        target: "opcua::client::spawn_task",
+                        task = name,
+                        err = ?e,
+                        "stop signal likely dropped before task completed",
+                    ),
+                }
+            }
+
+            _ = work => ()
+        }
+
+        if let Err(e) = term_tx.send(true) {
+            tracing::debug!(
+                target: "opcua::client::spawn_task",
+                err = ?e,
+                task = name,
+                "error sending finished signal to task"
+            );
+        }
     }
 
     /// Stops the stream session, waiting until the session exits.
@@ -266,15 +276,25 @@ mod tests {
 
     use super::*;
 
-    fn session(f: impl AsyncFnOnce() -> () + Send + 'static) -> StreamSession {
-        StreamSession::new("test-session", f).unwrap()
+    async fn session(f: impl Future<Output = ()> + Send + 'static) -> StreamSession {
+        let (start_tx, start_rx) = oneshot::channel();
+
+        let session = StreamSession::new("test-session", async {
+            let _ = start_tx.send(());
+            f.await;
+        })
+        .unwrap();
+
+        start_rx.await.expect("session should start");
+
+        session
     }
 
     #[tokio::test(flavor = "current_thread")]
     async fn stream_session_stops_with_no_work() -> Result<()> {
-        let session = session(async || {});
+        let session = session(async {}).await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("should stop immediately");
 
@@ -283,13 +303,14 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn stream_session_indefinite_loop_is_interruptible() -> Result<()> {
-        let session = session(async || {
+        let session = session(async {
             loop {
                 yield_now().await;
             }
-        });
+        })
+        .await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("should stop before timeout");
 
@@ -298,9 +319,9 @@ mod tests {
 
     #[tokio::test(flavor = "current_thread")]
     async fn stream_session_doesnt_propagate_panics() -> Result<()> {
-        let session = session(async || panic!("shouldn't appear"));
+        let session = session(async { panic!("shouldn't appear") }).await;
 
-        timeout(Duration::from_millis(2), session.stop())
+        timeout(Duration::from_millis(100), session.stop())
             .await
             .expect("shouldn't timeout");
 

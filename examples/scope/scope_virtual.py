@@ -5,8 +5,8 @@ channel 2 a 1 kHz square. Swap in a real driver (Keysight1200X, SiglentSDS1000XE
 rest is unchanged.
 """
 
-from instro.scope import InstroScope, ScopeMeasurementType
-from instro.scope.drivers import VirtualScope
+from instro import InstroScope, ScopeMeasurementType
+from instro.drivers import VirtualScope
 
 driver = VirtualScope(num_channels=2)  # optional: signals={1: SineWave(frequency=5e3), ...}
 

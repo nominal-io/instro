@@ -72,8 +72,8 @@ Hardware and software timing are mutually exclusive on one instance: configuring
 Construct a vendor driver and pass it to `InstroDAQ`:
 
 ```python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq import InstroDAQ
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
 
 # Create a LabJack DAQ
 daq = InstroDAQ(
@@ -85,20 +85,20 @@ daq = InstroDAQ(
 ### Vendor-Specific Driver Examples
 
 ```python
-from instro.daq import InstroDAQ
+from instro import InstroDAQ
 
 # National Instruments (device name from NI-MAX)
-from instro.daq.drivers.ni import NIDAQDriver
+from instro.drivers import NIDAQDriver
 
 daq = InstroDAQ(name="niDAQ", driver=NIDAQDriver(device_id="Dev1"))
 
 # LabJack (serial number, device name, or IP address)
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro.drivers import LabJackTSeriesDriver
 
 daq = InstroDAQ(name="ljDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
 
 # Measurement Computing (MCC device unique ID, optionally suffixed with a board number)
-from instro.daq.drivers.mcc import MCCDriver
+from instro.drivers import MCCDriver
 
 daq = InstroDAQ(
     name="mccDAQ",
@@ -106,7 +106,7 @@ daq = InstroDAQ(
 )
 
 # Keysight 34980A (SCPI/VISA device: driver owns its VisaDriver)
-from instro.daq.drivers import Keysight34980A
+from instro.drivers import Keysight34980A
 
 daq = InstroDAQ(
     name="keysightDAQ",
@@ -153,7 +153,7 @@ It's common for the data being read by an analog input channel to need scaling t
 
 Example of a 0-5V pressure sensor that measures 0-3000 psia.
 ```python
-from instro.daq.scaling import LinearScaler
+from instro import LinearScaler
 
 daq.configure_voltage_input(
     physical_channel="AIN0",  # Vendor-specific channel name
@@ -170,8 +170,7 @@ For example, a thermocouple that's fed into an amplifier and then the DAQ will r
  2. Scaling the voltage seen across the thermocouple terminals to temperature.
 
  ```python
- from instro.daq.scaling import ScalerPipeline, ReverseLinearScaler
- from instro.daq.scaling.thermocouple import ThermocoupleSensor
+ from instro import ReverseLinearScaler, ScalerPipeline, ThermocoupleSensor
 
 scaler_pipeline = ScalerPipeline(ReverseLinearScaler(gain=<amplifier gain>, offset=<voltage offset>, units="V"), ThermocoupleSensor(type = <TC_type>, cjc_temp = <cjc temp in Celsius>))
  ```
@@ -179,7 +178,7 @@ scaler_pipeline = ScalerPipeline(ReverseLinearScaler(gain=<amplifier gain>, offs
  You can create your own scaler by subclassing `Scaler` and implementing `scale` and `units` methods.
 
  ```python
-from instro.daq.scaling import Scaler
+from instro import Scaler
 
 class TheAnswer(Scaler):
 
@@ -226,7 +225,7 @@ Before configuring a digital channel, you need to specify the following paramete
 
 For example, to configure a digital input line with a custom logic threshold:
 ```python
-from instro.daq.types import Logic
+from instro import Logic
 
 daq.configure_digital_input(
     physical_channel="5101/2",
@@ -237,7 +236,7 @@ daq.configure_digital_input(
 ```
 If configuring an entire port:
 ```python
-from instro.daq.types import Direction, DigitalPortWidth, Logic
+from instro import DigitalPortWidth, Direction, Logic
 
 daq.configure_digital_port(
     direction=Direction.OUTPUT,
@@ -287,7 +286,7 @@ Digital driver support:
 The LabJack driver registers a thermocouple's `AIN#` in the scan list as raw volts and converts each sample to temperature on read with LJM's `TCVoltsToTemp` and the devices internal CJC. For more on using thermocouples with a LabJack device, see LabJack's [thermocouple guide](https://support.labjack.com/docs/using-a-thermocouple-with-labjack).
 
 ```python
-from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
+from instro import TC_TYPE, TC_UNIT
 
 daq.configure_thermocouple_input("AIN0", TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
 ```
@@ -305,7 +304,7 @@ The T4 snapshots CJC once when the stream starts, so its thermocouple readings c
 To back external signal conditioning out of the measured volts before conversion, pass a `tc_input_scaler` when configuring the channel. The T4's 12-bit ADC cannot resolve a bare thermocouple, so LabJack recommends using an [LJTick-InAmp](https://support.labjack.com/docs/using-a-thermocouple-with-the-t4#Overview): the T4 defaults `tc_input_scaler` to the InAmp's x51 gain and 1.25 V offset jumpers.
 
 ```python
-from instro.daq.scaling.scaling import ReverseLinearScaler
+from instro import ReverseLinearScaler
 
 daq.configure_thermocouple_input(
     "AIN4",
@@ -328,7 +327,7 @@ daq.configure_thermocouple_input(
 The MCC Universal Library converts thermocouple readings on the device and returns temperature directly. The driver therefore rejects `tc_input_scaler`, and cold-junction compensation is always internal: `cjc_source` must be `INTERNAL` (the default).
 
 ```python
-from instro.daq.scaling.thermocouple import TC_TYPE, TC_UNIT
+from instro import TC_TYPE, TC_UNIT
 
 daq.configure_thermocouple_input("0", TC_TYPE.K, alias="tc0", unit=TC_UNIT.CELSIUS)
 ```
@@ -346,7 +345,7 @@ MCC boards set the analog input mode in one of two ways. Some boards set it per 
 On board-wide devices every configured channel shares one mode. Configuring several channels with different `terminal_config` values leaves the board in the mode of the channel configured last. The earlier channels read in that mode too, with no error raised.
 
 ```python
-from instro.daq.types import TerminalConfig
+from instro import TerminalConfig
 
 daq.configure_voltage_input("0", alias="ch0", terminal_config=TerminalConfig.RSE)
 daq.configure_voltage_input("1", alias="ch1", terminal_config=TerminalConfig.DIFF)
@@ -478,7 +477,7 @@ For manual, on-demand updates of set points, configure the output channels with 
 ### Reading Digital Lines
 
 ```python
-from instro.daq.types import Logic
+from instro import Logic
 
 daq.configure_digital_input(
     physical_channel="DIO0",
@@ -493,7 +492,7 @@ print(f"Digital state: {measurement.latest}")
 ### Writing Digital Lines
 
 ```python
-from instro.daq.types import Logic
+from instro import Logic
 
 daq.configure_digital_output(
     physical_channel="DIO1",
@@ -513,7 +512,7 @@ daq.write_digital_line(channel="enable_signal", data=0)
 For devices that expose digital I/O as parallel ports (multiple lines read or written together), use `read_digital_port()` and `write_digital_port()`. Configure the channel with a `port_width` that matches the hardware port, then read or write the full port as a single integer value.
 
 ```python
-from instro.daq.types import Direction, DigitalPortWidth, Logic
+from instro import DigitalPortWidth, Direction, Logic
 
 # Configure an 8-bit digital output port
 daq.configure_digital_port(
@@ -610,9 +609,8 @@ Custom driver authors: `configure_ai_channel` and `configure_ao_channel` are dep
 The power of InstroDAQ is that **the same code works across different vendors**. To switch vendors, just swap the driver instance:
 
 ```Python
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.daq.drivers.ni import NIDAQDriver
-from instro.daq import InstroDAQ
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver, NIDAQDriver
 
 # LabJack version
 daq = InstroDAQ(name="myDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))
