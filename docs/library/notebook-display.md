@@ -51,7 +51,7 @@ with set_display_options(show_link=False):
 
 ## Custom instruments and publishers
 
-A custom {py:class}`~instro.lib.Instrument` subclass gets a default card automatically. To customize the card, override `_display_fields()` and return `(label, html)` pairs built from in-memory state only. A category such as {py:class}`~instro.psu.InstroPSU` already returns rows of its own, so start from `super()._display_fields()` to keep them:
+A custom {py:class}`~instro.lib.Instrument` subclass gets a default card automatically. To customize the card, override `_display_fields()` and return `(label, html)` pairs built from in-memory state only. Start from `super()._display_fields()` to keep the rows of the class you extend:
 
 ```python
 from instro.lib import _display

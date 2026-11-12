@@ -422,6 +422,8 @@ class Instrument:
     def _repr_html_(self) -> str | None:
         """Show the instrument as a notebook card, built from in-memory state; never talks to the hardware."""
         driver = getattr(self, "_driver", None)
+        # Only categories with numbered channels (PSU, scope, AWG) set this.
+        num_channels = getattr(self, "_num_channels", None)
         # Read once: stop() can drop the buffer from another thread while the card is built.
         buffer = self._channel_buffer if self.background_running else None
         latest = buffer.latest() if buffer is not None else {}
@@ -432,6 +434,7 @@ class Instrument:
             fallback=repr(self),
             fields=[
                 ("Driver", _display.code(type(driver).__name__) if driver is not None else None),
+                ("Channel count", _display.escape(num_channels) if num_channels is not None else None),
                 *self._display_fields(),
                 ("Background", self._background_text()),
                 ("Loop time", _display.seconds(float(loop_time[1])) if loop_time else None),

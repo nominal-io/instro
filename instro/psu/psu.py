@@ -10,7 +10,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable
 
-from instro.lib import Command, Instrument, Measurement, _display
+from instro.lib import Command, Instrument, Measurement
 from instro.lib.config import load_config
 from instro.lib.instrument import publish_command, publish_measurement
 from instro.lib.publishers import Publisher
@@ -259,9 +259,6 @@ class InstroPSU(Instrument):
         else:
             descriptor = f"ch{channel}.{channel_suffix}"
         return self._package_measurement(descriptor, val, timestamp, **kwargs)
-
-    def _display_fields(self) -> list[tuple[str, str | None]]:
-        return [("Channel count", _display.escape(self._num_channels))]
 
     def open(self):
         """Establish connection to the device."""
