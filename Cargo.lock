@@ -93,9 +93,9 @@ checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
 
 [[package]]
 name = "cc"
-version = "1.10.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e055fa6e3e40ad6187ba25b6855eeb635d5271f8e0f0e1e9a5826b8d75bea0"
+checksum = "4ff2a8126fff0f8c839080d619675a585e61720bb12d2baceae45769fd66f155"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -123,7 +123,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1aa79e62e7697b8e29b513a68abacf485adcd1fe8284a4316c5ae868e6633327"
 dependencies = [
  "iana-time-zone",
+ "js-sys",
  "num-traits",
+ "wasm-bindgen",
  "windows-link",
 ]
 
@@ -412,8 +414,14 @@ dependencies = [
 name = "instro-opcua-py"
 version = "0.1.1"
 dependencies = [
+ "anyhow",
+ "chrono",
  "instro-opcua",
+ "itertools",
  "pyo3",
+ "tokio",
+ "tracing",
+ "zips",
 ]
 
 [[package]]
@@ -582,7 +590,7 @@ checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 [[package]]
 name = "open62541"
 version = "0.12.1"
-source = "git+https://github.com/cartercanedy/open62541-rs?rev=98da2de72ff1bb12e953790a505d8812424b5a7d#98da2de72ff1bb12e953790a505d8812424b5a7d"
+source = "git+https://github.com/cartercanedy/open62541-rs?rev=b4bc61ece79dc4af20f442bb704ddcb3ee6a7d82#b4bc61ece79dc4af20f442bb704ddcb3ee6a7d82"
 dependencies = [
  "derive_more",
  "futures-channel",
@@ -603,9 +611,9 @@ dependencies = [
 
 [[package]]
 name = "open62541-sys"
-version = "0.6.5"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a12face45bc27f49d866d7f511665e95d1603b4e9102dd8ddb5c95cec4143b96"
+checksum = "12fe6cb894630ce8b6d7f15c6c6ed7f457310d6cd318d563252e755a0fd4990e"
 dependencies = [
  "bindgen",
  "cc",
@@ -695,12 +703,14 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd274650b21d4bfc26a0a47587962c1edb425f69287324355cd040c3ea66071c"
 dependencies = [
+ "chrono",
  "libc",
  "once_cell",
  "portable-atomic",
  "pyo3-build-config",
  "pyo3-ffi",
  "pyo3-macros",
+ "uuid",
 ]
 
 [[package]]
@@ -1520,6 +1530,17 @@ name = "zeroize_derive"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c50655cbb0fe3fc43170059e702f1ce5e19b84cec58dc87b037a09935c2f328"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "zips"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba09194204fda6b1e206faf9096a3c0658ddf7606560f6edce112da3fcc9b111"
 dependencies = [
  "proc-macro2",
  "quote",
