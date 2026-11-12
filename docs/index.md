@@ -105,6 +105,7 @@ sdr
 library/concepts
 library/library
 library/publishers
+library/notebook-display
 library/protocols/overview
 library/transports/overview
 library/config-files
@@ -168,6 +169,7 @@ ref/library/config
 ref/library/registry
 ref/library/exceptions
 ref/library/publishers
+ref/library/display
 ref/library/discover
 ref/library/transports
 ```

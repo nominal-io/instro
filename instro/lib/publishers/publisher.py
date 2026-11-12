@@ -6,6 +6,7 @@ import queue
 import threading
 from typing import Protocol
 
+from instro.lib import _display
 from instro.lib.types import Command, Measurement
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,10 @@ class BufferedPublisher(abc.ABC):
         self.publisher = publisher
         self.buffer: list[Measurement | Command] = []
         self.buffer_size = buffer_size
-        self._closed = False
+        self.closed = False
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
-        if self._closed:
+        if self.closed:
             logger.warning(
                 "Dropping publish request because BufferedPublisher is closed (publisher=%s)",
                 self.publisher.__class__.__name__,
@@ -40,7 +41,7 @@ class BufferedPublisher(abc.ABC):
         pass
 
     def close(self) -> None:
-        if self._closed:
+        if self.closed:
             logger.warning(
                 "Dropping close request because BufferedPublisher is already closed (publisher=%s)",
                 self.publisher.__class__.__name__,
@@ -49,7 +50,10 @@ class BufferedPublisher(abc.ABC):
         self.publish_batch()
         self.buffer.clear()
         self.publisher.close()
-        self._closed = True
+        self.closed = True
+
+    def _display_summary(self) -> str:
+        return f"buffered ({len(self.buffer)}/{self.buffer_size}) → {_display.summary(self.publisher)}"
 
 
 class BasicBufferedPublisher(BufferedPublisher):
@@ -61,10 +65,11 @@ class BasicBufferedPublisher(BufferedPublisher):
 class QueuedPublisher(Publisher):
     def __init__(self, publisher: Publisher, max_queue_size: int = 1000, wait_for_queue: bool = False):
         self.publisher = publisher
+        self.max_queue_size = max_queue_size
         self._queue: queue.Queue[tuple[Measurement | Command, dict]] = queue.Queue(maxsize=max_queue_size)
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._worker, daemon=True)
-        self._wait_for_queue = wait_for_queue
+        self.wait_for_queue = wait_for_queue
         self._thread.start()
 
     def publish(self, data: Measurement | Command, **kwargs):
@@ -77,7 +82,7 @@ class QueuedPublisher(Publisher):
         self._queue.put((data, kwargs))
 
     def _worker(self):
-        while not self._stop_event.is_set() or (self._wait_for_queue and not self._queue.empty()):
+        while not self._stop_event.is_set() or (self.wait_for_queue and not self._queue.empty()):
             try:
                 data, kwargs = self._queue.get(timeout=0.1)
                 self.publisher.publish(data, **kwargs)
@@ -85,8 +90,16 @@ class QueuedPublisher(Publisher):
             except queue.Empty:
                 continue
 
+    @property
+    def queue_size(self) -> int:
+        """Items waiting to be published."""
+        return self._queue.qsize()
+
+    def _display_summary(self) -> str:
+        return f"queued ({self.queue_size}/{self.max_queue_size}) → {_display.summary(self.publisher)}"
+
     def close(self):
-        if not self._wait_for_queue and not self._queue.empty():
+        if not self.wait_for_queue and not self._queue.empty():
             logger.warning(
                 "Closing QueuedPublisher with %d queued item(s) that may be dropped (publisher=%s)",
                 self._queue.qsize(),
@@ -159,6 +172,16 @@ class SharedPublisher(Publisher):
             if (state := self._state) is None:
                 raise RuntimeError("attempted to clone a shared publisher handle that was already closed")
             return SharedPublisher.__from_state(state.increment())
+
+    @property
+    def publisher(self) -> Publisher | None:
+        """The underlying publisher being shared, or `None` once this handle is closed."""
+        with self._state_lock:
+            return None if self._state is None else self._state._publisher
+
+    def _display_summary(self) -> str:
+        inner = self.publisher
+        return "shared (closed)" if inner is None else f"shared → {_display.summary(inner)}"
 
     def publish(self, data: Measurement | Command, **kwargs) -> None:
         """Publish data to the underlying publisher being shared."""

@@ -1,3 +1,4 @@
+import itertools
 import sys
 import threading
 import time
@@ -9,6 +10,13 @@ import numpy as np
 from numpy.typing import NDArray
 
 from instro.lib.types import Command, Measurement
+
+
+def _deque_tail(items: deque, length: int) -> list:
+    """The last ``length`` items of ``items``, oldest first, copying only those items."""
+    tail = list(itertools.islice(reversed(items), max(length, 0)))
+    tail.reverse()
+    return tail
 
 
 class ChannelNotFoundError(TimeoutError):
@@ -182,6 +190,21 @@ class ChannelBufferPublisher(ABC):
             self._timestamps.clear()
             self._total_added_count.clear()
 
+    def latest(self) -> dict[str, tuple[int, float | str]]:
+        """Return the newest ``(timestamp, value)`` of every channel holding data, in insertion order. Never blocks on new data."""
+        with self._condition:
+            snapshot: dict[str, tuple[int, float | str]] = {}
+            for channel_name in self._values:
+                if channel_name in self._timestamps and self._points_in_buffer(channel_name):
+                    snapshot[channel_name] = (
+                        self._get_timestamps(channel_name, 1)[0],
+                        self._get_values(channel_name, 1)[0],
+                    )
+            return snapshot
+
+    def _display_summary(self) -> str:
+        return f"in-memory buffer ({len(self._values)} channels, last {self.maxlen} samples each)"
+
     @property
     def channel_names(self) -> tuple[str, ...]:
         """Return an insertion-ordered snapshot of all channel names currently in the buffer.
@@ -215,12 +238,10 @@ class DequeInMemoryPublisher(ChannelBufferPublisher):
         self._timestamps[channel_name].extend(timestamps)
 
     def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
-        n = min(length, len(self._values[channel_name]))
-        return list(self._values[channel_name])[-n:] if n else []
+        return _deque_tail(self._values[channel_name], length)
 
     def _get_timestamps(self, channel_name: str, length: int) -> list[int]:
-        n = min(length, len(self._timestamps[channel_name]))
-        return list(self._timestamps[channel_name])[-n:] if n else []
+        return _deque_tail(self._timestamps[channel_name], length)
 
     def _points_in_buffer(self, channel_name: str) -> int:
         return len(self._values[channel_name])
@@ -276,8 +297,7 @@ class NumpyInMemoryPublisher(ChannelBufferPublisher):
     def _get_values(self, channel_name: str, length: int) -> list[float] | list[str]:
         store = self._values[channel_name]
         if isinstance(store, deque):
-            n = min(length, len(store))
-            return list(store)[-n:] if n else []
+            return _deque_tail(store, length)
         return store.get_latest(length).tolist()
 
     def _get_timestamps(self, channel_name: str, length: int) -> list[int]:

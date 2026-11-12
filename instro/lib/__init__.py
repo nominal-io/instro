@@ -23,8 +23,11 @@ Errors
     ``InstroError`` and its subclasses, such as ``FeatureNotSupportedError``.
 Discovery
     ``scan_visa_resources`` and ``match_idn`` find connected instruments and the drivers that support them.
+Notebook display
+    ``set_display_options`` and ``DisplayOptions`` control how instruments and publishers show in notebooks.
 """
 
+from instro.lib._display import DisplayOptions, get_display_options, set_display_options
 from instro.lib.config import (
     FilePublisherConfig,
     NominalCorePublisherConfig,
@@ -151,4 +154,8 @@ __all__ = [
     "match_idn",
     "parse_idn",
     "scan_visa_resources",
+    # Notebook display
+    "DisplayOptions",
+    "get_display_options",
+    "set_display_options",
 ]

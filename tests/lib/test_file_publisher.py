@@ -189,7 +189,7 @@ def test_jsonl_close_closes_file_handle(tmp_path):
 
     publisher.close()
 
-    assert publisher._writer._file.closed
+    assert publisher.writer._file.closed
     publisher.close()  # idempotent
 
 
