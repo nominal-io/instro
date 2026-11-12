@@ -293,9 +293,19 @@ def _add_seo(app, pagename, templatename, context, doctree):
     """
     from docutils import nodes
 
+    meta = context.get("meta") or {}
+    if pagename.startswith("_modules/"):
+        # viewcode's source listings have no doctree
+        module = pagename.removeprefix("_modules/").replace("/", ".")
+        description = (
+            "Source code of the instro Python library's modules."
+            if module == "index"
+            else f"Source code of the {module} module, part of the instro Python library."
+        )
+        context["meta"] = {**meta, "description": description}
+        return
     if doctree is None:
         return
-    meta = context.get("meta") or {}
     folder, _, name = pagename.rpartition("/")
     title, description = meta.get("seo_title"), meta.get("description")
     if not description:
@@ -311,7 +321,7 @@ def _add_seo(app, pagename, templatename, context, doctree):
         )
     elif pagename.startswith("ref/") and name.startswith("instro."):
         module, _, obj = name.rpartition(".")
-        title = title or f"{obj} ({module}) - instro Python API"
+        title = title or f"{obj} ({module}) - instro"
         description = description or _description(doctree, min_length=0)
         description = description or f"API reference for {obj} in {module}, part of the instro Python library."
     description = description or _description(doctree, min_length=40)

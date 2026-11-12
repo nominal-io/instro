@@ -1,4 +1,7 @@
-"""A minimal custom `Instrument`, a simulated temperature controller whose reading lags the commanded setpoint."""
+"""A custom `Instrument`: a simulated temperature controller.
+
+Its reading lags the commanded setpoint.
+"""
 
 import random
 import time

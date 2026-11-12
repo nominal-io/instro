@@ -2,9 +2,6 @@
 orphan: true
 card: GW Instek GPD-3303D
 image: GWInstekGPD3303.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # GWInstekGPD3303

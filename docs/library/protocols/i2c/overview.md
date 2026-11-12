@@ -17,7 +17,7 @@ I2CInterface is a hardware abstraction layer (HAL) that provides a unified inter
 
 ### Supported Vendors
 
-- **Total Phase** - Aardvark I2C/SPI Host Adapter
+- **Total Phase** - [Aardvark I2C/SPI Host Adapter](/i2c/Aardvark.md)
 
 If your adapter vendor is not listed, [custom driver development](#driver-development) is available to add support for your hardware.
 

@@ -2,9 +2,6 @@
 orphan: true
 card: Keysight N5700
 image: KeysightN5700.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # KeysightN5700

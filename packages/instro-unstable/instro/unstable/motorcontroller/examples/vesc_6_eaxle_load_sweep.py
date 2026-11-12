@@ -1,4 +1,4 @@
-"""Example: e-axle load sweep, one VESC 6 under test driven against two VESC 6 load motors on a shared CAN bus.
+"""Example: e-axle load sweep, one VESC 6 against two VESC 6 load motors.
 
 Stand: the motor under test (DUT) drives a reduction to an axle, and a load motor
 on each axle output brakes it. All three VESCs hang off one gs_usb adapter, so

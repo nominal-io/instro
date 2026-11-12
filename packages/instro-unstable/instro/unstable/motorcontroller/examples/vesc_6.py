@@ -1,4 +1,4 @@
-"""Example: VESC 6 over CAN with a Canable 2.0 Pro, behind InstroMotorController.
+"""Example: VESC 6 behind InstroMotorController, over a Canable 2.0 Pro.
 
 Spins the motor with a current setpoint while the background daemon drains the
 VESC's broadcast status frames into the channel buffer (and any publishers).
