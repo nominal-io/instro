@@ -128,6 +128,14 @@ examples/*/index
 
 ```{toctree}
 :hidden:
+:caption: Notebooks
+:glob:
+
+examples/notebooks/*
+```
+
+```{toctree}
+:hidden:
 :caption: Additional packages
 :glob:
 
