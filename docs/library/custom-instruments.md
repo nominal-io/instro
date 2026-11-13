@@ -327,7 +327,8 @@ class BK9115(PSUDriverBase):
 **Vendor SCPI Variations**
 
 Different PSU vendors use different SCPI command sets:
-- **Siglent**: `CH<n>:VOLT`, `MEAS:VOLT? CH<n>`, `SYST:ERR?` (positive-zero prefix)
+- **Siglent SPD3303**: `CH<n>:VOLT`, `MEAS:VOLT? CH<n>`, `SYST:ERR?` (positive-zero prefix)
+- **Siglent SPS5042X**: `VOLT CH<n>,<v>`, `MEAS:VOLT? CH<n>`, `SYST:ERR?`
 - **Keysight E36100**: `VOLT`, `MEAS:VOLT?`, `SYST:ERR?` (single channel)
 - **Rigol**: `:SOUR<n>:VOLT`, `:MEAS:VOLT? CH<n>`, `:SYST:ERR?`
 - **TDK Lambda Genesys / white-label Agilent/Keysight N5700**: `VOLT`, `MEAS:VOLT?`, `SYSTEM:ERROR?` (single channel)
