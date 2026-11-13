@@ -25,6 +25,7 @@ itertools = "0.13"
 open62541 = { git = "https://github.com/cartercanedy/open62541-rs", rev = "98da2de72ff1bb12e953790a505d8812424b5a7d", version = "0.12", features = ["mbedtls", "x509"] }
 open62541-sys = { version = "0.6", features = ["mbedtls"] }
 futures-util = "0.3"
+async-opcua = { version = "0.19", features = ["client"] }
 instro-opcua-test = { path = "crates/instro-opcua-test" }
 instro-test-utils = { path = "crates/instro-test-utils" }
 

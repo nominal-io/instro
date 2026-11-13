@@ -107,6 +107,7 @@ library/library
 library/publishers
 library/notebook-display
 library/protocols/overview
+library/protocols/opcua
 library/transports/overview
 library/config-files
 library/simulated-instruments
@@ -189,6 +190,7 @@ ref/library/transports
 ref/protocols/index
 ref/protocols/modbus
 ref/protocols/ethernetip
+ref/protocols/opcua
 ```
 
 ```{toctree}

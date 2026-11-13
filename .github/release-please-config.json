@@ -90,12 +90,6 @@
       "component": "instro-ethernetip-rs",
       "initial-version": "0.1.0",
       "bump-minor-pre-major": true
-    },
-    "crates/instro-opcua": {
-      "release-type": "rust",
-      "component": "instro-opcua-rs",
-      "initial-version": "0.1.0",
-      "bump-minor-pre-major": true
     }
   }
 }

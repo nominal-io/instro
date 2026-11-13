@@ -124,6 +124,11 @@ impl TestServer {
         &self.namespace_uri
     }
 
+    /// Stop the server runner without consuming the address-space handles.
+    pub fn stop(&self) {
+        self.cancel.store(true, Ordering::Release);
+    }
+
     /// Look up a node by browse name.
     pub fn node_id(&self, browse_name: &str) -> Option<&ua::NodeId> {
         self.nodes.get(browse_name)
@@ -186,7 +191,7 @@ impl Drop for TestServer {
         reason = "test server panics on shutdown timeout or server shutdown error"
     )]
     fn drop(&mut self) {
-        self.cancel.store(true, Ordering::Release);
+        self.stop();
         let handle = self
             .runner_thread
             .take()

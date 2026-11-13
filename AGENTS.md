@@ -120,7 +120,7 @@ The root `instro` component has no `paths` restriction, so release-please hands 
 
 Pure-Rust crates under `crates/` that are published to crates.io are independent release-please components with `release-type: rust`. Do not add them to the legacy top-level `groups` block; that block is unsupported release-please config and should not be extended.
 
-Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags. The OPC UA crate uses `instro-opcua-rs` for the same Rust-crate tag convention.
+Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags.
 
 When a Rust core crate backs a Python package, keep the wrapper dependency key identical to the core crate's `[package].name`. release-please's `cargo-workspace` plugin matches dependency table keys rather than resolved Cargo paths, so aliases such as `instro-ethernetip-rs = { package = "instro-ethernetip", ... }` break the automatic wrapper patch bump.
 
