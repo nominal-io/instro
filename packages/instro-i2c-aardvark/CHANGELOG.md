@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v1.0.1...instro-i2c-aardvark-v1.1.0) (2026-11-13)
+
+
+### Features
+
+* flatten the public import namespace ([#724](https://github.com/nominal-io/instro/issues/724)) ([330df85](https://github.com/nominal-io/instro/commit/330df85e6f58239f974795682094a6ec909252bf))
+
 ## [1.0.1](https://github.com/nominal-io/instro/compare/instro-i2c-aardvark-v1.0.0...instro-i2c-aardvark-v1.0.1) (2026-10-23)
 
 

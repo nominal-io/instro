@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v1.1.1...instro-daq-mcc-v1.2.0) (2026-11-13)
+
+
+### Features
+
+* flatten the public import namespace ([#724](https://github.com/nominal-io/instro/issues/724)) ([330df85](https://github.com/nominal-io/instro/commit/330df85e6f58239f974795682094a6ec909252bf))
+
 ## [1.1.1](https://github.com/nominal-io/instro/compare/instro-daq-mcc-v1.1.0...instro-daq-mcc-v1.1.1) (2026-10-23)
 
 
