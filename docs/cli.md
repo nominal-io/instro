@@ -119,7 +119,7 @@ driver_block = psu_info.config_block()
 
 ### instro pymeasure
 
-Needs the `pymeasure` extra (`uv add "instro[pymeasure]"`). See [pymeasure instruments](/library/pymeasure.md).
+Needs the `pymeasure` extra (`uv add "instro[pymeasure]"`). See [Pymeasure Instruments](/library/pymeasure.md).
 
 `instro pymeasure map` writes an editable JSON channel map for a pymeasure instrument class. Edit each entry's `channel`, then pass the file as `channel_map=` to `attach()` or `PymeasureInstrument`. `instro pymeasure describe` prints the same information as a table.
 

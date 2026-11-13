@@ -1,4 +1,4 @@
-# pymeasure
+# Pymeasure
 
 {pysummary}`instro.pymeasure`
 

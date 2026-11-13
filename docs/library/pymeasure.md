@@ -4,7 +4,7 @@ myst:
     description: "Publish pymeasure instrument commands and readings through any instro publisher without rewriting drivers"
 ---
 
-# pymeasure instruments
+# Pymeasure Instruments
 
 {.lead}
 `instro-pymeasure` publishes the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument, and the values you read from it, through any instro publisher. Your drivers don't change.
