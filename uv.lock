@@ -1602,7 +1602,7 @@ wheels = [
 [[package]]
 name = "nominal-sphinx-theme"
 version = "0.1.0"
-source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#6b72c49c23c1d9139af3f6e74ee57e494ca4f6fe" }
+source = { git = "https://github.com/nominal-io/nominal-sphinx-theme#a9beea0e78f93e8057bd35169593b22253574415" }
 dependencies = [
     { name = "myst-parser" },
     { name = "shibuya" },
