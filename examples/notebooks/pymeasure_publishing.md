@@ -10,27 +10,17 @@ kernelspec:
 
 # Publish pymeasure instruments with instro
 
-{.lead}
-`instro-pymeasure` publishes the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument,
-and the values you read from it, through any instro publisher, such as Nominal or a local file. It works with any
-pymeasure driver.
+Publish the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument, and the values you read from it, through any instro publisher. The examples use pymeasure's simulated instruments, so they need no hardware, and write CSV files to temporary folders. The [guide](/library/pymeasure.md) covers the options.
 
 ```bash
 pip install "instro[pymeasure]"
 ```
 
-The first examples use `SwissArmyFake`, a simulated instrument that ships with pymeasure. They write CSV files to
-temporary folders, so you can see each published value. On a bench, construct your instrument's pymeasure driver
-with its VISA resource instead.
-
-From a clone of the repository, `just notebook` opens this file in JupyterLab: right-click `pymeasure_publishing.md` and choose
-**Open With → Jupytext Notebook**.
+From a clone of the repository, `just notebook` opens this file in JupyterLab: open `pymeasure_publishing.md` with **Open With → Jupytext Notebook**.
 
 ## Wrap an instrument
 
-`PymeasureInstrument` turns a pymeasure instrument into an instro instrument. Setting a property publishes a
-command, and reading one publishes a measurement. The channel is the instrument name followed by the property name,
-and command channels end in `.cmd`.
+`PymeasureInstrument` makes a pymeasure instrument an instro instrument. Setting a property publishes a command on `<name>.<property>.cmd`, and reading one publishes a measurement on `<name>.<property>`.
 
 ```{code-cell} ipython3
 import tempfile
@@ -52,8 +42,7 @@ pd.read_csv(publisher.file_path)[["channel", "value"]]
 
 ## Attach to existing pymeasure code
 
-`attach()` adds publishing to code that already uses a pymeasure instrument, without changing that code. The
-instrument keeps its class, and it stays connected after you close the recorder.
+`attach()` adds publishing to an instrument your code already uses. The instrument stays connected after you close the recorder.
 
 ```{code-cell} ipython3
 from instro.pymeasure import attach
@@ -73,8 +62,7 @@ pd.read_csv(publisher.file_path)[["channel", "value"]]
 
 ## Poll in the background
 
-`poll` lists properties that the instro background daemon reads every `background_interval` seconds, once you call
-`start()`. Each read is published, and `get_channel()` returns the latest values.
+After `start()`, the background daemon reads each property in `poll` every `background_interval` seconds and publishes it. `get_channel()` returns the latest values.
 
 ```{code-cell} ipython3
 from instro.lib import BackgroundDaemonConfig
@@ -93,13 +81,7 @@ with PymeasureInstrument(
 
 ## Drivers with channels and SCPI commands
 
-pymeasure drivers declare their properties as a *control* (read and write), a *measurement* (read only) or a
-*setting* (write only). Each one maps to SCPI commands. Multi-output instruments group them into channels, such as
-`ch_1`.
-
-This example uses the `KeysightE36312A` driver with pymeasure's `ProtocolAdapter`, which replies to each SCPI
-command from a list, so you can see the exchange without hardware. On a bench, pass the resource instead:
-`KeysightE36312A(adapter="USB0::0x2A8D::0x1102::MY12345678::INSTR")`.
+This example runs the `KeysightE36312A` driver against pymeasure's `ProtocolAdapter`, which replies to each SCPI command from a list. On a bench, pass the VISA resource instead: `KeysightE36312A(adapter="USB0::0x2A8D::0x1102::MY12345678::INSTR")`.
 
 ```{code-cell} ipython3
 from pymeasure.adapters import ProtocolAdapter
@@ -124,23 +106,11 @@ with PymeasureInstrument(name="psu", instrument=KeysightE36312A(adapter=adapter)
 pd.read_csv(publisher.file_path)[["channel", "value"]]
 ```
 
-The channel attribute `ch_1` becomes `ch1` in the channel name, and booleans are published as `1.0` and `0.0`.
-Setting the `voltage_setpoint` control publishes `psu.ch1.voltage_setpoint.cmd`, and reading it back publishes
-`psu.ch1.voltage_setpoint`. That keeps the value you asked for apart from the value the instrument reports.
-
-Property access inside a driver's own methods, such as `Keithley2400.apply_voltage()`, is published the same way.
-Two kinds of property aren't published:
-
-- Properties inherited from pymeasure's base classes, such as `id`, `status` and `next_error`.
-- Values longer than 16 elements, such as traces and buffers. instro logs a warning the first time it skips one.
+The attribute `ch_1` becomes `ch1` in the channel name, and booleans publish as `1.0` and `0.0`. Setting `voltage_setpoint` publishes `psu.ch1.voltage_setpoint.cmd`, and reading it back publishes `psu.ch1.voltage_setpoint`, so the value you asked for stays apart from the value the instrument reports. The [guide](/library/pymeasure.md#channel-names) lists the properties instro skips.
 
 ## Choose channel names
 
-A `ChannelMap` sets the channel name of each property, or leaves the property unpublished. You build it once, check
-it, save it next to your code, and pass it as `channel_map=`.
-
-`ChannelMap.generate()` lists every property under its default name. `preview()` shows the command channel and the
-measurement channel each property publishes.
+A `ChannelMap` names each property's channel, or leaves the property unpublished. Generate one, edit it, save it next to your code, and pass it as `channel_map=`. `preview()` shows the command and measurement channel of each property.
 
 ```{code-cell} ipython3
 from instro.pymeasure import ChannelMap
@@ -149,11 +119,7 @@ channel_map = ChannelMap.generate(target=KeysightE36312A)
 pd.DataFrame(channel_map.preview(target=KeysightE36312A, name="psu")).head(5)
 ```
 
-`KeysightE36312A` declares its channels on the class, so the class is enough here. Some drivers add channels when
-they connect. For those, pass the connected instrument instead of the class.
-
-`select()` keeps the properties that match glob patterns, `exclude()` drops them, and `rename()` sets names. A
-pattern or property that matches nothing raises `KeyError`.
+`KeysightE36312A` declares its channels on the class, so the class is enough. For a driver that adds channels when it connects, pass the connected instrument. `select()` and `exclude()` take glob patterns, and `rename()` sets names. Anything that matches nothing raises `KeyError`.
 
 ```{code-cell} ipython3
 channel_map.select("ch_1.*")  # glob patterns
@@ -165,16 +131,7 @@ preview = pd.DataFrame(channel_map.preview(target=KeysightE36312A, name="psu"))
 preview.dropna(subset=["command", "measurement"], how="all")
 ```
 
-In the saved file, each entry's `channel` is its name, and `null` means not published. You can edit it by hand, or
-generate it from the terminal:
-
-```bash
-instro pymeasure map keysight.KeysightE36312A -o psu_map.json
-```
-
-Pass the file, or the `ChannelMap`, as `channel_map=` to `PymeasureInstrument` or `attach()`. instro checks it
-against the instrument when it attaches, and rejects properties the instrument doesn't have, two properties with
-one name, and names ending in `.cmd`.
+Edit the saved file by hand, or generate it from the terminal with `instro pymeasure map keysight.KeysightE36312A -o psu_map.json`. Pass the file or the `ChannelMap` as `channel_map=` to `PymeasureInstrument` or `attach()`. The [guide](/library/pymeasure.md#channel-names) describes the format.
 
 ```{code-cell} ipython3
 adapter = ProtocolAdapter(
@@ -197,8 +154,7 @@ pd.read_csv(publisher.file_path)[["channel", "value"]]
 
 ## Publish from a pymeasure procedure
 
-In a pymeasure `Procedure`, attach in `startup()` and close the recorder in `shutdown()`. pymeasure still writes its
-results file.
+Attach in `startup()` and close the recorder in `shutdown()`. pymeasure still writes its results file.
 
 ```{code-cell} ipython3
 from pymeasure.experiment import FloatParameter, Procedure, Results, Worker, unique_filename
@@ -236,16 +192,12 @@ pd.read_csv(publisher.file_path).groupby("channel").value.count()
 
 ## Choose a publisher
 
-The examples above use a `FilePublisher`, but `publishers=` takes any instro publisher. For example, to publish to a
-Nominal dataset, use a `NominalCorePublisher`, or pass `dataset_rid=` to use your default Nominal credential:
+`publishers=` takes any instro [publisher](/library/publishers.md). To publish to a Nominal dataset, use a `NominalCorePublisher`, or pass `dataset_rid=` to use your default Nominal profile:
 
 ```python
 from instro.lib import NominalCorePublisher
 
 recorder = attach(instrument=fake, name="bench", publishers=[NominalCorePublisher(dataset_rid="<dataset rid>")])
-# or
+# or, with your default profile
 recorder = attach(instrument=fake, name="bench", dataset_rid="<dataset rid>")
 ```
-
-See [Publishers](https://dev.nominal.io/instro/library/publishers/) for the publisher options, and
-[pymeasure instruments](https://dev.nominal.io/instro/library/pymeasure/) for the guide.

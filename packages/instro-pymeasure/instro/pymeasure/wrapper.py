@@ -172,7 +172,7 @@ class PymeasureInstrument(Instrument, Generic[T]):
         Example::
 
             from pymeasure.instruments.keysight import KeysightE36312A
-            from instro.lib.publishers import FilePublisher
+            from instro.lib import FilePublisher
             from instro.pymeasure import PymeasureInstrument
 
             with PymeasureInstrument(
