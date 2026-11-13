@@ -9,7 +9,9 @@ myst:
 {.lead}
 `instro-pymeasure` publishes the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument, and the values you read from it, through any instro publisher. Your drivers don't change.
 
-Setting a property publishes a `Command` on `<name>.<channel>.cmd`. Reading one publishes a `Measurement` on `<name>.<channel>`. Property access inside driver methods, such as `apply_voltage()`, is published too.
+There are two ways to use it. [Attach to code you already have](#publish-from-existing-code), or [write new code around `PymeasureInstrument`](#write-new-instro-code), which adds tags and background polling. Either way, setting a property publishes a `Command` on `<name>.<channel>.cmd`, and reading one publishes a `Measurement` on `<name>.<channel>`. Property access inside driver methods, such as `apply_voltage()`, is published too.
+
+Each property keeps its attribute path as its channel name. A [channel map](#channel-names) gives properties custom names or leaves some out. The [example notebook](/examples/notebooks/pymeasure_publishing.md) runs each of these against simulated instruments, so you can try them without hardware. [Failures and cleanup](#failures-and-cleanup) describes what happens when a read, a set or a publisher raises.
 
 ## Install
 
@@ -104,4 +106,4 @@ Some drivers add channels in `__init__` instead of with `ChannelCreator`. For th
 - A publisher that raises is logged. The set or read still completes, because the instrument has already acted.
 - `close()` or `detach()` stops background polling and restores the original classes.
 
-The [example notebook](/examples/notebooks/pymeasure_publishing.md) runs each of these against simulated instruments. See the [API reference](/ref/library/pymeasure.md) for every option.
+See the [API reference](/ref/library/pymeasure.md) for every option.
