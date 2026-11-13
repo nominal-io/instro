@@ -44,9 +44,11 @@ mod stream;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::error::Error as StdError;
 use std::fmt;
 use std::future;
 use std::num::NonZeroU32;
+use std::result::Result as StdResult;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::sync::Weak;
@@ -210,7 +212,8 @@ impl Client {
     }
 
     /// Starts a server-push subscription for the given `nodes`, invoking
-    /// `on_data` as new samples arrive.
+    /// `on_data` as new samples arrive. If the callback returns `Err(error)`,
+    /// the subscription will be stopped and the error will be logged, not returned.
     ///
     /// Subscription creation and monitored-item setup are performed eagerly
     /// before this method returns; the ongoing pump runs on a dedicated single-threaded runtime
@@ -227,7 +230,11 @@ impl Client {
     ) -> Result<StreamSession>
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
+        F: FnMut(
+                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            ) -> StdResult<(), Box<dyn StdError>>
+            + Send
+            + 'static,
     {
         let subscription_builder = SubscriptionBuilder::from(sub_config);
 
@@ -398,7 +405,9 @@ impl Client {
     ) where
         R: NodeReader,
         S: Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
+        F: FnMut(
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+        ) -> StdResult<(), Box<dyn StdError>>,
         T: PollTimer,
     {
         // Nodes still quiet in the current interval; notifications remove nodes until the next tick.
@@ -425,7 +434,15 @@ impl Client {
                         .drain()
                         .collect_vec();
 
-                    on_data(Box::new(polled_samples_to_flush.into_iter()));
+                    if let Err(e) = on_data(Box::new(polled_samples_to_flush.into_iter())) {
+                        tracing::error!(
+                            target: "opcua::client::subscribe",
+                            error = ?e,
+                            "error calling on_data in subscription loop, stopping immediately"
+                        );
+
+                        return
+                    }
 
                     if !quiet_nodes.is_empty() {
                         #[allow(clippy::unwrap_used, reason = "nodes are valid because they were previously validated in the original batch")]
@@ -475,8 +492,14 @@ impl Client {
                         samples.push((node_id, data));
                     }
 
-                    if !samples.is_empty() {
-                        on_data(Box::new(samples.into_iter()));
+                    if !samples.is_empty() && let Err(e) = on_data(Box::new(samples.into_iter())) {
+                        tracing::error!(
+                            target: "opcua::client::subscribe",
+                            error = ?e,
+                            "error calling on_data in subscription loop, stopping immediately"
+                        );
+
+                        return;
                     }
                 } else {
                     tracing::info!(
@@ -494,7 +517,13 @@ impl Client {
             "subscription loop stopped"
         );
 
-        on_data(Box::new(polled_nodes.into_iter()));
+        if let Err(e) = on_data(Box::new(polled_nodes.into_iter())) {
+            tracing::error!(
+                target: "opcua::client::subscribe",
+                error = ?e,
+                "callback returned an error while flusing final samples"
+            );
+        }
     }
 }
 
@@ -659,11 +688,14 @@ impl ClientBuilder {
     }
 
     fn instro_app_description() -> ua::ApplicationDescription {
+        #[expect(clippy::unwrap_used, reason = "static strings don't contain nul bytes")]
         ua::ApplicationDescription::init()
-            .with_application_name("en-US", "Nominal OPC UA Client")
-            .with_product_uri("urn:nominal:opcua-client")
+            .with_application_name(
+                ua::LocalizedText::new("en-US", "Nominal OPC UA Client").unwrap(),
+            )
+            .with_product_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
             .with_application_type(ua::ApplicationType::CLIENT)
-            .with_application_uri("urn:nominal:opcua-client")
+            .with_application_uri(ua::String::new("urn:nominal:opcua-client").unwrap())
     }
 
     /// Consumes the builder and connects to the endpoint at the given URL, returning a [`Client`].
@@ -929,6 +961,8 @@ mod tests {
     //! collected output.
 
     use std::collections::HashSet;
+    use std::error::Error as StdError;
+    use std::result::Result as StdResult;
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::time::Duration;
@@ -1041,7 +1075,7 @@ mod tests {
         let timestamp = ua::DateTime::try_from_unix_timestamp_nanos(ts as i128).unwrap();
         let variant = ua::Variant::scalar(ua::Double::new(value));
         ua::DataValue::new(variant)
-            .with_server_timestamp(&timestamp)
+            .with_server_timestamp(timestamp)
             .cast::<ua::Variant>()
     }
 
@@ -1058,13 +1092,18 @@ mod tests {
 
     /// Collects emitted samples into batches the test forwards through `on_data`.
     fn output_sink() -> (
-        impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
+        impl FnMut(
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+        ) -> StdResult<(), Box<dyn StdError>>
+        + Send
+        + 'static,
         mpsc::UnboundedReceiver<Vec<(ua::NodeId, VariantValue)>>,
     ) {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<_>>();
 
-        let on_data = move |samples: Box<dyn Iterator<Item = _> + 'static>| {
-            let _ = tx.send(samples.collect::<Vec<_>>());
+        let on_data = move |samples: Box<dyn Iterator<Item = _> + 'static>| -> StdResult<(), Box<dyn StdError>> {
+            tx.send(samples.collect::<Vec<_>>())?;
+            Ok(())
         };
 
         (on_data, rx)
@@ -1214,6 +1253,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100)
         );
@@ -1269,6 +1309,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100),
             "polled sample emitted first"
@@ -1276,6 +1317,7 @@ mod tests {
         assert_eq!(
             notification
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(200)
         );
@@ -1322,6 +1364,7 @@ mod tests {
         assert_eq!(
             sample
                 .server_timestamp()
+                .copied()
                 .map(ua::DateTime::as_unix_timestamp_nanos),
             Some(100)
         );

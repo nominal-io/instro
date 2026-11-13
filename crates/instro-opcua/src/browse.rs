@@ -24,9 +24,9 @@
 use std::collections::HashSet;
 use std::future::Future;
 
-use itertools::Itertools;
 use open62541::DataType as _;
 use open62541::ua;
+use open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES;
 
 use super::client::Client;
 use crate::Result;
@@ -102,7 +102,7 @@ impl<T: Browse> BrowseAll for T {
 
 impl Browse for Client {
     async fn browse_node(&self, node_id: ua::NodeId) -> Result<Vec<BrowsedNode>> {
-        let browse_desc = ua::BrowseDescription::default().with_node_id(&node_id);
+        let browse_desc = ua::BrowseDescription::default().with_node_id(node_id.clone());
 
         let (mut all_refs, mut cont_pt) = self
             .with_client(async |client| client.browse(&browse_desc).await)
@@ -133,16 +133,16 @@ impl Browse for Client {
 
                 let path_element = ua::RelativePathElement::init()
                     .with_include_subtypes(true)
-                    .with_reference_type_id(&ua::NodeId::numeric(0, 33))
+                    .with_reference_type_id(ua::NodeId::ns0(UA_NS0ID_HIERARCHICALREFERENCES))
                     .with_is_inverse(!reference.is_forward())
-                    .with_target_name(reference.browse_name());
+                    .with_target_name(reference.browse_name().clone());
 
                 BrowsedNode {
                     node_id,
                     browse_name: reference.browse_name().name().to_string(),
-                    node_class: reference.node_class(),
+                    node_class: reference.node_class().clone(),
                     children: Vec::new(),
-                    browse_path: ua::RelativePath::init().with_elements(&[path_element]),
+                    browse_path: ua::RelativePath::init().with_elements([path_element].into()),
                     display_name: reference.display_name().text().to_string(),
                 }
             })
@@ -167,12 +167,12 @@ fn append_path(parent_path: &ua::RelativePath, child: &mut BrowsedNode) -> Resul
 
     // super inefficient, but idc really, browse api probably isn't going to stay
     let new_elements = existing
-        .into_vec()
-        .into_iter()
+        .iter()
+        .cloned()
         .chain(std::iter::once(segment))
-        .collect_vec();
+        .collect::<ua::Array<_>>();
 
-    child.browse_path = parent_path.with_elements(&new_elements);
+    child.browse_path = parent_path.with_elements(new_elements);
 
     Ok(())
 }
@@ -305,11 +305,13 @@ mod tests {
     }
 
     fn browse_path(namespace_index: u16, name: String) -> ua::RelativePath {
-        ua::RelativePath::init().with_elements(&[ua::RelativePathElement::init()
-            .with_include_subtypes(true)
-            .with_reference_type_id(&ua::NodeId::numeric(0, 33))
-            .with_is_inverse(false)
-            .with_target_name(&ua::QualifiedName::new(namespace_index, &name))])
+        ua::RelativePath::init().with_elements(ua::Array::from_slice(&[
+            ua::RelativePathElement::init()
+                .with_include_subtypes(true)
+                .with_reference_type_id(ua::NodeId::numeric(0, 33))
+                .with_is_inverse(false)
+                .with_target_name(ua::QualifiedName::new(namespace_index, &name)),
+        ]))
     }
 
     fn obj(id: u32) -> BrowsedNode {
@@ -727,11 +729,13 @@ mod tests {
         browser.add_children(nid(2), vec![var(3)]);
         browser.add_children(nid(3), vec![var(4)]);
 
-        let root_path = ua::RelativePath::init().with_elements(&[ua::RelativePathElement::init()
-            .with_include_subtypes(true)
-            .with_reference_type_id(&ua::NodeId::numeric(0, 33))
-            .with_is_inverse(false)
-            .with_target_name(&ua::QualifiedName::new(0, "Root"))]);
+        let root_path = ua::RelativePath::init().with_elements(ua::Array::from_slice(&[
+            ua::RelativePathElement::init()
+                .with_include_subtypes(true)
+                .with_reference_type_id(ua::NodeId::numeric(0, 33))
+                .with_is_inverse(false)
+                .with_target_name(ua::QualifiedName::new(0, "Root")),
+        ]));
 
         let result = browser
             .browse_with_parent(nid(1), root_path, None)
