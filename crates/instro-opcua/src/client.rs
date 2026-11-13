@@ -62,6 +62,7 @@ use futures_util::stream::select_all;
 use itertools::Itertools as _;
 use open62541::AsyncClient;
 use open62541::AsyncMonitoredItem;
+use open62541::Attribute;
 use open62541::Certificate;
 use open62541::ClientBuilder as UaClientBuilder;
 use open62541::DataType;
@@ -99,7 +100,7 @@ pub fn get_endpoints(endpoint_url: &str) -> Result<ua::Array<ua::EndpointDescrip
         .with_ua_context(|| format!("getting endpoints for '{endpoint_url}'"))
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// Wraps an [`AsyncClient`] with high-performance telemetry-streaming-oriented API designed for long-lived applications.
 ///
 /// The client is configured and created via [`ClientBuilder`].
@@ -116,6 +117,11 @@ impl Client {
         client.upgrade().map(|client| Self {
             client: Arc::clone(&client),
         })
+    }
+
+    /// Checks if the two clients clones share the same underlying client connection.
+    pub fn is_same_client(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.client, &other.client)
     }
 
     /// Gracefully disconnects from the server.
@@ -166,7 +172,9 @@ impl Client {
     ) -> Result<StreamSession>
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
-        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>) + Send + 'static,
+        F: FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>)
+            + Send
+            + 'static,
     {
         let reader = ClientNodeReader::new(&self.client);
 
@@ -211,6 +219,20 @@ impl Client {
         Ok(node_list.keys().zip(read_result))
     }
 
+    pub async fn read_node<A: Attribute>(
+        &self,
+        node: &ua::NodeId,
+        attr: A,
+    ) -> Result<DataValue<A::Value>> {
+        self.with_client(async |client| {
+            client
+                .read_attribute(node, attr)
+                .await
+                .with_ua_context(|| format!("reading attribute of node '{node}'"))
+        })
+        .await?
+    }
+
     /// Starts a server-push subscription for the given `nodes`, invoking
     /// `on_data` as new samples arrive. If the callback returns `Err(error)`,
     /// the subscription will be stopped and the error will be logged, not returned.
@@ -231,7 +253,7 @@ impl Client {
     where
         N: IntoIterator<Item = &'nodes ua::NodeId>,
         F: FnMut(
-                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+                Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
             ) -> StdResult<(), Box<dyn StdError>>
             + Send
             + 'static,
@@ -323,7 +345,7 @@ impl Client {
         reader: R,
         nodes: NodeReadBatch,
         polling_interval: Duration,
-        mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>),
+        mut on_data: impl FnMut(Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>),
     ) {
         let mut metrics = PollLoopMetricsLogger::new(Self::POLL_LOOP_METRICS_FLUSH_INTERVAL);
 
@@ -406,7 +428,7 @@ impl Client {
         R: NodeReader,
         S: Stream<Item = (ua::NodeId, VariantValue)> + Send + Unpin + 'static,
         F: FnMut(
-            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
         ) -> StdResult<(), Box<dyn StdError>>,
         T: PollTimer,
     {
@@ -606,6 +628,10 @@ impl SecurityPolicyUri {
 // Unfortunately there's no easy way to layer builders that take self by move
 // so we need to re-implement the entire builder API here.
 pub struct ClientBuilder(UaClientBuilder);
+
+// SAFETY: this should've been marked Send upstream, but it isn't, so marking it here.
+// unknown if the underlying builder is also Sync, but not concerned about it.
+unsafe impl Send for ClientBuilder {}
 
 impl ClientBuilder {
     /// Creates a new builder for an unencrypted client.
@@ -1093,7 +1119,7 @@ mod tests {
     /// Collects emitted samples into batches the test forwards through `on_data`.
     fn output_sink() -> (
         impl FnMut(
-            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + 'static>,
+            Box<dyn Iterator<Item = (ua::NodeId, VariantValue)> + Send + 'static>,
         ) -> StdResult<(), Box<dyn StdError>>
         + Send
         + 'static,
@@ -1101,7 +1127,7 @@ mod tests {
     ) {
         let (tx, rx) = mpsc::unbounded_channel::<Vec<_>>();
 
-        let on_data = move |samples: Box<dyn Iterator<Item = _> + 'static>| -> StdResult<(), Box<dyn StdError>> {
+        let on_data = move |samples: Box<dyn Iterator<Item = _> + Send + 'static>| -> StdResult<(), Box<dyn StdError>> {
             tx.send(samples.collect::<Vec<_>>())?;
             Ok(())
         };
