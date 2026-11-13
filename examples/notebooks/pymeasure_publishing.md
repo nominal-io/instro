@@ -12,7 +12,8 @@ kernelspec:
 
 {.lead}
 `instro-pymeasure` publishes the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument,
-and the values you read from it, through instro publishers to Nominal. It works with any pymeasure driver.
+and the values you read from it, through any instro publisher, such as Nominal or a local file. It works with any
+pymeasure driver.
 
 ```bash
 pip install "instro[pymeasure]"
@@ -233,10 +234,10 @@ worker.join(timeout=30)
 pd.read_csv(publisher.file_path).groupby("channel").value.count()
 ```
 
-## Publish to Nominal
+## Choose a publisher
 
-To publish to a Nominal dataset, replace the `FilePublisher` with a `NominalCorePublisher`, or pass `dataset_rid=`
-to use your default Nominal credential:
+The examples above use a `FilePublisher`, but `publishers=` takes any instro publisher. For example, to publish to a
+Nominal dataset, use a `NominalCorePublisher`, or pass `dataset_rid=` to use your default Nominal credential:
 
 ```python
 from instro.lib import NominalCorePublisher

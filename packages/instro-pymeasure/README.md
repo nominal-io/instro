@@ -1,7 +1,8 @@
 # instro-pymeasure
 
-Publish [pymeasure](https://pymeasure.readthedocs.io) instrument traffic to [Nominal](https://nominal.io) through
-[instro](https://github.com/nominal-io/instro) publishers, without rewriting drivers.
+Publish [pymeasure](https://pymeasure.readthedocs.io) instrument traffic through any
+[instro](https://github.com/nominal-io/instro) publisher, such as [Nominal](https://nominal.io) or a local file,
+without rewriting drivers.
 
 When you set a property on a wrapped instrument, the package publishes a command on `<name>.<channel>.cmd`.
 When you read one, it publishes a measurement on `<name>.<channel>`.

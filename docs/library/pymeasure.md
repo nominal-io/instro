@@ -1,13 +1,13 @@
 ---
 myst:
   html_meta:
-    description: "Publish pymeasure instrument commands and readings to Nominal without rewriting drivers"
+    description: "Publish pymeasure instrument commands and readings through any instro publisher without rewriting drivers"
 ---
 
 # pymeasure instruments
 
 {.lead}
-Publish pymeasure instrument commands and readings to Nominal without rewriting drivers
+Publish pymeasure instrument commands and readings through any instro publisher, such as Nominal or a local file, without rewriting drivers
 
 [`instro-pymeasure`](https://github.com/nominal-io/instro/tree/main/packages/instro-pymeasure) wraps any
 [pymeasure](https://pymeasure.readthedocs.io) instrument so that its traffic goes through instro publishers:
@@ -25,7 +25,9 @@ uv add "instro[pymeasure]"
 
 ## Existing pymeasure code
 
-`attach()` adds publishing to an instrument your code already uses. The rest of your code doesn't change:
+`attach()` adds publishing to an instrument your code already uses. The rest of your code doesn't change. It takes a
+list of any instro [publishers](publishers.md); this example uses `NominalCorePublisher`, and `FilePublisher` or
+your own publisher work the same way:
 
 ```python
 from pymeasure.instruments.keithley import Keithley2400

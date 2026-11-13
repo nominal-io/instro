@@ -1,7 +1,7 @@
 [project]
 name = "instro-pymeasure"
 version = "0.0.0"
-description = "Publish pymeasure instrument traffic to Nominal through instro publishers"
+description = "Publish pymeasure instrument traffic through any instro publisher"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

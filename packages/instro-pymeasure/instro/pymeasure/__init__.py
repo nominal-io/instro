@@ -1,4 +1,4 @@
-"""Publish pymeasure instrument traffic to Nominal (or any instro publisher).
+"""Publish pymeasure instrument traffic through any instro publisher (Nominal, files, ...).
 
 Wrap a pymeasure instrument with `PymeasureInstrument` (instro-first code) or `attach` (existing
 pymeasure code): every property write publishes a ``.cmd`` command channel and every property read
