@@ -36,7 +36,7 @@ class _CanPacketId(enum.IntEnum):
 
 
 class VESC6(MotorControllerDriverBase):
-    """VESC 6 motor controller over CAN. Firmware stops the motor ~0.5 s after the last command (re-send setpoints to keep it running); poll telemetry at >=10 Hz, e.g. background_interval=0.1 (slow drains overflow the adapter FIFO, which drops the newest frames)."""
+    """VESC 6 motor controller over CAN. Firmware stops the motor ~0.5 s after the last command (re-send setpoints to keep it running); poll telemetry at >=10 Hz, e.g. background_interval=0.1 (status frames are received in the background, so a slow poll only loses the oldest frames once the subscription buffer fills)."""
 
     def __init__(
         self,
@@ -109,7 +109,7 @@ class VESC6(MotorControllerDriverBase):
         self._send(_CanPacketId.SET_POS, struct.pack(">i", round(degrees * 1_000_000)))
 
     def get_telemetry(self) -> MotorTelemetry:
-        """Drain this controller's status frames, returning the latest value per field (empty if none); poll frequently — an overflowed RX FIFO (e.g. gs_usb) drops the newest frames."""
+        """Drain this controller's status frames, returning the latest value per field (empty if none)."""
         updates: dict[str, float] = {}
         for message in self._require_subscription().drain():
             updates.update(self._parse_status_frame(message))
