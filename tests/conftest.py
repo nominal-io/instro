@@ -1,44 +1,44 @@
 # TEMPORARY DIAGNOSTIC for PR #733 (port 5025 collision on py3.11); remove before merge.
 import gc
 import os
-import socket
+import socket as _socket
+import subprocess
+import sys
 import threading
 
+_orig_bind = _socket.socket.bind
 
-def _holders():
-    out = []
+
+def _dump(addr):
+    lines = [f"[DIAG5025] bind{addr} failed. python={sys.version.split()[0]} pid={os.getpid()}"]
+    lines.append("threads=" + repr([t.name for t in threading.enumerate()]))
     for o in gc.get_objects():
         try:
-            if isinstance(o, socket.socket) and o.fileno() != -1 and o.getsockname()[1] == 5025:
-                out.append(f"{o!r}")
+            if isinstance(o, _socket.socket) and o.fileno() != -1:
+                lines.append(f"  sock {o!r}")
         except Exception:
             pass
-    return out
-
-
-def _listening():
-    s = socket.socket()
-    s.settimeout(0.2)
+    cmds = (["netstat", "-ano"],) if sys.platform == "win32" else (["netstat", "-an"],)
+    for cmd in cmds:
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=20).stdout
+            lines += ["  net: " + ln for ln in out.splitlines() if "5025" in ln]
+        except Exception as e:
+            lines.append(f"  netstat failed: {e}")
     try:
-        s.connect(("127.0.0.1", 5025))
-        return True
+        import psutil  # noqa: F401
     except Exception:
-        return False
-    finally:
-        s.close()
+        pass
+    os.write(2, ("\n".join(lines) + "\n").encode())
 
 
-_seen = {"first": False}
+def _bind(self, address):
+    try:
+        return _orig_bind(self, address)
+    except OSError:
+        if isinstance(address, tuple) and len(address) > 1 and address[1] == 5025:
+            _dump(address)
+        raise
 
 
-def pytest_runtest_teardown(item, nextitem):
-    if _seen["first"]:
-        return
-    h = _holders()
-    if h or _listening():
-        _seen["first"] = True
-        threads = [t.name for t in threading.enumerate()]
-        os.write(
-            2,
-            f"\n[DIAG5025] held after {item.nodeid}: sockets={h} listening={_listening()} threads={threads}\n".encode(),
-        )
+_socket.socket.bind = _bind  # type: ignore[method-assign]
