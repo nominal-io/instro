@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.24.0](https://github.com/nominal-io/instro/compare/instro-v1.23.0...instro-v1.24.0) (2026-11-13)
+
+
+### Features
+
+* **dmm:** add VirtualDMM, a simulated DMM with no transport or server ([#649](https://github.com/nominal-io/instro/issues/649)) ([c702650](https://github.com/nominal-io/instro/commit/c702650e30fda5c5d04f3a4823d63014719d5c82))
+* **eload:** add VirtualELoad, a simulated e-load with no transport or server ([#702](https://github.com/nominal-io/instro/issues/702)) ([4558d84](https://github.com/nominal-io/instro/commit/4558d84d243418ecc6a3e14096696185596b2b82))
+* flatten the public import namespace ([#724](https://github.com/nominal-io/instro/issues/724)) ([330df85](https://github.com/nominal-io/instro/commit/330df85e6f58239f974795682094a6ec909252bf))
+* **lib:** add notebook cards and Nominal connection options ([#711](https://github.com/nominal-io/instro/issues/711)) ([4a74c5f](https://github.com/nominal-io/instro/commit/4a74c5fe00acf42bfa5373b61f5161dff60472be))
+* **psu:** add VirtualPSU, a simulated PSU with no transport or server ([#705](https://github.com/nominal-io/instro/issues/705)) ([d2af329](https://github.com/nominal-io/instro/commit/d2af329073f5152560270e8d7cd17a90fa2a1863))
+* **publisher:** add plotly publisher ([#707](https://github.com/nominal-io/instro/issues/707)) ([38d696a](https://github.com/nominal-io/instro/commit/38d696a944ca74bcb662a78e8d6fbd2ead34e46c))
+* **publisher:** filepublisher accepts file like object ([#714](https://github.com/nominal-io/instro/issues/714)) ([b4bdbc7](https://github.com/nominal-io/instro/commit/b4bdbc7377809ef07dd7971b4718d6816673dc29))
+* **pymeasure:** publish pymeasure instruments through instro publishers ([#733](https://github.com/nominal-io/instro/issues/733)) ([17b34f0](https://github.com/nominal-io/instro/commit/17b34f038abeb582c228c981390599efedbad553))
+* **scope:** add VirtualScope, a simulated scope with no transport or server ([#706](https://github.com/nominal-io/instro/issues/706)) ([14e38d0](https://github.com/nominal-io/instro/commit/14e38d09e6c4baba22c570c4cb8335da0fedc592))
+
+
+### Bug Fixes
+
+* **ci:** unify Rust toolchain before parallel docs builds ([#697](https://github.com/nominal-io/instro/issues/697)) ([b91f43a](https://github.com/nominal-io/instro/commit/b91f43a00d623dd2f26d4169d013a5686b7e1f5e))
+
 ## [1.23.0](https://github.com/nominal-io/instro/compare/instro-v1.22.0...instro-v1.23.0) (2026-10-28)
 
 

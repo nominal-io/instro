@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/nominal-io/instro/compare/instro-contrib-v1.1.0...instro-contrib-v1.2.0) (2026-11-13)
+
+
+### Features
+
+* flatten the public import namespace ([#724](https://github.com/nominal-io/instro/issues/724)) ([330df85](https://github.com/nominal-io/instro/commit/330df85e6f58239f974795682094a6ec909252bf))
+
 ## [1.1.0](https://github.com/nominal-io/instro/compare/instro-contrib-v1.0.0...instro-contrib-v1.1.0) (2026-10-23)
 
 
