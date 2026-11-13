@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import csv
 import json
+import re
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -586,6 +588,41 @@ def test_malformed_waveform_rejected_at_validation(valid_config):
     for waveform, expected in bad_waveforms:
         with pytest.raises(Exception, match=expected):
             InstroAWG(config={**valid_config, "channels": {"1": {"waveform": waveform}}})
+
+
+@pytest.mark.parametrize(
+    "samples",
+    [
+        (float("nan"), 0.0, 0.5),
+        (0.0, float("nan"), 0.5),
+        (0.0, 0.5, float("nan")),
+        (0.0, float("inf")),
+        (float("-inf"), 0.0),
+        (0, 1, 2),
+        (0.0, 10**400),
+    ],
+)
+def test_arbitrary_rejects_non_normalized_samples(samples):
+    with pytest.raises(ValueError, match=r"samples must be normalized to \[-1\.0, 1\.0\]"):
+        Arbitrary(samples=samples, sample_rate_sas=50.0)
+
+
+@pytest.mark.parametrize(
+    ("samples", "error", "message"),
+    [
+        ((0.0, None), TypeError, "'<=' not supported between instances of 'float' and 'NoneType'"),
+        (("0.5", 0.0), TypeError, "'<=' not supported between instances of 'float' and 'str'"),
+        ((0.0, Decimal("NaN")), InvalidOperation, "decimal.InvalidOperation"),
+    ],
+)
+def test_arbitrary_unorderable_samples_raise_comparison_error(samples, error, message):
+    with pytest.raises(error, match=re.escape(message)):
+        Arbitrary(samples=samples, sample_rate_sas=50.0)
+
+
+def test_arbitrary_accepts_mixed_numeric_samples():
+    waveform = Arbitrary(samples=(-1, Decimal("0.5"), 0.0, True), sample_rate_sas=50.0)  # type: ignore[arg-type]
+    assert waveform.samples == (-1, Decimal("0.5"), 0.0, True)
 
 
 def test_channel_config_is_immutable_after_validation(valid_config):
