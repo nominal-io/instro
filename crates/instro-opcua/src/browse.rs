@@ -26,6 +26,7 @@ use std::future::Future;
 
 use open62541::DataType as _;
 use open62541::ua;
+use open62541_sys::UA_NS0ID_HIERARCHICALREFERENCES;
 
 use super::client::Client;
 use crate::Result;
@@ -132,7 +133,7 @@ impl Browse for Client {
 
                 let path_element = ua::RelativePathElement::init()
                     .with_include_subtypes(true)
-                    .with_reference_type_id(ua::NodeId::numeric(0, 33))
+                    .with_reference_type_id(ua::NodeId::ns0(UA_NS0ID_HIERARCHICALREFERENCES))
                     .with_is_inverse(!reference.is_forward())
                     .with_target_name(reference.browse_name().clone());
 
@@ -141,8 +142,7 @@ impl Browse for Client {
                     browse_name: reference.browse_name().name().to_string(),
                     node_class: reference.node_class().clone(),
                     children: Vec::new(),
-                    browse_path: ua::RelativePath::init()
-                        .with_elements(ua::Array::from_slice(&[path_element])),
+                    browse_path: ua::RelativePath::init().with_elements([path_element].into()),
                     display_name: reference.display_name().text().to_string(),
                 }
             })
