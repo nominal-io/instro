@@ -468,8 +468,8 @@ async fn produce(
             notification = input.recv() => match notification {
                 Some(Input::Sample(id, value)) => {
                     quiet.remove(&id);
-                    if let Some(poll) = pending.remove(&id) {
-                        if poll_is_older(&poll, &value) { let _ = output.send(Output::Sample(id.clone(), poll)); }
+                    if let Some(poll) = pending.remove(&id) && poll_is_older(&poll, &value) {
+                        let _ = output.send(Output::Sample(id.clone(), poll));
                     }
                     let _ = output.send(Output::Sample(id, value));
                 }
@@ -482,10 +482,10 @@ async fn produce(
         terminal.get_or_insert(error);
     }
     while let Ok(message) = input.try_recv() {
-        if let Input::End(code) = message {
-            if let Some(error) = failure(code) {
-                terminal.get_or_insert(error);
-            }
+        if let Input::End(code) = message
+            && let Some(error) = failure(code)
+        {
+            terminal.get_or_insert(error);
         }
     }
     for (id, value) in pending {

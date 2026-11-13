@@ -19,7 +19,7 @@ use crate::time::Duration;
 
 fn with_server(
     builder: TestServerBuilder,
-    body: impl FnOnce(Python<'_>, &Bound<'_, PyDict>, &TestServer) -> PyResult<()>,
+    body: impl FnOnce(Python<'_>, &Bound<'_, PyDict>, &Arc<TestServer>) -> PyResult<()>,
 ) -> PyResult<()> {
     let server = Arc::new(
         builder
@@ -164,7 +164,7 @@ with opcua.OpcUaClient.connect(url, **options) as client:
 }
 
 #[test]
-fn background_poll_reads_the_selected_attribute_without_publishing() -> PyResult<()> {
+fn background_poll_periodically_reads_the_selected_attribute_without_publishing() -> PyResult<()> {
     with_server(temperature_server(), |py, locals, _| {
         run(
             py,
@@ -178,6 +178,45 @@ with opcua.OpcUaClient.connect(url, **options) as client:
         source, sample = next(subscription)
         assert source.node_id == node.node_id
         assert sample.value.text == 'Temperature'
+        source, sample = next(subscription)
+        assert source.node_id == node.node_id
+        assert sample.value.text == 'Temperature'
+",
+        )
+    })
+}
+
+#[test]
+fn subscription_delivers_changed_values_with_native_timestamps() -> PyResult<()> {
+    with_server(temperature_server(), |py, locals, server| {
+        let server = server.clone();
+        locals.set_item(
+            "set_temperature",
+            PyCFunction::new_closure(py, None, None, move |args, _kwargs| {
+                let value = args.get_item(0)?.extract::<f64>()?;
+                let node_id = server
+                    .node_id("Temperature")
+                    .ok_or_else(|| PyRuntimeError::new_err("missing fixture Node"))?;
+                server
+                    .set_value(node_id, ua::Variant::scalar(ua::Double::new(value)))
+                    .map_err(|error| PyRuntimeError::new_err(error.to_string()))
+            })?,
+        )?;
+        run(
+            py,
+            locals,
+            c"
+with opcua.OpcUaClient.connect(url, **options) as client:
+    node = client.objects.get_child(f'/{namespace}:Temperature')
+    with client.subscribe([node], attribute=opcua.AttributeId.VALUE,
+                          publishing_interval=opcua.Duration.from_millis(25)) as subscription:
+        assert next(subscription)[1].value == 42.5
+        set_temperature(9.5)
+        source, sample = next(subscription)
+        assert source.node_id == node.node_id
+        assert sample.value == 9.5
+        assert isinstance(sample.source_timestamp, opcua.DateTime)
+        assert isinstance(sample.server_timestamp, opcua.DateTime)
 ",
         )
     })

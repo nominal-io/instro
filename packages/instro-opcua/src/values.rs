@@ -631,12 +631,12 @@ fn validate_attribute_payload(attribute: ua::AttributeId, value: &ua::Variant) -
             matches!(value, Variant::Byte(_))
         }
         Attribute::ArrayDimensions => {
-            matches!(value, Variant::Array(array) if array.value_type == ua::VariantScalarTypeId::UInt32)
+            matches!(value, Variant::Array(array) if array.values.is_empty() || array.value_type == ua::VariantScalarTypeId::UInt32)
         }
         Attribute::MinimumSamplingInterval => matches!(value, Variant::Double(_)),
         Attribute::DataTypeDefinition => matches!(value, Variant::ExtensionObject(_)),
         Attribute::RolePermissions | Attribute::UserRolePermissions => {
-            matches!(value, Variant::Array(array) if array.value_type == ua::VariantScalarTypeId::ExtensionObject)
+            matches!(value, Variant::Array(array) if array.values.is_empty() || array.value_type == ua::VariantScalarTypeId::ExtensionObject)
         }
         Attribute::AccessRestrictions => matches!(value, Variant::UInt16(_)),
     };
@@ -880,8 +880,11 @@ mod tests {
                 },
                 attribute: Some(ua::AttributeId::DisplayName),
             };
-            let error = sample.value(py).expect_err("DisplayName accepted a Double");
-            assert!(error.is_instance_of::<PyTypeError>(py));
+            assert!(
+                sample
+                    .value(py)
+                    .is_err_and(|error| error.is_instance_of::<PyTypeError>(py))
+            );
             sample.attribute = Some(ua::AttributeId::Value);
             assert_eq!(sample.value(py)?.extract::<f64>(py)?, 42.5);
             Ok(())
@@ -946,6 +949,14 @@ mod tests {
                     dimensions: dimensions.clone(),
                 }));
                 let converted = convert(py, &value, None)?;
+                let sample = DataValue {
+                    inner: ua::DataValue {
+                        value: Some(value),
+                        ..Default::default()
+                    },
+                    attribute: Some(ua::AttributeId::ArrayDimensions),
+                };
+                assert!(sample.value(py).is_ok());
                 let array = converted.bind(py).cast::<Array>()?.borrow();
                 assert_eq!(array.element_type().0, ua::VariantScalarTypeId::Double);
                 assert_eq!(array.dimensions(), dimensions);

@@ -269,55 +269,97 @@ macro_rules! node_methods {
         #[pymethods]
         impl Node {
             #[getter]
-            fn node_id(&self) -> NodeId { NodeId(self.id.clone()) }
+            fn node_id(&self) -> NodeId {
+                NodeId(self.id.clone())
+            }
 
             #[getter]
-            fn browse_path(&self) -> BrowsePath { BrowsePath(self.path.clone()) }
+            fn browse_path(&self) -> BrowsePath {
+                BrowsePath(self.path.clone())
+            }
 
             fn get_attribute(&self, py: Python<'_>, attribute: AttributeId) -> PyResult<DataValue> {
                 let attribute = attribute.0;
                 let connection = self.connection.clone();
                 let id = self.id.clone();
                 wait(py, async move {
-                    let values = connection.session.read(
-                        &[ua::ReadValueId { node_id: id, attribute_id: attribute as u32, ..Default::default() }],
-                        ua::TimestampsToReturn::Both, 0.0,
-                    ).await.map_err(error::native)?;
-                    let inner = values.into_iter().next()
+                    let values = connection
+                        .session
+                        .read(
+                            &[ua::ReadValueId {
+                                node_id: id,
+                                attribute_id: attribute as u32,
+                                ..Default::default()
+                            }],
+                            ua::TimestampsToReturn::Both,
+                            0.0,
+                        )
+                        .await
+                        .map_err(error::native)?;
+                    let inner = values
+                        .into_iter()
+                        .next()
                         .ok_or_else(|| PyRuntimeError::new_err("native read returned no result"))?;
-                    Ok(DataValue { inner, attribute: Some(attribute) })
+                    Ok(DataValue {
+                        inner,
+                        attribute: Some(attribute),
+                    })
                 })
             }
 
             fn get_child(&self, py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Self> {
-                let path = if let Ok(path) = path.extract::<RelativePath>() { path.0 } else {
+                let path = if let Ok(path) = path.extract::<RelativePath>() {
+                    path.0
+                } else {
                     ua::RelativePath::try_from(path.extract::<String>()?)
                         .map_err(|error| PyValueError::new_err(error.to_string()))?
                 };
                 if path.elements.as_ref().is_none_or(Vec::is_empty) {
-                    return Err(PyValueError::new_err("relative path must contain a path element"));
+                    return Err(PyValueError::new_err(
+                        "relative path must contain a path element",
+                    ));
                 }
                 let connection = self.connection.clone();
                 let id = self.id.clone();
                 wait(py, async move {
-                    let path = ua::BrowsePath { starting_node: id, relative_path: path };
-                    let results = connection.session.translate_browse_paths_to_node_ids(
-                        std::slice::from_ref(&path)
-                    ).await.map_err(error::native)?;
-                    let result = results.into_iter().next()
+                    let path = ua::BrowsePath {
+                        starting_node: id,
+                        relative_path: path,
+                    };
+                    let results = connection
+                        .session
+                        .translate_browse_paths_to_node_ids(std::slice::from_ref(&path))
+                        .await
+                        .map_err(error::native)?;
+                    let result = results
+                        .into_iter()
+                        .next()
                         .ok_or_else(|| PyRuntimeError::new_err("native translation returned no result"))?;
                     if !result.status_code.is_good() {
-                        return Err(error::status(result.status_code, "relative path translation failed"));
+                        return Err(error::status(
+                            result.status_code,
+                            "relative path translation failed",
+                        ));
                     }
-                    let mut targets = result.targets.unwrap_or_default();
-                    if targets.len() != 1 {
-                        return Err(PyValueError::new_err(format!("relative path resolved to {} targets; expected one", targets.len())));
-                    }
-                    let target = targets.remove(0);
+                    let [target] = <[ua::BrowsePathTarget; 1]>::try_from(
+                        result.targets.unwrap_or_default(),
+                    )
+                    .map_err(|targets| {
+                        PyValueError::new_err(format!(
+                            "relative path resolved to {} targets; expected one",
+                            targets.len()
+                        ))
+                    })?;
                     if target.target_id.server_index != 0 || target.remaining_path_index != u32::MAX {
-                        return Err(PyValueError::new_err("relative path did not resolve to a local Node"));
+                        return Err(PyValueError::new_err(
+                            "relative path did not resolve to a local Node",
+                        ));
                     }
-                    Ok(Self { connection, id: target.target_id.node_id, path })
+                    Ok(Self {
+                        connection,
+                        id: target.target_id.node_id,
+                        path,
+                    })
                 })
             }
 
@@ -331,34 +373,60 @@ macro_rules! node_methods {
                 let connection = self.connection.clone();
                 let id = self.id.clone();
                 wait(py, async move {
-                    let mut results = connection.session.browse(
-                        &[ua::BrowseDescription {
-                            node_id: id, browse_direction: ua::BrowseDirection::Forward,
-                            reference_type_id: ua::ReferenceTypeId::HierarchicalReferences.into(),
-                            include_subtypes: true, node_class_mask: 0, result_mask: 63,
-                        }], max_references_per_node, None,
-                    ).await.map_err(error::native)?;
+                    let mut results = connection
+                        .session
+                        .browse(
+                            &[ua::BrowseDescription {
+                                node_id: id,
+                                browse_direction: ua::BrowseDirection::Forward,
+                                reference_type_id: ua::ReferenceTypeId::HierarchicalReferences.into(),
+                                include_subtypes: true,
+                                node_class_mask: 0,
+                                result_mask: 63,
+                            }],
+                            max_references_per_node,
+                            None,
+                        )
+                        .await
+                        .map_err(error::native)?;
                     let mut children = Vec::new();
                     loop {
                         let mut continuation_points = Vec::new();
                         for result in results {
-                            if !result.status_code.is_good() { return Err(error::status(result.status_code, "child enumeration failed")); }
+                            if !result.status_code.is_good() {
+                                return Err(error::status(
+                                    result.status_code,
+                                    "child enumeration failed",
+                                ));
+                            }
                             for reference in result.references.into_iter().flatten() {
-                                if reference.node_id.server_index != 0 { return Err(PyValueError::new_err("child reference targets another server")); }
+                                if reference.node_id.server_index != 0 {
+                                    return Err(PyValueError::new_err(
+                                        "child reference targets another server",
+                                    ));
+                                }
                                 children.push(Self::new(connection.clone(), reference.node_id.node_id));
                             }
                             if !result.continuation_point.is_null_or_empty() {
                                 continuation_points.push(result.continuation_point);
                             }
                         }
-                        if continuation_points.is_empty() { break; }
-                        results = connection.session.browse_next(false, &continuation_points).await.map_err(error::native)?;
+                        if continuation_points.is_empty() {
+                            break;
+                        }
+                        results = connection
+                            .session
+                            .browse_next(false, &continuation_points)
+                            .await
+                            .map_err(error::native)?;
                     }
                     Ok(children)
                 })
             }
 
-            fn __repr__(&self) -> String { format!("Node({:?})", self.id.to_string()) }
+            fn __repr__(&self) -> String {
+                format!("Node({:?})", self.id.to_string())
+            }
 
             $(
                 #[getter]
