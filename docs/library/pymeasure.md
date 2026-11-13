@@ -30,7 +30,7 @@ uv add "instro[pymeasure]"
 ```python
 from pymeasure.instruments.keithley import Keithley2400
 
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib import NominalCorePublisher
 from instro.pymeasure import attach
 
 keithley = Keithley2400("GPIB::24")

@@ -37,7 +37,7 @@ import tempfile
 import pandas as pd
 from pymeasure.instruments.fakes import SwissArmyFake
 
-from instro.lib.publishers import FilePublisher
+from instro.lib import FilePublisher
 from instro.pymeasure import PymeasureInstrument
 
 publisher = FilePublisher(directory=tempfile.mkdtemp(), format="csv")
@@ -76,7 +76,7 @@ pd.read_csv(publisher.file_path)[["channel", "value"]]
 `start()`. Each read is published, and `get_channel()` returns the latest values.
 
 ```{code-cell} ipython3
-from instro.lib.types import BackgroundDaemonConfig
+from instro.lib import BackgroundDaemonConfig
 
 with PymeasureInstrument(
     name="bench",
@@ -239,7 +239,7 @@ To publish to a Nominal dataset, replace the `FilePublisher` with a `NominalCore
 to use your default Nominal credential:
 
 ```python
-from instro.lib.publishers import NominalCorePublisher
+from instro.lib import NominalCorePublisher
 
 recorder = attach(instrument=fake, name="bench", publishers=[NominalCorePublisher(dataset_rid="<dataset rid>")])
 # or
