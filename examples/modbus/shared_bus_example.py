@@ -14,8 +14,8 @@ Then run this script.
 
 from pathlib import Path
 
-from instro.lib.transports import ModbusTCPTransport
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
+from instro.lib import ModbusTCPTransport
 
 CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 

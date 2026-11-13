@@ -7,7 +7,7 @@ Run:
 
 from pathlib import Path
 
-from instro.dmm import InstroDMM
+from instro import InstroDMM
 
 # Swap this for dmm_config_keysight_34461a.json (after editing its visa_resource)
 # to run against real hardware instead of the simulator.

@@ -42,9 +42,9 @@ python -m instro.psu.scpi_sim_server
 Create an `InstroPSU` driven by the `SimulatedPSU` driver. The driver owns the VISA transport.
 
 ```python
-from instro.psu import InstroPSU
-from instro.psu.drivers import SimulatedPSU
-from instro.lib.publishers import FilePublisher
+from instro import InstroPSU
+from instro.drivers import SimulatedPSU
+from instro.lib import FilePublisher
 
 file_pub = FilePublisher(format="jsonl", directory="/tmp/instro/")
 psu = InstroPSU(

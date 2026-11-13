@@ -16,8 +16,8 @@ The {py:obj}`KeysightE36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>`
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`KeysightE36100 <instro.psu.drivers.keysight_e36100.KeysightE36100>`
 
 ```python
-from instro.psu.drivers import KeysightE36100
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import KeysightE36100
 
 psu = InstroPSU(
     name="myPSU",

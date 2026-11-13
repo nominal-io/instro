@@ -6,7 +6,7 @@ Run:
 
 from pathlib import Path
 
-from instro.psu import InstroPSU
+from instro import InstroPSU
 
 # Swap this for psu_config_bk9115.json or psu_config_rigol_dp800.json (after editing
 # their visa_resource) to run against real hardware instead of the simulator.

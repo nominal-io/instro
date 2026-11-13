@@ -1,4 +1,4 @@
-"""Minimal ModbusDevice example: read and write against the sim server.
+"""Minimal ModbusDevice example: read and write the sim server.
 
 Start the sim server first:
     python -m instro.modbus.sim_server
@@ -9,7 +9,7 @@ Then in another shell:
 
 from pathlib import Path
 
-from instro.modbus import ModbusDevice
+from instro import ModbusDevice
 
 CONFIG_PATH = Path(__file__).parent / "simulated_modbus_device.json"
 CONNECTION = {"transport": "tcp", "host": "127.0.0.1", "port": 5020}

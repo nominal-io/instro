@@ -1,10 +1,12 @@
-"""A minimal custom `Instrument`, a simulated temperature controller whose reading lags the commanded setpoint."""
+"""A custom `Instrument`: a simulated temperature controller.
+
+Its reading lags the commanded setpoint.
+"""
 
 import random
 import time
 
-from instro.lib import Command, Instrument, Measurement
-from instro.lib.instrument import publish_command, publish_measurement
+from instro.lib import Command, Instrument, Measurement, publish_command, publish_measurement
 
 
 class SimpleTempController(Instrument):

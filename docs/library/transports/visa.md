@@ -27,7 +27,7 @@ To author an instrument driver that composes `VisaDriver`, see the driver-develo
 The most common use of `VisaDriver` is as a transport inside an instrument driver. Here it is on its own, talking to a VISA instrument directly:
 
 ```python
-from instro.lib.transports import VisaDriver
+from instro.lib import VisaDriver
 
 visa = VisaDriver("USB0::0x2A8D::0x0101::MY12345::INSTR")
 visa.open()
@@ -95,7 +95,7 @@ For raw `TCPIP...::SOCKET` resources, `VisaDriver` disables Nagle's algorithm (`
 For terminators, timeouts, or serial settings, pass a `VisaConfig` instead of a plain resource string:
 
 ```python
-from instro.lib.transports import (
+from instro.lib import (
     ControlFlow,
     Parity,
     SerialConfig,

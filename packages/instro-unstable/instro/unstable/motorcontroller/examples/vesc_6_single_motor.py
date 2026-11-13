@@ -1,4 +1,4 @@
-"""Example: single VESC 6 (VESC ID 0) on a CAN bus via a candleLight/gs_usb USB-CAN adapter.
+"""Example: single VESC 6 via a candleLight/gs_usb USB-CAN adapter.
 
 Wire CAN_H/CAN_L (and GND) from the adapter to the VESC's COMM port; 120 ohm
 termination at both ends of the bus. Other VESCs may share the bus; frames are

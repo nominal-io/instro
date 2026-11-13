@@ -20,8 +20,8 @@ The {py:obj}`DewesoftX <instro.unstable.daq.drivers.dewesoftx.DewesoftX>` driver
 ## Creating an [`InstroDAQ`](/daq.md) with {py:obj}`DewesoftX <instro.unstable.daq.drivers.dewesoftx.DewesoftX>`
 
 ```python
-from instro.daq import InstroDAQ
 from instro.unstable.daq.drivers import DewesoftX
+from instro import InstroDAQ
 
 # attaches to the DewesoftX instance running on this Windows PC
 daq = InstroDAQ(name="dewesoftDAQ", driver=DewesoftX())

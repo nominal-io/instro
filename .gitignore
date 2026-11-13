@@ -78,6 +78,8 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+# The example notebooks are kept as Jupytext MyST .md files; executed .ipynb copies stay local.
+examples/notebooks/*.ipynb
 
 # IPython
 profile_default/

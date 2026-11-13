@@ -34,11 +34,11 @@ It's also included in the `all` extra. See [Installation](/installation.md#addit
 
 ## Import path
 
-Contrib drivers live under `instro.contrib.<category>.drivers.<driver_module>`:
+Import contrib drivers from `instro.contrib.drivers`:
 
 ```python
-from instro.contrib.psu.drivers import SomeVendorPSU
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.contrib.drivers import SomeVendorPSU
 
 psu = InstroPSU(
     name="myPSU",
@@ -62,7 +62,7 @@ This is the complete set of `instro-contrib` drivers as of the current release.
 ### Matrix WPS300S-series PSU
 
 **Class**: `MatrixWPS300S`  
-**Import**: `from instro.contrib.psu.drivers import MatrixWPS300S`  
+**Import**: `from instro.contrib.drivers import MatrixWPS300S`  
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 

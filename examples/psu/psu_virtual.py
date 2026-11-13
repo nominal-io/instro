@@ -4,8 +4,8 @@ VirtualPSU simulates its outputs in-process, so this runs as-is. Swap in a real
 driver (BK9115, RigolDP800, ...) and the rest is unchanged.
 """
 
-from instro.psu import InstroPSU
-from instro.psu.drivers import VirtualPSU
+from instro import InstroPSU
+from instro.drivers import VirtualPSU
 
 driver = VirtualPSU(num_channels=1, load_resistance=10.0)  # optional: channel count and load in ohms
 

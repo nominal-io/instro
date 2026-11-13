@@ -16,8 +16,8 @@ The {py:obj}`TDKLambdaGenesys <instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGe
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`TDKLambdaGenesys <instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys>`
 
 ```python
-from instro.psu.drivers import TDKLambdaGenesys
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import TDKLambdaGenesys
 
 psu = InstroPSU(
     name="myPSU",

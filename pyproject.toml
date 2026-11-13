@@ -111,6 +111,8 @@ docs = [
     # Nominal's shared look for Shibuya (nominal-io/nominal-sphinx-theme)
     "nominal-sphinx-theme @ git+https://github.com/nominal-io/nominal-sphinx-theme ; python_version >= '3.12'",
     "myst-parser>=5.1.0; python_version >= '3.12'",
+    # runs the MyST notebooks in examples/notebooks/ as the docs build (includes ipykernel)
+    "myst-nb>=1.4.0; python_version >= '3.12'",
     "sphinx-design>=0.7.0; python_version >= '3.12'",
     "sphinx-copybutton>=0.5.2; python_version >= '3.12'",
     "autodoc-pydantic>=2.2.0; python_version >= '3.12'",

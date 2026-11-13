@@ -223,6 +223,8 @@ Individual commits should follow the same Conventional Commits format. Each comm
 
 Every PR must pass `just check` and `just test`. [Build/test CI](./.github/workflows/build-check-test.yml) runs the checks across Windows, macOS, Linux, and the supported Python versions, and separately checks `uv lock --check`. Passing locally covers your current environment; it does not guarantee that the full CI matrix passes. [Docs CI](./.github/workflows/docs-check.yml) runs `just build-docs`, which fails on any docs warning, and [PR title CI](./.github/workflows/lint-pr-title.yml) checks Conventional Commits formatting. Example pages are generated from `examples/` at build time, so there is nothing to regenerate by hand.
 
+Example notebooks live in `examples/notebooks/` as [Jupytext](https://jupytext.readthedocs.io/) MyST Markdown (`.md`), so they diff as text and carry no outputs. `just notebook` opens the folder in JupyterLab; open a notebook with **Open With → Jupytext Notebook**. The docs build runs each notebook and shows it under **Notebooks** on the Examples tab, so a cell that raises fails `just build-docs` and docs CI. `just test-notebooks` runs them without building the docs.
+
 A separate [scheduled workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies to the latest versions `pyproject.toml` allows and re-runs the Python tests. If that workflow fails, fix the incompatibility or tighten the constraint rather than re-pinning the lockfile.
 
 For a new driver, ship a unit test against a mocked transport. [The BK9115 software tests](./tests/psu/bk/test_bk_9115_software.py) patch the driver's `VisaDriver` reference with `autospec=True` and assert wire-level commands. Follow the existing layout for the category; PSU driver tests live under `tests/psu/<vendor>/`, while [test_psu_drivers.py](./tests/psu/test_psu_drivers.py) covers the base contract and HAL composition. For a focused local run:
@@ -330,7 +332,7 @@ The word `contrib` travels with every import as the disclaimer.
 When the maintainers acquire the device and can verify the driver directly:
 
 1. `git mv` the file from `packages/instro-contrib/instro/contrib/<cat>/drivers/<driver>.py` to `instro/<cat>/drivers/<driver>.py`.
-2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`.
+2. Move the entry from `packages/instro-contrib/instro/contrib/<cat>/drivers/__init__.py` to the corresponding `instro/<cat>/drivers/__init__.py`, and from `instro/contrib/drivers/__init__.py` to `instro/drivers/__init__.py`.
 3. Leave a stub module at the old path that raises an `ImportError` naming the destination and the graduating release (e.g. `SomeVendorPSU graduated to core in v1.2. Import it from instro.psu.drivers.`). Exclude the stub from the contrib smoke test if needed.
 4. Open a follow-up issue to delete the stub in the next release.
 5. Describe the import-path change in the PR and affected user documentation, and use a normal Conventional Commit title so release-please generates the changelog entry. Graduation is not considered a breaking change for either package; follow the [migration policy](#pull-request-titles). Do not hand-edit `CHANGELOG.md`.

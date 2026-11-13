@@ -15,8 +15,8 @@ Instrument for all oscilloscopes
 ## Creating an InstroScope  
 
 ```python
-from instro.scope.drivers import Keysight1200X
-from instro.scope import InstroScope
+from instro import InstroScope
+from instro.drivers import Keysight1200X
 
 scope = InstroScope(
     name="myScope",
@@ -83,7 +83,7 @@ InstroScope("name", driver=Keysight1200X("<visa_resource>"), num_channels=4)
 See [Config Files](/library/config-files.md) for more info.
 
 ```python
-from instro.scope import InstroScope
+from instro import InstroScope
 
 scope = InstroScope(config="bench_scope.json")
 ```

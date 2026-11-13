@@ -16,8 +16,8 @@ The {py:obj}`Keysight1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>` 
 ## Creating an [`InstroScope`](/scope.md) with {py:obj}`Keysight1200X <instro.scope.drivers.keysight_1200x.Keysight1200X>`
 
 ```python
-from instro.scope.drivers import Keysight1200X
-from instro.scope import InstroScope
+from instro import InstroScope
+from instro.drivers import Keysight1200X
 
 scope = InstroScope(
     name="myScope",

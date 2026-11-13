@@ -4,8 +4,8 @@ VirtualDMM simulates readings in-process, so this runs as-is. Swap in a real
 driver (Agilent34401A, Keysight34461A, ...) and the rest is unchanged.
 """
 
-from instro.dmm import InstroDMM, MeasurementFunction
-from instro.dmm.drivers import VirtualDMM
+from instro import InstroDMM, MeasurementFunction
+from instro.drivers import VirtualDMM
 
 driver = VirtualDMM({MeasurementFunction.DC_VOLTAGE: 3.3})  # optional: what each function reads
 

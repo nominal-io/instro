@@ -28,7 +28,7 @@ fc = InstroFlowController(
 )
 ```
 
-A bare resource string applies the Alicat RS-232 defaults (19200 baud, carriage-return terminators). Pass a `VisaConfig` from `instro.lib.transports.visa` instead to override them, and `device_id` to address a unit other than `"A"`.
+A bare resource string applies the Alicat RS-232 defaults (19200 baud, carriage-return terminators). Pass a `VisaConfig` from `instro.lib` instead to override them, and `device_id` to address a unit other than `"A"`.
 
 ## Supported Vendors
 

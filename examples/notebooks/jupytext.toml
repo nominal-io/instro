@@ -1,0 +1,7 @@
+# Leave out version stamps when Jupytext rewrites a notebook's front matter.
+notebook_metadata_filter = "-jupytext.text_representation.jupytext_version,-jupytext.text_representation.format_version,-jupytext.text_representation.extension"
+# Read and save these .md files as MyST notebooks, since the filter above leaves the format out of their front matter.
+preferred_jupytext_formats_read = "md:myst"
+preferred_jupytext_formats_save = "md:myst"
+# Leave out the cell metadata JupyterLab adds on save.
+cell_metadata_filter = "-editable,-deletable,-slideshow,-execution"

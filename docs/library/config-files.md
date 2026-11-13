@@ -48,7 +48,7 @@ psu = InstroPSU(config=my_psu_config)
 - **`driver.name`** must match one of that category's registered vendor/model keys. The `visa` block accepts every `VisaConfig` field, so a non-default backend, timeout, or serial setting can be set from JSON too.
 - **`driver.num_channels`** is required by the multi-channel categories (PSU, Scope, AWG) and rejected by the single-channel ones (DMM, ELoad). The `driver` block is category-specific, not a shared component: each category validates it strictly, so a config copied between categories will not validate unchanged.
 - **`timing.poll_interval`** is optional and sets the background daemon's polling interval. Some categories require an initial-state block to be present before `timing` is meaningful (see each category below).
-- **`publishers`** is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`.
+- **`publishers`** is optional and accepts a list of `NominalCorePublisher` and/or `FilePublisher` entries, each tagged by `type`. A `NominalCorePublisher` entry takes `dataset_rid` plus optional `profile`, `batch_size`, `max_wait_s` (seconds) and `file_fallback` (an `.avro` path).
 - **`autostart=True`** opens the connection and starts background polling immediately: `InstroPSU(config="bench_psu.json", autostart=True)`.
 - Every category's config model is validated strictly: fields outside the documented set are rejected, so there's no `**kwargs`-style escape hatch from JSON. Set default tags via the direct Python constructor instead.
 

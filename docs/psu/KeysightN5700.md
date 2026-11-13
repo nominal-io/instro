@@ -2,9 +2,6 @@
 orphan: true
 card: Keysight N5700
 image: KeysightN5700.png
-myst:
-  html_meta:
-    description: "A driver for InstroPSU"
 ---
 
 # KeysightN5700
@@ -19,8 +16,8 @@ The {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>` pr
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`KeysightN5700 <instro.psu.drivers.keysight_n5700.KeysightN5700>`
 
 ```python
-from instro.psu.drivers import KeysightN5700
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import KeysightN5700
 
 psu = InstroPSU(
     name="myPSU",
