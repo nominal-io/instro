@@ -136,7 +136,7 @@ impl OpcUaClient {
                 }
                 _ = completion.changed() => {
                     let status = (*completion.borrow()).ok_or_else(|| PyRuntimeError::new_err("native session task ended"))?;
-                    return Err(error::status(status, "native session ended before activation"));
+                    return Err(error::status(status, "native session ended before activation", None));
                 }
             }
             Ok(Self {
@@ -339,6 +339,7 @@ macro_rules! node_methods {
                         return Err(error::status(
                             result.status_code,
                             "relative path translation failed",
+                            None,
                         ));
                     }
                     let [target] = <[ua::BrowsePathTarget; 1]>::try_from(
@@ -397,6 +398,7 @@ macro_rules! node_methods {
                                 return Err(error::status(
                                     result.status_code,
                                     "child enumeration failed",
+                                    None,
                                 ));
                             }
                             for reference in result.references.into_iter().flatten() {

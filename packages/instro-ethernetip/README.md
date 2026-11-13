@@ -72,7 +72,7 @@ When the PyO3 API changes, keep the Rust exports and `_ethernetip.pyi` in sync.
 
 ## Build, CI, and packaging
 
-This package's `Cargo.lock` lives beside [`Cargo.toml`](https://github.com/nominal-io/instro/blob/main/packages/instro-ethernetip/Cargo.toml) in this directory (not the root workspace lock). See [CONTRIBUTING.md — Rust Cargo.lock (dual-lock policy)](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md#rust-cargolock) for how to maintain it and add future standalone wrappers.
+The workspace's root [`Cargo.lock`](https://github.com/nominal-io/instro/blob/main/Cargo.lock) covers this package. See [CONTRIBUTING.md — Rust Cargo.lock](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md#rust-cargolock) for the shared lockfile policy.
 
 `instro-ethernetip` is a PyO3 extension crate packaged by `maturin`.
 
@@ -82,8 +82,8 @@ This package's `Cargo.lock` lives beside [`Cargo.toml`](https://github.com/nomin
   - It's this dynamic library that's loaded by Python at import time to interface with Rust code.
   - On disk, the dynamic library is a platform-specific Python extension module, such as
     `.abi3.so` on Linux and macOS or `.pyd` on Windows.
-- the wheel is ABI-stable across CPython 3.10+ because the crate uses PyO3's `abi3-py310` mode, which is a good fit because Connect already depends on Python 3.10+
-  - concretely, this means we don't need to build each wheel for different python versions (3.10, 3.11, 3.12, etc).
+- the wheel uses the workspace's PyO3 `abi3-py311` configuration and is ABI-stable across supported CPython 3.11+ versions.
+  - A separate wheel is not needed for each Python minor version.
 
 At build time, `maturin` compiles the Rust crate, places the resulting shared library in the wheel
 as the private `instro.ethernetip._ethernetip` extension module, and includes `_ethernetip.pyi`

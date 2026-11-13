@@ -244,6 +244,33 @@ with opcua.OpcUaClient.connect(url, **options) as client:
 }
 
 #[test]
+fn invalid_subscription_groups_raise_value_error_without_server_subscriptions() -> PyResult<()> {
+    with_server(temperature_server(), |py, locals, _| {
+        run(
+            py,
+            locals,
+            c"
+with opcua.OpcUaClient.connect(url, **options) as client:
+    node = client.objects.get_child(f'/{namespace}:Temperature')
+    cases = [
+        ([node, node], {}),
+        ([node], {'poll_interval': opcua.Duration.from_nanos(0)}),
+        ([node], {'poll_interval': opcua.Duration.from_secs(2**64 - 1)}),
+    ]
+    for nodes, settings in cases:
+        try:
+            client.subscribe(nodes, attribute=opcua.AttributeId.VALUE, **settings)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError('invalid subscription group was accepted')
+        assert subscription_count(client) == 0
+",
+        )
+    })
+}
+
+#[test]
 fn quiet_subscription_waits_until_closed() -> PyResult<()> {
     with_server(temperature_server(), |py, locals, _| {
         run(py, locals, c"

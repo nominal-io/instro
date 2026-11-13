@@ -15,7 +15,7 @@ list the complete signatures and native setting types. The
 | `Duration` | Native duration with second, millisecond, and nanosecond constructors and conversions. |
 | `Subscription[T]` | Blocking iterator of `(Node, DataValue[T])`, explicit `close()`, and context management. |
 | `MonitoredItemSettings` | Native per-item sampling, queue, filter, mode, index range, and data encoding. |
-| `OpcUaError` | Rust-backed exception with read-only native `status_code` and optional rejected `node`. |
+| `OpcUaError` | Operation failure carrying the native `status_code` and optional rejected `node`. |
 
 `connect()` accepts native client-builder settings as keywords. Native duration
 parameters use `Duration`; numeric protocol intervals preserve native units.

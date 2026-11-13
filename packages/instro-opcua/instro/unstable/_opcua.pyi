@@ -844,10 +844,10 @@ class Subscription(Generic[_T_co], Iterator[tuple[Node, DataValue[_T_co]]]):
         ...
 
 class OpcUaError(Exception):
-    """Rust-backed operation failure with read-only native status and Node fields."""
+    """Operation failure carrying an unchanged upstream status code.
 
-    def __init__(self, message: str, status_code: StatusCode, node: Node | None = None) -> None: ...
-    @property
-    def status_code(self) -> StatusCode: ...
-    @property
-    def node(self) -> Node | None: ...
+    Instances raised by the client include status_code and node attributes.
+    """
+
+    status_code: StatusCode
+    node: Node | None

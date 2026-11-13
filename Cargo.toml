@@ -12,6 +12,7 @@ edition = "2024"
 rust-version = "1.93.1"
 
 [workspace.dependencies]
+pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py311", "macros"] }
 base64 = "0.22"
 uuid = "1"
 serde = { version = "1", features = ["derive"] }

@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 async-opcua.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros"] }
-pyo3 = { version = "0.29.0", default-features = false, features = ["macros"] }
+pyo3.workspace = true
 
 [dev-dependencies]
 instro-opcua-test.workspace = true

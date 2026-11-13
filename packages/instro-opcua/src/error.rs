@@ -6,38 +6,24 @@ use pyo3::prelude::*;
 use crate::client::Node;
 use crate::values::StatusCode;
 
-#[pyclass(extends = PyException, module = "instro.unstable._opcua")]
-pub struct OpcUaError {
-    message: String,
-    #[pyo3(get)]
-    pub status_code: StatusCode,
-    #[pyo3(get)]
-    pub node: Option<Node>,
-}
+pyo3::create_exception!(instro.unstable._opcua, OpcUaError, PyException);
 
-#[pymethods]
-impl OpcUaError {
-    #[new]
-    #[pyo3(signature = (message, status_code, node=None))]
-    fn new(message: String, status_code: StatusCode, node: Option<Node>) -> Self {
-        Self {
-            message,
-            status_code,
-            node,
+pub fn status(code: ua::StatusCode, message: impl Into<String>, node: Option<Node>) -> PyErr {
+    Python::attach(|py| {
+        let error = OpcUaError::new_err(message.into());
+        let value = error.value(py);
+        let metadata = value
+            .setattr("status_code", StatusCode(code))
+            .and_then(|()| value.setattr("node", node));
+        match metadata {
+            Ok(()) => error,
+            Err(failure) => failure,
         }
-    }
-
-    fn __str__(&self) -> &str {
-        &self.message
-    }
-}
-
-pub fn status(code: ua::StatusCode, message: impl Into<String>) -> PyErr {
-    PyErr::new::<OpcUaError, _>((message.into(), StatusCode(code)))
+    })
 }
 
 pub fn native(error: ua::Error) -> PyErr {
-    status(error.status(), error.to_string())
+    status(error.status(), error.to_string(), None)
 }
 
 pub fn context(
@@ -70,7 +56,7 @@ mod tests {
         Python::attach(|py| {
             let original = PyKeyboardInterrupt::new_err("interrupted");
             original.set_context(py, Some(PyValueError::new_err("earlier context")));
-            let cleanup = status(ua::StatusCode::BadConnectionClosed, "cleanup failed");
+            let cleanup = status(ua::StatusCode::BadConnectionClosed, "cleanup failed", None);
             assert!(!context(py, Some(original.value(py)), Err(cleanup))?);
             assert!(original.is_instance_of::<PyKeyboardInterrupt>(py));
             let cleanup = original
@@ -86,20 +72,19 @@ mod tests {
     }
 
     #[test]
-    fn native_exception_preserves_status_bits_and_message() -> PyResult<()> {
+    fn operation_exception_preserves_status_bits_and_message() -> PyResult<()> {
         Python::initialize();
         Python::attach(|py| {
             let code = ua::StatusCode::from(0x803d_0480);
-            let error = status(code, "request rejected");
+            let error = status(code, "request rejected", None);
             assert!(error.is_instance_of::<OpcUaError>(py));
             let value = error.value(py).cast::<OpcUaError>()?;
-            assert_eq!(value.borrow().status_code.0, code);
-            assert_eq!(value.str()?.to_str()?, "request rejected");
-            assert!(
-                value
-                    .setattr("status_code", StatusCode(ua::StatusCode::Good))
-                    .is_err()
+            assert_eq!(
+                value.getattr("status_code")?.extract::<StatusCode>()?.0,
+                code
             );
+            assert!(value.getattr("node")?.is_none());
+            assert_eq!(value.str()?.to_str()?, "request rejected");
             Ok(())
         })
     }

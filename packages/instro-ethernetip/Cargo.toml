@@ -12,4 +12,4 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 instro-ethernetip = { path = "../../crates/instro-ethernetip", features = ["blocking"] }
-pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "macros"] }
+pyo3.workspace = true

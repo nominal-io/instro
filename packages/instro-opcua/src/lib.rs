@@ -19,6 +19,6 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(module)?;
     client::register(module)?;
     subscription::register(module)?;
-    module.add_class::<error::OpcUaError>()?;
+    module.add("OpcUaError", module.py().get_type::<error::OpcUaError>())?;
     Ok(())
 }

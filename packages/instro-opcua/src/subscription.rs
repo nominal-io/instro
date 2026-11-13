@@ -25,13 +25,11 @@ use crate::client::Connection;
 use crate::client::Node;
 use crate::client::runtime;
 use crate::client::wait;
-use crate::error::OpcUaError;
 use crate::error::{self};
 use crate::time::unix_timestamp;
 use crate::values::DataValue;
 use crate::values::ExtensionObject;
 use crate::values::QualifiedName;
-use crate::values::StatusCode;
 
 #[pyclass(frozen, from_py_object, module = "instro.unstable._opcua")]
 #[derive(Clone)]
@@ -126,7 +124,7 @@ impl ServerSubscription {
         if status.is_good() {
             Ok(())
         } else {
-            Err(error::status(status, "subscription deletion failed"))
+            Err(error::status(status, "subscription deletion failed", None))
         }
     }
 }
@@ -248,11 +246,12 @@ pub async fn create(
             ));
         }
     }
-    if settings
-        .poll_interval
-        .is_some_and(|interval| interval.is_zero())
-    {
-        return Err(PyValueError::new_err("poll_interval must be positive"));
+    if settings.poll_interval.is_some_and(|interval| {
+        interval.is_zero() || tokio::time::Instant::now().checked_add(interval).is_none()
+    }) {
+        return Err(PyValueError::new_err(
+            "poll_interval must be positive and within the native timer range",
+        ));
     }
     if item_settings
         .as_ref()
@@ -353,12 +352,8 @@ pub async fn create(
                     let errors: Vec<_> = rejected
                         .into_iter()
                         .map(|(node, code)| {
-                            PyErr::new::<OpcUaError, _>((
-                                "monitored item rejected",
-                                StatusCode(code),
-                                node,
-                            ))
-                            .into_value(py)
+                            error::status(code, "monitored item rejected", Some(node))
+                                .into_value(py)
                         })
                         .collect();
                     PyBaseExceptionGroup::new_err(("subscription setup rejected", errors))
@@ -430,7 +425,7 @@ async fn produce(
     let mut pending = HashMap::new();
     let mut terminal = None;
     let failure = |code: ua::StatusCode| {
-        (!code.is_good()).then(|| error::status(code, "native subscription terminated"))
+        (!code.is_good()).then(|| error::status(code, "native subscription terminated", None))
     };
     loop {
         if let Some(code) = *completion.borrow() {
