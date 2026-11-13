@@ -70,6 +70,7 @@ Here is a table of available packages:
 | **Plotting** | `plot` | Plotly publisher, with `anywidget` for live notebook plots |
 | **Other** | `contrib` | Community-contributed drivers |
 |  | `unstable` | Experimental unstable modules |
+|  | `pymeasure` | Publish [pymeasure](https://pymeasure.readthedocs.io) instruments through instro |
 
 ## Using Nominal Connect
 

@@ -17,7 +17,7 @@ from pymodbus.datastore import (
 )
 from pymodbus.exceptions import ConnectionException
 from pymodbus.framer import FramerType
-from pymodbus.server import StartAsyncTcpServer
+from pymodbus.server import ModbusTcpServer
 
 from instro.lib.exceptions import UnknownHolderError
 from instro.lib.transports.modbus import (
@@ -103,13 +103,14 @@ def modbus_server():
     async def _run():
         nonlocal shutdown
         shutdown = asyncio.Event()
-        server_task = asyncio.create_task(StartAsyncTcpServer(context=context, address=("127.0.0.1", TEST_PORT)))
-        await shutdown.wait()
-        server_task.cancel()
+        server = ModbusTcpServer(context=context, address=("127.0.0.1", TEST_PORT))
+        await server.serve_forever(background=True)
         try:
-            await server_task
-        except asyncio.CancelledError:
-            pass
+            await shutdown.wait()
+        finally:
+            # Cancelling a StartAsyncTcp server task leaves the listening socket open until GC,
+            # which can collide with later tests that reuse the port.
+            await server.shutdown()
 
     def _thread_target():
         asyncio.set_event_loop(loop)

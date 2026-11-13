@@ -85,6 +85,11 @@
       "release-type": "python",
       "component": "instro-contrib"
     },
+    "packages/instro-pymeasure": {
+      "release-type": "python",
+      "component": "instro-pymeasure",
+      "initial-version": "0.1.0"
+    },
     "crates/instro-ethernetip": {
       "release-type": "rust",
       "component": "instro-ethernetip-rs",
