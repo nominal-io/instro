@@ -100,6 +100,13 @@ sdr
 
 ```{toctree}
 :hidden:
+:caption: Ext Instruments
+
+library/pymeasure
+```
+
+```{toctree}
+:hidden:
 :caption: Library
 
 library/concepts
@@ -112,7 +119,6 @@ library/config-files
 library/simulated-instruments
 library/custom-instruments
 library/contrib
-library/pymeasure
 library/exceptions
 ```
 
