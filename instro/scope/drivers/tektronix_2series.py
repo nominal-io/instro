@@ -73,6 +73,8 @@ _TRIGGER_STATUS_MAP = {
 # measurement has no valid result yet (e.g. slot newly created, no
 # acquisition since slot was added).
 _VENDOR_INVALID_MEASUREMENT = 9.91e37
+# DATa:STOP above the record length clamps to it, so this always returns the full record.
+_MAX_RECORD_LENGTH = 1_000_000_000
 
 
 def _convert_sentinel(value: float) -> float:
@@ -213,12 +215,8 @@ class Tektronix2SeriesMSO(ScopeDriverBase):
         self._visa.write("DATa:ENCdg RIBinary")
         self._visa.write("WFMOutpre:BYT_Nr 2")  # each point returns a signed 2 byte integer
         self._visa.write("DATa:STARt 1")
-        # Check errors before querying data — if any setup command failed,
-        # the data query would hang waiting for a response that won't come.
-        self.check_errors()
-
-        nr_pt = int(float(self._visa.query("WFMOutpre:NR_Pt?")))  # points per record
-        self._visa.write(f"DATa:STOP {nr_pt}")
+        self._visa.write(f"DATa:STOP {_MAX_RECORD_LENGTH}")  # values above the record length clamp to it
+        self.check_errors()  # Check errors prior to queries ensuring good setup
 
         x_incr = float(self._visa.query("WFMOutpre:XINcr?"))  # period time, seconds, float
         x_zero = float(self._visa.query("WFMOutpre:XZEro?"))  # offset time from trigger to first sample
@@ -231,7 +229,7 @@ class Tektronix2SeriesMSO(ScopeDriverBase):
 
         points = self._visa.query_binary_values("CURVe?", datatype="h", is_big_endian=True, container=list)
 
-        times = [x_zero_ns + i * x_incr_ns for i in range(nr_pt)]
+        times = [x_zero_ns + i * x_incr_ns for i in range(len(points))]
         voltages = [(pt - y_off) * y_mult + y_zero for pt in points]
 
         return WaveformData(times=times, voltages=voltages)
@@ -347,12 +345,22 @@ class Tektronix2SeriesMSO(ScopeDriverBase):
     def _read_file_from_instrument(self, instrument_path: str) -> bytes:
         """``FILESystem:READFile`` from the scope's filesystem with a 30 s timeout (file transfers can be slow)."""
         with self._visa.temporary_timeout(30000):  # File transfers can be slow
-            self._visa.write(f'FILESystem:READFile "{instrument_path}"')
-            return self._visa.read_raw()
+            inst = self._visa._inst
+            assert inst is not None
+            original_termination = inst.read_termination
+            inst.read_termination = None  # type: ignore[assignment]  # file bytes contain arbitrary \n; read until the end-of-message flag instead
+            try:
+                self._visa.write(f'FILESystem:READFile "{instrument_path}"')
+                data = self._visa.read_raw()
+            finally:
+                inst.read_termination = original_termination  # type: ignore[assignment]
+            return data.removesuffix(b"\n")  # the scope appends one message terminator after the file bytes
 
     def _write_file_to_instrument(self, instrument_path: str, data: bytes) -> None:
         """``FILESystem:WRITEFile`` to the scope's filesystem."""
-        self._visa.write_raw(f'FILESystem:WRITEFile "{instrument_path}",'.encode() + data)
+        size = str(len(data))
+        block = f"#{len(size)}{size}".encode() + data  # WRITEFile takes an IEEE 488.2 definite-length block
+        self._visa.write_raw(f'FILESystem:WRITEFile "{instrument_path}",'.encode() + block)
 
     def save_screenshot(self, filepath: str, to_instrument: bool = False) -> bytes:
         if to_instrument:
