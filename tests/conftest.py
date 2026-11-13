@@ -38,4 +38,7 @@ def pytest_runtest_teardown(item, nextitem):
     if h or _listening():
         _seen["first"] = True
         threads = [t.name for t in threading.enumerate()]
-        os.write(2, f"\n[DIAG5025] held after {item.nodeid}: sockets={h} listening={_listening()} threads={threads}\n".encode())
+        os.write(
+            2,
+            f"\n[DIAG5025] held after {item.nodeid}: sockets={h} listening={_listening()} threads={threads}\n".encode(),
+        )
