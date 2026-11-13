@@ -978,12 +978,14 @@ source = { editable = "packages/instro-opcua" }
 dependencies = [
     { name = "instro" },
     { name = "pydantic" },
+    { name = "typing-extensions" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "instro", editable = "." },
     { name = "pydantic", specifier = ">=2.0" },
+    { name = "typing-extensions", specifier = ">=4.4" },
 ]
 
 [[package]]
