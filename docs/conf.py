@@ -18,7 +18,7 @@ project = "instro"
 copyright = "Nominal, Inc."
 
 extensions = [
-    "myst_parser",
+    "myst_nb",  # MyST Markdown, plus executed notebooks
     "sphinx.ext.autodoc",
     "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
@@ -56,6 +56,13 @@ default_role = "py:obj"
 # -- MyST ---------------------------------------------------------------------
 myst_enable_extensions = ["colon_fence", "deflist", "attrs_inline", "attrs_block", "fieldlist"]
 myst_heading_anchors = 6
+
+# Run each notebook in examples/notebooks/ on build; the cache (in _build) re-runs only notebooks that changed.
+nb_execution_mode = "cache"
+nb_execution_cache_path = str(HERE / "_build" / ".jupyter_cache")
+nb_execution_raise_on_error = True
+nb_execution_show_tb = True  # print a failing cell's traceback, not only the log file's path
+nb_execution_timeout = 120
 
 # -- autodoc -------------------------------------------------------------------
 autodoc_default_options = {
@@ -286,9 +293,19 @@ def _add_seo(app, pagename, templatename, context, doctree):
     """
     from docutils import nodes
 
+    meta = context.get("meta") or {}
+    if pagename.startswith("_modules/"):
+        # viewcode's source listings have no doctree
+        module = pagename.removeprefix("_modules/").replace("/", ".")
+        description = (
+            "Source code of the instro Python library's modules."
+            if module == "index"
+            else f"Source code of the {module} module, part of the instro Python library."
+        )
+        context["meta"] = {**meta, "description": description}
+        return
     if doctree is None:
         return
-    meta = context.get("meta") or {}
     folder, _, name = pagename.rpartition("/")
     title, description = meta.get("seo_title"), meta.get("description")
     if not description:
@@ -304,7 +321,7 @@ def _add_seo(app, pagename, templatename, context, doctree):
         )
     elif pagename.startswith("ref/") and name.startswith("instro."):
         module, _, obj = name.rpartition(".")
-        title = title or f"{obj} ({module}) - instro Python API"
+        title = title or f"{obj} ({module}) - instro"
         description = description or _description(doctree, min_length=0)
         description = description or f"API reference for {obj} in {module}, part of the instro Python library."
     description = description or _description(doctree, min_length=40)

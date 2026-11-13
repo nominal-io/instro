@@ -69,8 +69,8 @@ If no devices are found at all, the command prints a single error panel; on the 
 Pass the resource address from the **Recognized devices** table directly to the driver's constructor:
 
 ```python
-from instro.psu.drivers.bk_9115 import BK9115
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import BK9115
 
 psu = InstroPSU(name="psu", driver=BK9115("USB0::0x15EF::0x0099::INSTR"), num_channels=1)
 psu.open()
@@ -104,7 +104,7 @@ for error in result.errors:
 Each `DiscoveredInstrument` can build what you need next, so a script never re-derives the driver from the resource string:
 
 ```python
-from instro.psu import InstroPSU
+from instro import InstroPSU
 
 psu_info = next(i for i in result.instruments if i.category == "psu")
 

@@ -7,9 +7,9 @@ Demonstrates publishing measurements to an open file stream (FilePublisher with 
 import time
 from pathlib import Path
 
-from instro.daq import InstroDAQ
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
-from instro.lib.publishers import FilePublisher
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
+from instro.lib import FilePublisher
 
 AO_CH0 = "DAC0"
 AO_CH1 = "DAC1"

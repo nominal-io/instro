@@ -33,6 +33,14 @@ python *args:
 test-python:
     uv run pytest
 
+# open the example notebooks in JupyterLab; open one with Open With → Jupytext Notebook
+notebook *args:
+    uv run --with jupyterlab --with jupytext jupyter lab examples/notebooks "$@"
+
+# run every example notebook from top to bottom, failing on the first cell that raises
+test-notebooks:
+    for nb in examples/notebooks/*.md; do echo "$nb"; uv run --with jupytext --with nbconvert --with ipykernel sh -c 'jupytext --from myst --to ipynb --output - "$1" | jupyter nbconvert --stdin --stdout --to notebook --execute --log-level=WARN > /dev/null' _ "$nb" || exit 1; done
+
 # run Rust library, integration, and doc tests for the workspace
 test-rust:
     cargo nextest run --workspace --all-features --all-targets
@@ -111,13 +119,15 @@ build:
 _check-docs-python:
     uv run python -c "import sys; sys.exit(0 if sys.version_info >= (3, 12) else f'The docs toolchain needs Python >= 3.12 in the project environment (found {sys.version.split()[0]}). Recreate it with: uv sync --python 3.13 --group docs')"
 
-# build the docs site (guides + API reference) into docs/_build/dirhtml; warnings fail the build
+# build the docs site (guides + API reference) into docs/_build/dirhtml, running the example notebooks; warnings fail the build
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY: on macOS, -j forks Sphinx workers after notebook execution has started threads,
+# and the Objective-C runtime aborts the child; the variable has no effect on other platforms
 build-docs: _check-docs-python
-    uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
 # live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
 serve-docs: _check-docs-python
-    uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
+    OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"
 
 # run EtherNet/IP integration tests against the live PLC at 10.123.1.199:44818
 eip-live-test:

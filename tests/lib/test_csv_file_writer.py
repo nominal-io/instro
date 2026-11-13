@@ -50,12 +50,12 @@ def test_csv_rows_are_flushed_per_publish(tmp_path):
 
 def test_csv_uses_one_handle_across_writes(tmp_path):
     publisher = FilePublisher(directory=tmp_path, format="csv", custom_file_name="capture")
-    handle = publisher._writer._file
+    handle = publisher.writer._file
 
     publisher.publish(_measurement())
     publisher.publish(_command())
 
-    assert publisher._writer._file is handle
+    assert publisher.writer._file is handle
     publisher.close()
     assert handle.closed
     publisher.close()  # idempotent

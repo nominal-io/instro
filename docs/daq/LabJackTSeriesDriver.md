@@ -16,8 +16,8 @@ The {py:obj}`LabJackTSeriesDriver <instro.daq.drivers.labjack.t_series.LabJackTS
 ## Creating an [`InstroDAQ`](/daq.md) with {py:obj}`LabJackTSeriesDriver <instro.daq.drivers.labjack.t_series.LabJackTSeriesDriver>`
 
 ```python
-from instro.daq import InstroDAQ
-from instro.daq.drivers.labjack import LabJackTSeriesDriver
+from instro import InstroDAQ
+from instro.drivers import LabJackTSeriesDriver
 
 # serial number, device name, or IP address
 daq = InstroDAQ(name="ljDAQ", driver=LabJackTSeriesDriver(device_id="440020473"))

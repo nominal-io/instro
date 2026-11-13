@@ -12,8 +12,8 @@ concurrently, is device specific.
 
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.drivers.ni import NIDAQDriver
+from instro import InstroDAQ
+from instro.drivers import NIDAQDriver
 
 # NI device name, as defined in NI MAX. Both instances share the device
 # with non-overlapping channels.

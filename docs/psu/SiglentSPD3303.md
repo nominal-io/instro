@@ -16,8 +16,8 @@ The {py:obj}`SiglentSPD3303 <instro.psu.drivers.siglent_spd3303.SiglentSPD3303>`
 ## Creating an [`InstroPSU`](/psu.md) with {py:obj}`SiglentSPD3303 <instro.psu.drivers.siglent_spd3303.SiglentSPD3303>`
 
 ```python
-from instro.psu.drivers import SiglentSPD3303
-from instro.psu import InstroPSU
+from instro import InstroPSU
+from instro.drivers import SiglentSPD3303
 
 psu = InstroPSU(
     name="myPSU",

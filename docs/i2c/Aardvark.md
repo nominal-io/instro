@@ -16,9 +16,8 @@ The {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>` provide
 ## Creating an [`I2CInterface`](/library/protocols/i2c/overview.md) with {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>`
 
 ```python
-from instro.i2c.drivers.totalphase import Aardvark
-from instro.i2c import I2CInterface
-from instro.i2c.types import SystemDefinition
+from instro import I2CInterface, SystemDefinition
+from instro.drivers import Aardvark
 
 # Create system definition (see the System Definition page for details)
 system = SystemDefinition()
@@ -30,5 +29,7 @@ i2c = I2CInterface(
     system_definition=system,
 )
 ```
+
+To define the devices, registers and commands in `system`, see [System Definition](/library/protocols/i2c/system-definition.md).
 
 Parameters and methods specific to {py:obj}`Aardvark <instro.i2c.drivers.totalphase.aardvark.Aardvark>` can be found in the [Reference](/ref/index.md).

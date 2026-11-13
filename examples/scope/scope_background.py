@@ -5,8 +5,7 @@ Vrms, Vpp, and Frequency on channel 1 while printing results in a main loop.
 
 """
 
-from instro.lib.publishers import NominalCorePublisher
-from instro.scope import (
+from instro import (
     AcquisitionMode,
     Coupling,
     InstroScope,
@@ -15,7 +14,8 @@ from instro.scope import (
     TriggerSlope,
     TriggerType,
 )
-from instro.scope.drivers import Keysight1200X
+from instro.drivers import Keysight1200X
+from instro.lib import NominalCorePublisher
 
 VISA_RESOURCE = "<visa_resource>"  # Replace with your instrument's VISA resource string.
 DATASET_RID = "<dataset_rid>"  # Replace with your dataset RID.

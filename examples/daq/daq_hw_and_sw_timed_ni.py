@@ -1,4 +1,4 @@
-"""Example: one hardware-timed and one software-timed acquisition with two InstroDAQ instances.
+"""Example: hardware- and software-timed acquisition on one NI chassis.
 
 Runs two analog input tasks on one NI CompactDAQ chassis by giving each task
 its own InstroDAQ instance: one streams from the device's hardware sample
@@ -14,8 +14,8 @@ a conversion slower than the loop period simply slows the loop.
 
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.drivers.ni import NIDAQDriver
+from instro import InstroDAQ
+from instro.drivers import NIDAQDriver
 
 # NI device name, as defined in NI MAX. Both instances share the device
 # with non-overlapping channels.

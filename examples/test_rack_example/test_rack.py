@@ -6,14 +6,9 @@ Demonstrates publishing measurements/commands to a dataset (Nominal Core publish
 
 import time
 
-from instro.daq import InstroDAQ
-from instro.daq.drivers import Keysight34980A
-from instro.eload import InstroELoad
-from instro.eload.drivers import BK85XXB
-from instro.eload.types import LoadMode
-from instro.lib.transports import SerialConfig, VisaConfig
-from instro.psu import InstroPSU
-from instro.psu.drivers import BK9115
+from instro import InstroDAQ, InstroELoad, InstroPSU, LoadMode
+from instro.drivers import BK85XXB, BK9115, Keysight34980A
+from instro.lib import SerialConfig, VisaConfig
 
 # Demo assumes a power supply output is connected to the inputs of an electronic load.
 # Demo assumes there is a DAQ monitoring this line.

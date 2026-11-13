@@ -54,8 +54,8 @@ This example opens a CompactLogix connection, polls scalar tags, and publishes n
 ```python
 import time
 
-from instro.lib.publishers import NominalCorePublisher
 from instro.ethernetip import EtherNetIPDevice
+from instro.lib import NominalCorePublisher
 
 RID = "<dataset_rid>"  # Nominal Core dataset RID.
 
@@ -484,7 +484,6 @@ with EtherNetIPDevice(
 :::{tab-item} Python config
 
 ```python
-from instro.lib.types import DeviceInfo
 from instro.ethernetip import (
     EtherNetIPConfig,
     EtherNetIPConnectionInfo,
@@ -492,6 +491,7 @@ from instro.ethernetip import (
     TagDef,
     TimingConfig,
 )
+from instro.lib import DeviceInfo
 
 config = EtherNetIPConfig(
     device=DeviceInfo(name="line_plc"),
@@ -535,8 +535,8 @@ print(command.channel_data["line_plc.line_speed.cmd"])
 Use `autostart=True` to open the session and begin background polling immediately:
 
 ```python
-from instro.lib.publishers import NominalCorePublisher
 from instro.ethernetip import EtherNetIPDevice
+from instro.lib import NominalCorePublisher
 
 plc = EtherNetIPDevice(config="compactlogix.json", autostart=True)
 plc.add_publisher(NominalCorePublisher(dataset_rid="<dataset_rid>"))

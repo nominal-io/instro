@@ -13,11 +13,11 @@ pip install instro-contrib       # standalone
 
 ## Usage
 
-Contrib drivers mirror the core `instro` layout with `contrib` inserted after the top-level package name, and run behind the same category HALs (`InstroPSU`, `InstroDMM`, …):
+Import contrib drivers from `instro.contrib.drivers`. They run behind the same category HALs (`InstroPSU`, `InstroDMM`, …):
 
 ```python
-from instro.psu import InstroPSU
-from instro.contrib.psu.drivers import SiglentSPDxxx
+from instro import InstroPSU
+from instro.contrib.drivers import SiglentSPDxxx
 
 psu = InstroPSU(name="bench", driver=SiglentSPDxxx("TCPIP::192.168.1.10::INSTR"), num_channels=1)
 ```

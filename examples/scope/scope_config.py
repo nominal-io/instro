@@ -6,7 +6,7 @@ Run:
 
 from pathlib import Path
 
-from instro.scope import InstroScope, ScopeMeasurementType
+from instro import InstroScope, ScopeMeasurementType
 
 # Edit visa_resource in the JSON to match the connected scope.
 CONFIG_PATH = Path(__file__).parent / "scope_config_keysight_1200x.json"
