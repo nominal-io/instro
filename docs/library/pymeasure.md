@@ -7,11 +7,14 @@ myst:
 # Pymeasure Instruments
 
 {.lead}
-`instro-pymeasure` publishes the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument, and the values you read from it, through any instro publisher. Your drivers don't change.
+Publish the commands you send to a [pymeasure](https://pymeasure.readthedocs.io) instrument, and the values you read from it, through any instro publisher. Your drivers don't change.
 
-There are two ways to use it. [Attach to code you already have](#publish-from-existing-code), or [write new code around `PymeasureInstrument`](#write-new-instro-code), which adds tags and background polling. Either way, setting a property publishes a `Command` on `<name>.<channel>.cmd`, and reading one publishes a `Measurement` on `<name>.<channel>`. Property access inside driver methods, such as `apply_voltage()`, is published too.
+You can use it in two ways:
 
-Each property keeps its attribute path as its channel name. A [channel map](#channel-names) gives properties custom names or leaves some out. The [example notebook](/examples/notebooks/pymeasure_publishing.md) runs each of these against simulated instruments, so you can try them without hardware. [Failures and cleanup](#failures-and-cleanup) describes what happens when a read, a set or a publisher raises.
+- [`attach()`](#publish-from-existing-code) adds publishing to pymeasure code you already have.
+- [`PymeasureInstrument`](#write-new-instro-code) wraps an instrument in new instro code, with tags and background polling.
+
+Setting a property publishes a `Command` on `<name>.<channel>.cmd`, and reading one publishes a `Measurement` on `<name>.<channel>`. That includes access inside driver methods such as `apply_voltage()`. Channels take the property's name unless you [set your own](#channel-names). The [example notebook](/examples/notebooks/pymeasure_publishing.md) runs all of this against simulated instruments.
 
 ## Install
 
