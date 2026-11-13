@@ -1,14 +1,11 @@
 ---
 jupytext:
   text_representation:
-    extension: .md
     format_name: myst
-    format_version: 0.13
-    jupytext_version: 1.19.6
 kernelspec:
-  name: python3
   display_name: Python 3 (ipykernel)
   language: python
+  name: python3
 ---
 
 # Publish pymeasure instruments with instro
@@ -24,6 +21,9 @@ pip install "instro[pymeasure]"
 The first examples use `SwissArmyFake`, a simulated instrument that ships with pymeasure. They write CSV files to
 temporary folders, so you can see each published value. On a bench, construct your instrument's pymeasure driver
 with its VISA resource instead.
+
+From a clone of the repository, `just notebook` opens this file in JupyterLab: right-click `pymeasure_publishing.md` and choose
+**Open With → Jupytext Notebook**.
 
 ## Wrap an instrument
 

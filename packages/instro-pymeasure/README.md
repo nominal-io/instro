@@ -46,4 +46,4 @@ attach(supply, "psu", publishers, channel_map="psu_map.json")
 ```
 
 See the [guide](https://instro.nominal.io/library/pymeasure) and the
-[example notebook](https://github.com/nominal-io/instro/blob/main/examples/pymeasure/pymeasure_publishing.md).
+[example notebook](https://github.com/nominal-io/instro/blob/main/examples/notebooks/pymeasure_publishing.md).

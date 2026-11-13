@@ -142,7 +142,7 @@ property delegates to the original pymeasure property and then publishes what it
 - **Undoing it:** `close()` (or `detach()`) stops background polling and restores the original classes.
 
 The example notebook
-[`examples/pymeasure/pymeasure_publishing.md`](https://github.com/nominal-io/instro/blob/main/examples/pymeasure/pymeasure_publishing.md)
+[`examples/notebooks/pymeasure_publishing.md`](https://github.com/nominal-io/instro/blob/main/examples/notebooks/pymeasure_publishing.md)
 walks through all of this against a simulated supply.
 
 See the [API reference](/ref/library/pymeasure.md).

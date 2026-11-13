@@ -30,8 +30,4 @@ Deferred work for the pymeasure integration. Move items into GitHub issues once 
 
 ## Docs and release
 
-- [ ] Render `examples/pymeasure/pymeasure_publishing.md` on the docs site. The docs build uses `myst-parser`,
-  not `myst-nb`, and `_ext/examples.py` only picks up `examples/**/*.py`. Either add `myst-nb` (with
-  execution off) or teach the extension to include MyST notebooks.
-- [ ] Add `examples/pymeasure` to `CATEGORIES` in `docs/_ext/examples.py` once it has a rendered example.
 - [ ] Validate against real hardware (Keysight E36312A, Keithley 2400) before the first release.
