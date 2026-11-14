@@ -11,5 +11,18 @@ name = "_opcua"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-instro-opcua = { path = "../../crates/instro-opcua" }
-pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "macros"] }
+async-opcua.workspace = true
+pyo3.workspace = true
+paste = "1"
+uuid.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time", "macros"] }
+futures-util.workspace = true
+pollster = "0.4"
+tracing.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+instro-opcua-test.workspace = true
+
+[lints]
+workspace = true

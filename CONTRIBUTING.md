@@ -8,7 +8,7 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-The default development environment needs **Rust and a C/C++ toolchain**, even for `just check-python` and `just test-python`. The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local `instro-ethernetip` package, whose [build backend](./packages/instro-ethernetip/pyproject.toml) is maturin. Both `uv sync` and the recipes' `uv run` commands can build this native extension on a fresh checkout.
+The default development environment needs **Rust and a C/C++ toolchain**, even for `just check-python` and `just test-python`. The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local `instro-ethernetip` and `instro-opcua` packages, both built with maturin. Both `uv sync` and the recipes' `uv run` commands can build these native extensions on a fresh checkout.
 
 **`just check` and `just test` also need CMake and LLVM/libclang**: their [Rust recipes](./justfile) cover the whole [Cargo workspace](./Cargo.toml), including OPC UA and its C dependencies (`open62541-sys` and `mbedtls`). Python-only recipes skip those workspace-wide Rust checks, but still use the default development environment.
 
@@ -128,7 +128,7 @@ just test-rust       # Rust library/integration/doc tests only
 Notes:
 
 - The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
-- `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
+- `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, OPC UA, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
 - Add vendor extras only when needed, for example `uv sync --extra nidaq`. `uv sync --extra all` selects the extras listed in [pyproject.toml](./pyproject.toml); it does not install proprietary system SDKs or every workspace member.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 

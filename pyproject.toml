@@ -96,11 +96,13 @@ dev = [
     "types-requests>=2.32.4.20250913",
     "types-pyserial>=3.0",
     "instro-ethernetip",
+    "instro-opcua",
     "instro-unstable",
     "instro-contrib",
     "instro-pymeasure",
 ]
 test = [
+    "asyncua>=2,<3",
     "anywidget>=0.11",
     "cpppo>=4.0.0",
     "plotly>=6.0",
@@ -136,6 +138,7 @@ instro-daq-labjack = { workspace = true }
 instro-daq-mcc = { workspace = true }
 instro-i2c-aardvark = { workspace = true }
 instro-ethernetip = { workspace = true }
+instro-opcua = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 instro-pymeasure = { workspace = true }
@@ -158,6 +161,7 @@ line-length = 120
 include = [
     "instro/**/*.py",
     "packages/**/instro/**/*.py",
+    "packages/instro-opcua/instro/**/*.pyi",
     "tests/**/*.py",
     "examples/**/*.py",
 ]
@@ -199,11 +203,12 @@ mypy_path = [
     "packages/instro-daq-mcc",
     "packages/instro-i2c-aardvark",
     "packages/instro-ethernetip",
+    "packages/instro-opcua",
     "packages/instro-unstable",
     "packages/instro-contrib",
     "packages/instro-pymeasure",
 ]
-packages = ["instro", "instro.ethernetip", "instro.pymeasure"]
+packages = ["instro", "instro.ethernetip", "instro.unstable.opcua", "instro.pymeasure"]
 
 [[tool.mypy.overrides]]
 # pymeasure ships no type information

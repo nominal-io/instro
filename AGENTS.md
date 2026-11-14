@@ -5,7 +5,7 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ## Quick reference
 
 ```bash
-uv sync                          # default dev/test environment, including native EtherNet/IP
+uv sync                          # default dev/test environment, including native EtherNet/IP and OPC UA
 uv sync --extra all              # additionally select all extras defined in pyproject.toml
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark, plot)
 just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
@@ -19,7 +19,7 @@ uv build --wheel --package <name> # build a wheel for a workspace package
 
 `just check` and `just test` cover local linting and tests. [Build/test CI](./.github/workflows/build-check-test.yml) also checks `uv lock --check` and runs across supported OS/Python combinations. Separate workflows check [the docs build](./.github/workflows/docs-check.yml) (`just build-docs`, warnings as errors) and [PR titles](./.github/workflows/lint-pr-title.yml). A local pass does not guarantee a full CI pass. The [scheduled latest-dependencies workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies and runs Python tests; it is not part of PR CI.
 
-The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` package, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. `test-rust` runs Rust tests with [`cargo-nextest`](https://nexte.st/) (plus `cargo test --doc` for doctests, which nextest skips); install it with `cargo install cargo-nextest --locked` or a prebuilt binary. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
+The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` and `instro-opcua` packages, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. `test-rust` runs Rust tests with [`cargo-nextest`](https://nexte.st/) (plus `cargo test --doc` for doctests, which nextest skips); install it with `cargo install cargo-nextest --locked` or a prebuilt binary. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
 
 ## Codebase layout
 
@@ -120,7 +120,7 @@ The root `instro` component has no `paths` restriction, so release-please hands 
 
 Pure-Rust crates under `crates/` that are published to crates.io are independent release-please components with `release-type: rust`. Do not add them to the legacy top-level `groups` block; that block is unsupported release-please config and should not be extended.
 
-Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags. The OPC UA crate uses `instro-opcua-rs` for the same Rust-crate tag convention.
+Use distinct release-please component names when a Rust crate would otherwise collide with a Python package tag lineage. The public Cargo crate is `instro-ethernetip`, but its release-please component is `instro-ethernetip-rs` so tags do not collide with the PyPI package's `instro-ethernetip-v...` tags.
 
 When a Rust core crate backs a Python package, keep the wrapper dependency key identical to the core crate's `[package].name`. release-please's `cargo-workspace` plugin matches dependency table keys rather than resolved Cargo paths, so aliases such as `instro-ethernetip-rs = { package = "instro-ethernetip", ... }` break the automatic wrapper patch bump.
 
