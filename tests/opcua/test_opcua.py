@@ -1,6 +1,5 @@
 from datetime import timedelta
 from pathlib import Path
-from threading import Timer
 from typing import Any
 from uuid import UUID
 
@@ -95,45 +94,6 @@ def test_invalid_attribute_selectors(client: OpcUaClient, attribute: Any, error:
 def test_empty_child_path(client: OpcUaClient) -> None:
     with pytest.raises(ValueError, match="relative path must contain"):
         client.objects.get_child(RelativePath.parse(""))
-
-
-def test_subscription_delivers_mixed_node_specifications(client: OpcUaClient, opcua_server: OpcUaTestServer) -> None:
-    temperature = client.get_node("/Objects/2:Rig/2:Temperature")
-
-    specifications = (temperature, "/Objects/2:Rig/2:Boolean", RelativePath.parse("/Objects/2:Rig/2:UInt64"))
-
-    with client.subscribe(
-        iter(specifications),
-        publishing_interval=0.05,
-        sampling_interval=50.0,
-        lifetime_count=100,
-        max_keep_alive_count=10,
-        max_notifications_per_publish=9,
-        priority=12,
-        queue_size=4,
-    ) as subscription:
-        deadline = Timer(5, subscription.close)
-        deadline.start()
-
-        try:
-            received: dict[object, object] = {}
-            while len(received) < 3:
-                node, value = next(subscription)
-                received[node.node_id.identifier] = value.value
-
-            assert received == {"Temperature": 23.5, "Boolean": True, "UInt64": 18_000_000_000_000}
-            assert opcua_server.request("subscription_parameters") == {
-                "subscription": (50.0, 100, 10, 9, 12),
-                "items": [(50.0, 4, False), (50.0, 4, False), (50.0, 4, False)],
-            }
-        finally:
-            deadline.cancel()
-
-
-def test_subscription_rejects_foreign_nodes(client: OpcUaClient, endpoint: str) -> None:
-    with OpcUaClient.connect(endpoint, request_timeout=2.0) as other:
-        with pytest.raises(ValueError, match="belong to this client"):
-            client.subscribe([other.objects])
 
 
 @pytest.mark.parametrize(

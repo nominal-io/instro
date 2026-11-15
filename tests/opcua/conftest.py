@@ -20,7 +20,7 @@ def opcua_server() -> Iterator[OpcUaTestServer]:
         if not parent.poll(15):
             pytest.fail("OPC UA test server did not start within 15 seconds")
 
-        yield OpcUaTestServer(parent.recv(), parent)
+        yield OpcUaTestServer(parent.recv())
 
     finally:
         if process.is_alive():

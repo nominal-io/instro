@@ -143,22 +143,32 @@ point **milliseconds**, including fractional values and the negative sentinel
 for the subscription's publishing interval. Other settings and defaults appear
 in the [API reference](/ref/protocols/opcua.md).
 
-Optional polling reads Nodes that have been quiet since the last processed
-notification. Pending polls are reconciled with notifications using source and
-server timestamps separately. Failed background reads are logged and polling
-continues. This preserves admitted output; it does not promise a global timestamp
-order across Nodes.
+Subscription processing continues while Python is idle or slow. With polling
+enabled, each tick first emits unmatched pending polls, then reads Nodes with
+no processed notification in the current interval. The first tick waits one
+period; ready ticks take priority over notifications, and missed ticks are
+skipped rather than replayed.
+
+At most one read is in flight and one pending poll is retained per Node. Pending
+polls wait for a matching notification, the next tick, or termination. If either
+comparable source or server timestamp, including its fractional field, shows an
+older poll, that poll precedes the notification; otherwise it is suppressed.
+Successful cycles reset quiet membership; failed reads log and preserve it.
+Notifications received during a read wait for its completion before processing.
+Accepted samples have no wrapper buffer limit or cross-Node timestamp order.
 
 Waiting for the next sample responds cooperatively to Python signals, including
 `KeyboardInterrupt`. Interruption exits that wait; iteration can resume without
 closing the subscription or discarding queued samples. If the exception leaves
 the subscription context, context exit closes it.
 
-`close()` stops and joins production, flushes pending polls, and attempts remote
-deletion. Queued samples remain iterable after close. Normal completion drains
-then ends iteration; a terminal native error drains then raises its original
-status. Deletion errors are reported by `close()`. If the context body also
-raises, its exception remains primary and cleanup failure is secondary context.
+`close()` seals callback admission, prevents new polls, waits for an admitted
+read, and attempts remote deletion. An already absent session needs no deletion.
+Accepted notifications and pending polls remain iterable after close; later
+callbacks are excluded. Normal completion drains then ends iteration; a terminal
+native error drains then raises its original status. Deletion errors come from
+`close()`. If the context body also raises, its exception remains primary and
+cleanup failure is secondary context.
 
 ## Recovery and shutdown
 

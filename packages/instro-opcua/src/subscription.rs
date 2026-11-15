@@ -1,154 +1,64 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
+use std::sync::Arc;
 use std::sync::Mutex;
-use std::sync::mpsc;
 use std::time::Duration;
 
+use async_channel::Receiver;
+use async_channel::Sender;
+use futures_util::StreamExt;
 use opcua::client::MonitoredItem;
-use opcua::client::Session;
 use opcua::client::SubscriptionCallbacks;
 use opcua::types as ua;
 use pyo3::exceptions::PyBaseException;
 use pyo3::exceptions::PyRuntimeError;
-use pyo3::exceptions::PyStopIteration;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use tokio::runtime::Handle;
-use tokio::sync::mpsc as async_mpsc;
-use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
+use tokio::time::Instant;
+use tokio::time::Interval;
+use tokio::time::MissedTickBehavior;
+use tokio::time::interval_at;
+use tokio::time::timeout;
 
 use crate::client::OpcUaClient;
 use crate::config::DurationInput;
 use crate::config::NativeInteger;
 use crate::error;
-use crate::node;
 use crate::node::Node;
 use crate::node::NodeInput;
+use crate::node::attribute_id;
 use crate::util;
 use crate::values::PyAttributeValue;
 
-mod producer;
-use producer::Input;
-use producer::Output;
-use producer::Producer;
+type Sample = (usize, ua::DataValue);
 
-struct Settings {
-    publishing_interval: Duration,
-    lifetime_count: u32,
-    max_keep_alive_count: u32,
-    max_notifications_per_publish: u32,
-    priority: u8,
-    publishing_enabled: bool,
-    sampling_interval: f64,
-    queue_size: u32,
-    discard_oldest: bool,
-    poll_interval: Option<Duration>,
-}
-
-struct Worker {
-    stop: Option<oneshot::Sender<()>>,
-    task: JoinHandle<()>,
-}
-
-impl Worker {
-    async fn stop(&mut self) -> PyResult<()> {
-        if let Some(stop) = self.stop.take() {
-            let _ = stop.send(());
-        }
-
-        (&mut self.task)
-            .await
-            .map_err(|error| PyRuntimeError::new_err(error.to_string()))
-    }
-}
-
-struct Cleanup {
-    client: OpcUaClient,
-    id: Option<u32>,
-    worker: Option<Worker>,
-    runtime: Handle,
-}
-
-impl Cleanup {
-    async fn close(mut self) -> PyResult<()> {
-        let stopped = match self.worker.as_mut() {
-            Some(worker) => worker.stop().await,
-            None => Ok(()),
-        };
-
-        self.worker = None;
-
-        let deleted = match self.id {
-            None => Ok(()),
-
-            Some(id) => {
-                let result = self
-                    .client
-                    .with_session(async |session| delete(session, id).await)
-                    .await;
-
-                self.id = None;
-
-                result
-            }
-        };
-
-        match (stopped, deleted) {
-            (Err(stopped), Err(deleted)) => {
-                Python::attach(|py| stopped.set_context(py, Some(deleted)));
-                Err(stopped)
-            }
-
-            (Err(error), _) | (_, Err(error)) => Err(error),
-            _ => Ok(()),
-        }
-    }
-}
-
-impl Drop for Cleanup {
-    fn drop(&mut self) {
-        let Some(id) = self.id.take() else {
-            return;
-        };
-
-        let cleanup = Self {
-            client: self.client.clone(),
-            id: Some(id),
-            worker: self.worker.take(),
-            runtime: self.runtime.clone(),
-        };
-
-        self.runtime.spawn(async move {
-            if let Err(error) = cleanup.close().await {
-                tracing::warn!(%error, "OPC UA subscription finalization failed");
-            }
-        });
-    }
-}
-
-async fn delete(session: &Session, id: u32) -> PyResult<()> {
-    let status = session
-        .delete_subscription(id)
-        .await
-        .map_err(error::native)?;
-
-    if status.is_good() {
-        Ok(())
-    } else {
-        Err(error::status(status, "subscription deletion failed"))
-    }
-}
-
-/// An iterator of ``(Node, AttributeValue)`` samples for one selected attribute.
+/// An iterator retaining its Nodes, client, and every accepted sample.
 ///
-/// Create with ``client.subscribe()`` and use a context manager or ``close()``
-/// for synchronous cleanup. Buffered samples remain iterable after close.
-/// A Python signal interrupts only the current wait, allowing iteration to resume.
+/// Create this with ``client.subscribe(nodes, ...)``. Native processing continues
+/// while Python is idle. Optional fallback reads cover Nodes that did not notify
+/// during the current interval, using the group's selected attribute.
+///
+/// Poll results wait until the next interval or a matching notification. A poll
+/// strictly older on either comparable timestamp is delivered before that
+/// notification; otherwise the notification replaces it. Unmatched polls survive.
+///
+/// Explicit ``close()`` seals notification admission, finishes any admitted read,
+/// drains accepted notifications, flushes polls, and attempts native deletion.
+/// Retained samples remain iterable afterward. A terminal native error follows
+/// them once. Deletion errors belong to ``close()``, not iteration.
+///
+/// Examples:
+///     >>> with client.subscribe([client.objects.get_child("2:Temperature")]) as samples:
+///     ...     node, value = next(samples)
+///     ...     print(node.node_id, value.value)
 #[pyclass(frozen, module = "instro.unstable._opcua")]
 pub(crate) struct Subscription {
+    nodes: Arc<Vec<Node>>,
     attribute: ua::AttributeId,
-    output: Mutex<Option<mpsc::Receiver<Output>>>,
-    cleanup: Mutex<Option<Cleanup>>,
+    ingress: Sender<Result<Sample, ua::StatusCode>>,
+    samples: Receiver<PyResult<Sample>>,
+    task: Mutex<Option<JoinHandle<PyResult<()>>>>,
 }
 
 #[pymethods]
@@ -157,80 +67,69 @@ impl Subscription {
         slf
     }
 
-    fn __next__(&self, py: Python<'_>) -> PyResult<(Node, PyAttributeValue)> {
+    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    /// Return the next retained Node and selected attribute value.
+    ///
+    /// Native waiting releases the GIL. A quiet wait checks Python signals every
+    /// 50 milliseconds. Interruption cancels this wait alone, leaving subscription
+    /// production and all unconsumed samples available for a later ``next()``.
+    fn __next__(&self, py: Python<'_>) -> PyResult<Option<(Node, PyAttributeValue)>> {
         loop {
             py.check_signals()?;
-
-            let message = py.detach(|| {
-                util::blocking(|| {
-                    let mut output = self.output.lock().map_err(|_| {
-                        PyRuntimeError::new_err("subscription output lock poisoned")
-                    })?;
-
-                    let Some(receiver) = output.as_ref() else {
-                        return Err(PyStopIteration::new_err(()));
-                    };
-
-                    let result = receiver.recv_timeout(Duration::from_millis(50));
-                    let output_finished = matches!(
-                        result,
-                        Ok(Output::End(_)) | Err(mpsc::RecvTimeoutError::Disconnected)
-                    );
-
-                    if output_finished {
-                        *output = None;
-                    }
-
-                    Ok(result)
-                })
+            let samples = self.samples.clone();
+            let received = util::wait(py, async move {
+                Ok(timeout(Duration::from_millis(50), samples.recv()).await)
             })?;
 
-            match message {
-                Err(mpsc::RecvTimeoutError::Timeout) => (),
+            // No signal check follows removal: interruption must not discard a sample.
+            match received {
+                Err(_) => continue,
+                Ok(Err(_)) => return Ok(None),
 
-                Ok(Output::Sample(node, value)) => {
-                    return Ok((node, PyAttributeValue::from_native(self.attribute, value)));
-                }
+                Ok(Ok(value)) => {
+                    let (index, value) = value?;
+                    let node = self.nodes.get(index).ok_or_else(|| {
+                        PyRuntimeError::new_err("notification referenced an unknown Node")
+                    })?;
 
-                Ok(Output::End(error)) => {
-                    return Err(error.unwrap_or_else(|| PyStopIteration::new_err(())));
-                }
-
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    return Err(PyRuntimeError::new_err(
-                        "subscription producer ended unexpectedly",
-                    ));
+                    let value = PyAttributeValue::from_native(self.attribute, value);
+                    return Ok(Some((node.clone(), value)));
                 }
             }
         }
     }
 
-    /// Stop and join production, flush pending polls, and attempt remote deletion.
+    /// Stop production and wait for this caller's native cleanup to finish.
     ///
-    /// Waits with the GIL released and without signal-driven cancellation. Repeated
-    /// calls are harmless and do not wait for another caller's cleanup. Queued
-    /// samples remain available; a pending terminal failure follows them.
-    /// Native 0.19 restoration/deletion races limit remote cleanup during recovery.
-    ///
-    /// Raises:
-    ///     OpcUaError: Native deletion fails. This does not add an iterator failure.
+    /// The caller taking the task owns cleanup completion. Later callers return
+    /// without a universal completion barrier. Waiting releases the GIL and is
+    /// not cancelled midway by Python signals. A disconnected session needs no
+    /// deletion; errors from an actually attempted deletion are reported.
     fn close(&self, py: Python<'_>) -> PyResult<()> {
-        let cleanup = self
-            .cleanup
+        self.ingress.close();
+        let task = self
+            .task
             .lock()
-            .map_err(|_| PyRuntimeError::new_err("subscription cleanup lock poisoned"))?
+            .unwrap_or_else(|error| error.into_inner())
             .take();
 
-        match cleanup {
-            Some(cleanup) => util::wait(py, cleanup.close()),
-            None => Ok(()),
+        if let Some(task) = task {
+            util::wait(py, async move {
+                task.await
+                    .map_err(|error| PyRuntimeError::new_err(error.to_string()))?
+            })?;
         }
+
+        Ok(())
     }
 
-    fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
-        slf
-    }
-
+    /// Close on context exit, keeping a body exception primary.
+    ///
+    /// A cleanup failure is attached as the body's exception context. Without a
+    /// body exception, the cleanup failure is raised directly.
     fn __exit__(
         &self,
         py: Python<'_>,
@@ -249,69 +148,52 @@ impl Subscription {
     }
 }
 
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        // Dropping a Tokio JoinHandle detaches; the task retains the client until cleanup ends.
+        self.ingress.close();
+    }
+}
+
 #[pymethods]
 impl OpcUaClient {
-    /// Monitor one attribute of an ordered iterable of Nodes or Root-relative paths.
-    ///
-    /// The iterable is consumed once before native allocation. Every requested
-    /// item must be established before setup succeeds. All items share settings.
+    /// Monitor a group of Nodes, with optional quiet-Node fallback reads.
     ///
     /// Args:
-    ///     nodes (Iterable[Node | RelativePath | str]): Nonempty iterable. Nodes must
-    ///         belong to this client; paths start at RootFolder. Resolved NodeIds
-    ///         must be distinct, including across different input forms.
-    ///     attribute (AttributeId | int | str | None): Attribute ID or canonical or
-    ///         snake-case name. Defaults to ``Value``.
-    ///     publishing_interval (Duration | datetime.timedelta | int | float):
-    ///         Requested interval, with numeric values in seconds. Defaults to 0.5 seconds.
-    ///     lifetime_count (int): Requested subscription lifetime in publishing cycles.
-    ///         Defaults to ``60``.
-    ///     max_keep_alive_count (int): Maximum cycles between keep-alives. Defaults to ``20``.
-    ///     max_notifications_per_publish (int): Notification limit per publish;
-    ///         zero means no limit. Defaults to ``0``.
-    ///     priority (int): Subscription priority from 0 through 255. Defaults to ``0``.
-    ///     publishing_enabled (bool): Enable native publishing. Defaults to ``True``.
-    ///     sampling_interval (float): Finite native milliseconds; negative values
-    ///         request the publishing interval, zero requests fastest sampling.
-    ///         Fractional values are preserved. Defaults to ``0.0``.
-    ///     queue_size (int): Requested native monitored-item queue size; zero lets
-    ///         the server choose its minimum. Defaults to ``0``.
-    ///     discard_oldest (bool): Discard the oldest queued native item on overflow.
-    ///         Defaults to ``False``.
-    ///     poll_interval (Duration | datetime.timedelta | int | float | None):
-    ///         Positive quiet-Node poll interval, with numeric values in seconds.
-    ///         Defaults to ``None``, disabling polling. Failed reads are logged
-    ///         and the existing polling schedule continues.
+    ///     nodes (Iterable[Node | RelativePath | str]): Consumed once before native
+    ///         allocation. Paths are rooted at RootFolder; duplicate or foreign
+    ///         Nodes are rejected. Results retain these rooted Nodes.
+    ///     attribute (AttributeId | int | str | None): Group attribute, default Value.
+    ///     publishing_interval (Duration | timedelta | int | float): Seconds, default 0.5.
+    ///     lifetime_count (int): Requested subscription lifetime count, default 60.
+    ///     max_keep_alive_count (int): Requested keep-alive count, default 20.
+    ///     max_notifications_per_publish (int): Zero means no requested limit.
+    ///     priority (int): Native unsigned byte priority, default zero.
+    ///     publishing_enabled (bool): Enable native publishing, default True.
+    ///     sampling_interval (float): Finite native milliseconds; zero and negative
+    ///         native sentinels and fractional milliseconds are passed through.
+    ///     queue_size (int): Native monitored-item queue request, default zero.
+    ///     discard_oldest (bool): Native monitored-item discard policy, default False.
+    ///     poll_interval (Duration | timedelta | int | float | None): Strictly positive
+    ///         fallback period in seconds, or None to disable fallback reads.
     ///
     /// Returns:
-    ///     Subscription: Iterator yielding ``(Node, AttributeValue)`` pairs.
+    ///     Subscription: Iterator over retained Node and AttributeValue pairs.
     ///
     /// Raises:
-    ///     ValueError: The group is empty, contains foreign or duplicate Nodes,
-    ///         or a setting is invalid.
-    ///     ExceptionGroup: Item setup fails; ordered errors retain ``node`` and
-    ///         ``status_code``. Native rollback is attempted before reporting failure.
-    ///     OpcUaError: A native service operation fails.
-    ///
-    /// Examples:
-    ///     >>> with client.subscribe([client.objects.get_child("/Server/ServerStatus/CurrentTime")]) as samples:
-    ///     ...     node, sample = next(samples)
-    ///     ...     print(node.node_id, sample.value)
+    ///     ValueError: A value, Node group, or resolved duplicate is invalid.
+    ///     TypeError: A keyword or iterable element has an unsupported type.
+    ///     ExceptionGroup: Monitored-item rejections in request order, each carrying
+    ///         the Node identifier and original status. Setup is rolled back first.
+    ///     OpcUaError: A native setup service fails. Cleanup cannot hide this error.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature =  (
-        nodes,
-        *,
-        attribute = None,
+    #[pyo3(signature = (
+        nodes, *, attribute = None,
         publishing_interval = DurationInput::from_millis(500),
-        lifetime_count = NativeInteger(60),
-        max_keep_alive_count = NativeInteger(20),
-        max_notifications_per_publish = NativeInteger(0),
-        priority = NativeInteger(0),
-        publishing_enabled = true,
-        sampling_interval = 0.0,
-        queue_size = NativeInteger(0),
-        discard_oldest = false,
-        poll_interval = None
+        lifetime_count = NativeInteger(60), max_keep_alive_count = NativeInteger(20),
+        max_notifications_per_publish = NativeInteger(0), priority = NativeInteger(0),
+        publishing_enabled = true, sampling_interval = 0.0,
+        queue_size = NativeInteger(0), discard_oldest = false, poll_interval = None,
     ))]
     fn subscribe(
         &self,
@@ -329,240 +211,362 @@ impl OpcUaClient {
         discard_oldest: bool,
         poll_interval: Option<DurationInput>,
     ) -> PyResult<Subscription> {
+        let inputs = NodeInput::materialize(self, nodes)?;
         let attribute = attribute
-            .map(node::attribute_id)
+            .map(attribute_id)
             .transpose()?
             .unwrap_or(ua::AttributeId::Value);
+        let poll_interval = poll_interval.map(DurationInput::into_native);
 
-        let nodes = NodeInput::materialize(self, nodes)?;
+        let invalid_poll = poll_interval.is_some_and(|period| period.is_zero());
 
-        let settings = Settings {
-            publishing_interval: publishing_interval.into_native(),
-            lifetime_count: lifetime_count.0,
-            max_keep_alive_count: max_keep_alive_count.0,
-            max_notifications_per_publish: max_notifications_per_publish.0,
-            priority: priority.0,
-            publishing_enabled,
-            sampling_interval,
-            queue_size: queue_size.0,
-            discard_oldest,
-            poll_interval: poll_interval.map(DurationInput::into_native),
-        };
-
-        if !settings.sampling_interval.is_finite() {
+        if !sampling_interval.is_finite() || invalid_poll {
             return Err(PyValueError::new_err(
-                "sampling_interval must be finite milliseconds",
+                "sampling must be finite and polling strictly positive",
             ));
         }
 
-        let invalid_poll_interval = settings.poll_interval.is_some_and(|period| {
-            period.is_zero() || tokio::time::Instant::now().checked_add(period).is_none()
-        });
-
-        if invalid_poll_interval {
-            return Err(PyValueError::new_err(
-                "poll_interval must be positive and within the native timer range",
-            ));
-        }
-
-        let runtime = crate::shared_rt::get(py)?.handle().clone();
         let client = self.clone();
-        util::wait(py, create(client, nodes, attribute, settings, runtime))
-    }
-}
-
-async fn create(
-    client: OpcUaClient,
-    inputs: Vec<NodeInput>,
-    attribute: ua::AttributeId,
-    settings: Settings,
-    runtime: Handle,
-) -> PyResult<Subscription> {
-    let owner = client.clone();
-    client
-        .with_session(async move |session| {
-            create_in(session, owner, inputs, attribute, settings, runtime).await
-        })
-        .await
-}
-
-async fn create_in(
-    session: &Session,
-    owner: OpcUaClient,
-    inputs: Vec<NodeInput>,
-    attribute: ua::AttributeId,
-    settings: Settings,
-    runtime: Handle,
-) -> PyResult<Subscription> {
-    let root = Node::root(owner.clone());
-    let mut nodes = Vec::with_capacity(inputs.len());
-    let mut ids = HashSet::new();
-
-    for input in inputs {
-        let node = match input {
-            NodeInput::Node(node) => node,
-            NodeInput::Path(path) => root.resolve_in(session, path).await?,
-        };
-
-        if !ids.insert(node.id().clone()) {
-            return Err(PyValueError::new_err(
-                "a Node may occur only once in a subscription group",
-            ));
-        }
-
-        nodes.push(node);
-    }
-
-    let requests: Vec<_> = nodes
-        .iter()
-        .map(|node| {
-            let item_to_monitor = ua::ReadValueId {
-                node_id: node.id().clone(),
-                attribute_id: attribute as u32,
-                ..Default::default()
-            };
-
-            let requested_parameters = ua::MonitoringParameters {
-                sampling_interval: settings.sampling_interval,
-                queue_size: settings.queue_size,
-                discard_oldest: settings.discard_oldest,
-                ..Default::default()
-            };
-
-            ua::MonitoredItemCreateRequest {
-                item_to_monitor,
-                monitoring_mode: ua::MonitoringMode::Reporting,
-                requested_parameters,
-            }
-        })
-        .collect();
-
-    let reads = requests
-        .iter()
-        .map(|item| item.item_to_monitor.clone())
-        .collect();
-
-    let (input, notifications) = async_mpsc::unbounded_channel();
-    let status_input = input.clone();
-    let callbacks = SubscriptionCallbacks::new(
-        move |status| {
-            let _ = status_input.send(Input::End(status.status));
-        },
-        move |value, item: &MonitoredItem| {
-            let _ = input.send(Input::Sample(item.item_to_monitor().node_id.clone(), value));
-        },
-        |_, _| {},
-    );
-
-    let id = session
-        .create_subscription(
-            settings.publishing_interval,
-            settings.lifetime_count,
-            settings.max_keep_alive_count,
-            settings.max_notifications_per_publish,
-            settings.priority,
-            settings.publishing_enabled,
-            callbacks,
-        )
-        .await
-        .map_err(error::native)?;
-
-    let mut cleanup = Cleanup {
-        client: owner.clone(),
-        id: Some(id),
-        worker: None,
-        runtime: runtime.clone(),
-    };
-
-    let created = session
-        .create_monitored_items(id, ua::TimestampsToReturn::Both, requests)
-        .await;
-
-    let setup = match created {
-        Err(error) => Err(error::native(error)),
-        Ok(created) if created.len() != nodes.len() => Err(error::status(
-            ua::StatusCode::BadUnexpectedError,
-            "monitored item creation returned an unexpected result count",
-        )),
-        Ok(created) => Python::attach(|py| {
-            let mut rejected = Vec::new();
-
-            for (node, item) in nodes.iter().zip(created) {
-                if !item.result.status_code.is_good() {
-                    let failure = error::status(item.result.status_code, "monitored item rejected");
-                    failure.value(py).setattr("node", node.clone())?;
-                    rejected.push(failure.into_value(py));
-                }
-            }
-
-            if rejected.is_empty() {
-                Ok(())
-            } else {
-                let group = py
-                    .import("builtins")?
-                    .getattr("ExceptionGroup")?
-                    .call1(("subscription setup rejected", rejected))?;
-
-                Err(PyErr::from_value(group))
-            }
-        }),
-    };
-
-    if let Err(failure) = setup {
-        let deleted = delete(session, id).await;
-        cleanup.id = None;
-
-        if let Err(deleted) = deleted {
-            Python::attach(|py| failure.set_context(py, Some(deleted)));
-        }
-
-        return Err(failure);
-    }
-
-    let (stop, stopped) = oneshot::channel();
-    let (output, receiver) = mpsc::channel();
-    let producer = Producer::new(
-        nodes,
-        reads,
-        notifications,
-        owner.native_state(),
-        stopped,
-        output,
-        settings.poll_interval,
-    );
-
-    let poll_client = owner;
-    let production = producer.run(move |reads| {
-        let client = poll_client.clone();
-        Box::pin(async move {
+        util::wait(py, async move {
             client
                 .with_session(async |session| {
-                    session
-                        .read(&reads, ua::TimestampsToReturn::Both, 0.0)
+                    let root = Node::root(client.clone());
+                    let mut nodes = Vec::with_capacity(inputs.len());
+                    let mut unique = HashSet::new();
+
+                    for input in inputs {
+                        let node = match input {
+                            NodeInput::Node(node) => node,
+                            NodeInput::Path(path) => root.resolve_in(session, path).await?,
+                        };
+
+                        if !unique.insert(node.id().clone()) {
+                            return Err(PyValueError::new_err(format!(
+                                "duplicate Node {}",
+                                node.id()
+                            )));
+                        }
+
+                        nodes.push(node);
+                    }
+
+                    let (ingress, notifications) = async_channel::unbounded();
+                    let callback_ingress = ingress.clone();
+                    let status_ingress = ingress.clone();
+
+                    let on_status_change = move |notification: ua::StatusChangeNotification| {
+                        if notification.status.is_bad() {
+                            let _ = status_ingress.try_send(Err(notification.status));
+                        }
+                    };
+
+                    let on_data_value = move |value, item: &MonitoredItem| {
+                        let index = item.client_handle() as usize - 1;
+                        let _ = callback_ingress.try_send(Ok((index, value)));
+                    };
+
+                    let callback = SubscriptionCallbacks::new(
+                        on_status_change,
+                        on_data_value,
+                        |_event, _item| {},
+                    );
+
+                    let id = session
+                        .create_subscription(
+                            publishing_interval.into_native(),
+                            lifetime_count.0,
+                            max_keep_alive_count.0,
+                            max_notifications_per_publish.0,
+                            priority.0,
+                            publishing_enabled,
+                            callback,
+                        )
                         .await
-                        .map_err(error::native)
+                        .map_err(error::native)?;
+
+                    let setup = async {
+                        let mut requests = Vec::with_capacity(nodes.len());
+
+                        for (index, node) in nodes.iter().enumerate() {
+                            let handle = u32::try_from(index + 1)
+                                .map_err(|_| PyValueError::new_err("too many monitored Nodes"))?;
+
+                            let parameters = ua::MonitoringParameters {
+                                client_handle: handle,
+                                sampling_interval,
+                                queue_size: queue_size.0,
+                                discard_oldest,
+                                ..Default::default()
+                            };
+
+                            let request = ua::MonitoredItemCreateRequest {
+                                item_to_monitor: ua::ReadValueId::new(node.id().clone(), attribute),
+                                monitoring_mode: ua::MonitoringMode::Reporting,
+                                requested_parameters: parameters,
+                            };
+
+                            requests.push(request);
+                        }
+
+                        let results = session
+                            .create_monitored_items(id, ua::TimestampsToReturn::Both, requests)
+                            .await
+                            .map_err(error::native)?;
+
+                        if results.len() != nodes.len() {
+                            return Err(error::status(
+                                ua::StatusCode::BadUnexpectedError,
+                                "monitored-item result count does not match the requested Nodes",
+                            ));
+                        }
+
+                        Python::attach(|py| {
+                            let mut errors = Vec::new();
+
+                            for (node, item) in nodes.iter().zip(results) {
+                                let status = item.result.status_code;
+
+                                if !status.is_good() {
+                                    let failure = error::status(
+                                        status,
+                                        format!("monitoring Node {}: {status}", node.id()),
+                                    );
+
+                                    failure.value(py).setattr("node", node.clone())?;
+                                    errors.push(failure.into_value(py));
+                                }
+                            }
+
+                            if errors.is_empty() {
+                                return Ok(());
+                            }
+
+                            let group = py
+                                .import("builtins")?
+                                .getattr("ExceptionGroup")?
+                                .call1(("monitored-item setup failed", errors))?;
+
+                            Err(PyErr::from_value(group))
+                        })?;
+
+                        poll_interval
+                            .map(|period| {
+                                let deadline =
+                                    Instant::now().checked_add(period).ok_or_else(|| {
+                                        PyValueError::new_err(
+                                            "poll interval exceeds the native clock range",
+                                        )
+                                    })?;
+
+                                let mut timer = interval_at(deadline, period);
+                                timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+                                Ok(timer)
+                            })
+                            .transpose()
+                    }
+                    .await;
+
+                    let timer = match setup {
+                        Ok(timer) => timer,
+
+                        Err(error) => {
+                            ingress.close();
+                            let _ = session.delete_subscription(id).await;
+                            return Err(error);
+                        }
+                    };
+
+                    let nodes = Arc::new(nodes);
+                    let (output, samples) = async_channel::unbounded();
+
+                    let task = tokio::spawn(subscription_loop(
+                        client.clone(),
+                        nodes.clone(),
+                        attribute,
+                        id,
+                        notifications,
+                        output,
+                        timer,
+                    ));
+
+                    Ok(Subscription {
+                        nodes,
+                        attribute,
+                        ingress,
+                        samples,
+                        task: Mutex::new(Some(task)),
+                    })
                 })
                 .await
         })
-    });
+    }
+}
 
-    let task = runtime.spawn(production);
+/// Run the original quiet-membership and one-interval reconciliation policy.
+///
+/// The only policy collections are the quiet indices and one pending poll per
+/// Node. Native reads stay inline: notifications accepted during a read wait for
+/// it to finish, and a Python interruption cannot abandon its Session guard.
+/// Channel closure disables future reads and drains through the same merge path.
+async fn subscription_loop(
+    client: OpcUaClient,
+    nodes: Arc<Vec<Node>>,
+    attribute: ua::AttributeId,
+    id: u32,
+    notifications: Receiver<Result<Sample, ua::StatusCode>>,
+    output: Sender<PyResult<Sample>>,
+    mut timer: Option<Interval>,
+) -> PyResult<()> {
+    let mut quiet = (0..nodes.len()).collect::<HashSet<_>>();
+    let mut pending = HashMap::<usize, ua::DataValue>::new();
+    let mut terminal = None;
+    let mut state = client.native_state();
 
-    cleanup.worker = Some(Worker {
-        stop: Some(stop),
-        task,
-    });
+    let chunks = notifications.clone().ready_chunks(64);
+    tokio::pin!(chunks);
 
-    Ok(Subscription {
-        attribute,
-        output: Mutex::new(Some(receiver)),
-        cleanup: Mutex::new(Some(cleanup)),
+    loop {
+        let tick = async {
+            match timer.as_mut() {
+                None => std::future::pending().await,
+
+                Some(timer) => {
+                    timer.tick().await;
+                }
+            }
+        };
+
+        tokio::select! {
+            biased;
+            _ = tick, if !notifications.is_closed() => {
+                for sample in pending.drain() {
+                    let _ = output.try_send(Ok(sample));
+                }
+
+                if !quiet.is_empty() {
+                    let indices = quiet.iter().copied().collect::<Vec<_>>();
+                    let requests = indices
+                        .iter()
+                        .filter_map(|index| nodes.get(*index))
+                        .map(|node| ua::ReadValueId::new(node.id().clone(), attribute))
+                        .collect::<Vec<_>>();
+
+                    let read = client
+                        .with_session(async |session| {
+                            // This is the read's admission point, under the Session read guard.
+                            // A close before admission skips it; an admitted read always completes.
+                            if notifications.is_closed() {
+                                return Ok(None);
+                            }
+
+                            let read = session
+                                .read(&requests, ua::TimestampsToReturn::Both, 0.0)
+                                .await;
+
+                            Ok(Some(read))
+                        })
+                        .await;
+
+                    match read {
+                        Ok(None) => continue,
+
+                        Err(_) => {
+                            notifications.close();
+                            continue;
+                        }
+
+                        Ok(Some(Ok(values))) if values.len() == indices.len() => {
+                            pending.extend(indices.into_iter().zip(values));
+                        }
+
+                        other => {
+                            tracing::warn!(result = ?other, "fallback subscription read failed");
+                            continue;
+                        }
+                    }
+                }
+
+                quiet = (0..nodes.len()).collect();
+            }
+
+            changed = state.changed(), if !notifications.is_closed() => {
+                let finished = state.borrow_and_update().finished_result();
+
+                if changed.is_err() || finished.is_some() {
+                    terminal = finished.and_then(Result::err);
+                    notifications.close();
+                }
+            }
+
+            chunk = chunks.next() => {
+                let Some(chunk) = chunk else {
+                    break;
+                };
+
+                for notification in chunk {
+                    let (index, value) = match notification {
+                        Ok(sample) => sample,
+
+                        Err(status) => {
+                            terminal.get_or_insert_with(|| {
+                                error::status(status, "native subscription ended")
+                            });
+
+                            notifications.close();
+                            continue;
+                        }
+                    };
+
+                    quiet.remove(&index);
+                    if let Some(polled) = pending.remove(&index)
+                        && polled_is_older(&polled, &value)
+                    {
+                        let _ = output.try_send(Ok((index, polled)));
+                    }
+
+                    let _ = output.try_send(Ok((index, value)));
+                }
+            }
+        }
+    }
+
+    for sample in pending {
+        let _ = output.try_send(Ok(sample));
+    }
+
+    let terminal = terminal.or_else(|| state.borrow().finished_result().and_then(Result::err));
+    if let Some(error) = terminal {
+        let _ = output.try_send(Err(error));
+    }
+
+    drop(output);
+
+    // The outer Result describes admission only; the inner Result is actual deletion.
+    // A missing or terminal Session admits no deletion. Never suppress an attempted one.
+    let deletion = client
+        .with_session(async |session| {
+            Ok(session.delete_subscription(id).await.map_err(error::native))
+        })
+        .await;
+
+    match deletion {
+        Err(_) => Ok(()),
+        Ok(Err(error)) => Err(error),
+        Ok(Ok(status)) if !status.is_good() => Err(error::status(status, "deleting subscription")),
+        Ok(Ok(_)) => Ok(()),
+    }
+}
+
+fn polled_is_older(polled: &ua::DataValue, notification: &ua::DataValue) -> bool {
+    let source = polled.source_timestamp.zip(notification.source_timestamp);
+    let server = polled.server_timestamp.zip(notification.server_timestamp);
+
+    source.is_some_and(|(poll, note)| {
+        (poll, polled.source_picoseconds.unwrap_or(0))
+            < (note, notification.source_picoseconds.unwrap_or(0))
+    }) || server.is_some_and(|(poll, note)| {
+        (poll, polled.server_picoseconds.unwrap_or(0))
+            < (note, notification.server_picoseconds.unwrap_or(0))
     })
 }
-
-pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<Subscription>()
-}
-
-#[cfg(test)]
-mod tests;

@@ -31,7 +31,7 @@ def test_public_type_contracts(tmp_path: Path, fixture: str) -> None:
     else:
         assert result.returncode != 0, output
 
-        for rejected in ("username", "session_timeout", "get_node", "poll_frequency", "assignment"):
+        for rejected in ("username", "session_timeout", "get_node", "assignment"):
             assert rejected in output, output
 
         for constructor in ("IdentityToken", "Node", "AttributeValue", "RolePermissionType"):

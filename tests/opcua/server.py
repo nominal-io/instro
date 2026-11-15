@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import UTC
 from multiprocessing.connection import Connection
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from asyncua.crypto.permission_rules import User, UserRole
 from asyncua.server.address_space import AttributeValue
@@ -41,15 +41,6 @@ VARIABLES = {
 @dataclass
 class OpcUaTestServer:
     endpoint: str
-    connection: Connection
-
-    def request(self, value: str) -> object:
-        self.connection.send(value)
-
-        if not self.connection.poll(5):
-            raise TimeoutError("OPC UA test server did not acknowledge the request")
-
-        return self.connection.recv()
 
 
 def run_server(connection: Connection) -> None:
@@ -92,40 +83,6 @@ async def serve(connection: Connection) -> None:
     server.set_identity_tokens([AnonymousIdentityToken, UserNameIdentityToken])
     await populate(server)
 
-    observed: dict[str, object] = {}
-    service = server.iserver.subscription_service
-    create_subscription = service.create_subscription
-    create_monitored_items = service.create_monitored_items
-
-    async def record_subscription(
-        params: CreateSubscriptionParameters, *args: Any, **kwargs: Any
-    ) -> CreateSubscriptionResult:
-        observed["subscription"] = (
-            params.RequestedPublishingInterval,
-            params.RequestedLifetimeCount,
-            params.RequestedMaxKeepAliveCount,
-            params.MaxNotificationsPerPublish,
-            params.Priority,
-        )
-
-        return await create_subscription(params, *args, **kwargs)
-
-    async def record_items(params: CreateMonitoredItemsParameters) -> list[MonitoredItemCreateResult]:
-        observed["items"] = [
-            (
-                param.SamplingInterval,
-                param.QueueSize,
-                param.DiscardOldest,
-            )
-            for item in params.ItemsToCreate
-            if (param := cast(MonitoringParameters, item.RequestedParameters))
-        ]
-
-        return await create_monitored_items(params)
-
-    service.create_subscription = record_subscription  # type: ignore[method-assign]
-    service.create_monitored_items = record_items  # type: ignore[method-assign]
-
     async with server:
         for endpoint in server.iserver.endpoints:
             if endpoint.SecurityMode == MessageSecurityMode.None_:
@@ -136,8 +93,7 @@ async def serve(connection: Connection) -> None:
 
         connection.send(f"opc.tcp://127.0.0.1:{server.bserver.port}/instro-test/")  # type: ignore
 
-        while await asyncio.to_thread(connection.recv) is not None:
-            connection.send(observed)
+        await asyncio.to_thread(connection.recv)
 
 
 async def populate(server: Server) -> None:

@@ -28,22 +28,6 @@ pub(crate) fn client(server: &TestServer) -> PyResult<crate::client::OpcUaClient
     with_python(|py| Ok(connected(py, server)?.extract()?))
 }
 
-pub(crate) fn globals<'py>(
-    py: Python<'py>,
-    client: crate::client::OpcUaClient,
-) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
-    let globals = module(py)?.dict();
-    globals.set_item("client", client)?;
-    Ok(globals)
-}
-
-pub(crate) fn scenario(
-    client: crate::client::OpcUaClient,
-    program: &std::ffi::CStr,
-) -> PyResult<()> {
-    with_python(|py| py.run(program, Some(&globals(py, client)?), None))
-}
-
 pub(crate) fn status(error: PyErr) -> PyResult<u32> {
     with_python(|py| {
         assert!(error.is_instance_of::<crate::error::OpcUaError>(py));

@@ -20,7 +20,7 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(module)?;
 
     module.add_class::<node::Node>()?;
-    subscription::register(module)?;
+    module.add_class::<subscription::Subscription>()?;
     client::register(module)
 }
 

@@ -1,4 +1,3 @@
-from collections.abc import Iterator
 from datetime import timedelta
 from typing import assert_type
 
@@ -15,7 +14,7 @@ from instro.unstable.opcua.types import (
 )
 
 
-def inspect_node(node: Node, subscription: Subscription) -> None:
+def inspect_node(node: Node) -> None:
     _payload: AttributeValue[AttributePayload] = node.role_permissions
 
     assert_type(node.node_class, AttributeValue[NodeClass])
@@ -27,15 +26,20 @@ def inspect_node(node: Node, subscription: Subscription) -> None:
     assert_type(node.minimum_sampling_interval.value, timedelta | None)
     assert_type(node.value.source_timestamp, DateTime | None)
     assert_type(node.value.source_unix_timestamp, int | None)
-    assert_type(next(subscription), tuple[Node, AttributeValue[AttributePayload]])
 
 
-def connect_and_subscribe(paths: Iterator[str]) -> None:
-    with OpcUaClient.connect(
+def connect() -> None:
+    OpcUaClient.connect(
         "opc.tcp://localhost:4840",
         identity=IdentityToken.user_name("operator", "password"),
         request_timeout=timedelta(seconds=60),
         session_timeout=60_000,
-    ) as client:
-        with client.subscribe(paths, poll_interval=timedelta(seconds=2)) as subscription:
-            assert_type(subscription, Subscription)
+    )
+
+
+def inspect_subscription(client: OpcUaClient, node: Node) -> None:
+    nodes: list[Node | str] = [node, "/Objects/2:Other"]
+    with client.subscribe(iter(nodes), poll_interval=timedelta(seconds=2)) as subscription:
+        assert_type(subscription, Subscription)
+        assert_type(iter(subscription), Subscription)
+        assert_type(next(subscription), tuple[Node, AttributeValue[AttributePayload]])

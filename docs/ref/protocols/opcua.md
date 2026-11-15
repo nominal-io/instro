@@ -49,6 +49,20 @@ Wrong types and unknown keywords raise `TypeError`; invalid values raise
 `StatusCode`. Item-level subscription setup failures are grouped in an
 `ExceptionGroup`, with each exception retaining `node` and `status_code`.
 
+### Subscription iteration
+
+`Subscription` processes notifications and fallback reads independently of Python.
+`poll_interval=None` disables fallback reads. With polling enabled, one read runs
+at a time and one pending poll is retained per Node. Notifications received during
+a read wait for its completion. Accepted samples accumulate without a wrapper
+buffer limit; Python waits release the GIL and interruption preserves unread data.
+
+`close()` seals callback admission, prevents new polls, waits for any admitted
+read, and attempts native deletion; an already absent session needs no deletion.
+Accepted notifications and pending polls remain iterable before any terminal error.
+Deletion errors come only from `close()`. See the
+[client guide](/library/protocols/opcua.md#iterate-subscription-samples) for details.
+
 ### Attribute selection and named getters
 
 `Node.get_attribute()` and `subscribe(attribute=...)` accept `AttributeId`, an

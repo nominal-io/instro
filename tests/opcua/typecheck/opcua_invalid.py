@@ -6,7 +6,6 @@ def unsupported_inputs(client: OpcUaClient, node: Node) -> None:
     OpcUaClient.connect("opc.tcp://localhost:4840", username="operator")
     OpcUaClient.connect("opc.tcp://localhost:4840", session_timeout="60000")
     client.get_node(NodeId("i=85"))
-    client.subscribe(["/Objects"], poll_frequency=1.0)
     classification: NodeClass | None = node.value.value
 
 
