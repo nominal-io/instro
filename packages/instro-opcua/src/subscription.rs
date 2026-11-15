@@ -95,7 +95,7 @@ impl Subscription {
                         PyRuntimeError::new_err("notification referenced an unknown Node")
                     })?;
 
-                    let value = PyAttributeValue::from_native(self.attribute, value);
+                    let value = PyAttributeValue::from_native(py, self.attribute, value)?;
                     return Ok(Some((node.clone(), value)));
                 }
             }

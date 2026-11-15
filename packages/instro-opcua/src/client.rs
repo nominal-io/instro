@@ -656,12 +656,7 @@ fn get_endpoints(py: Python<'_>, endpoint_url: String) -> PyResult<Vec<EndpointD
         };
 
         let endpoints = result
-            .map(|values| {
-                values
-                    .into_iter()
-                    .map(<EndpointDescription as UaType>::new)
-                    .collect()
-            })
+            .map(|values| values.into_iter().map(EndpointDescription::new).collect())
             .map_err(error::native);
 
         let _ = tx.send(endpoints);

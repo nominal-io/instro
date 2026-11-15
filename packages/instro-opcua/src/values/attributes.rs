@@ -1,92 +1,19 @@
-use std::sync::OnceLock;
-
 use opcua::types as ua;
 use pyo3::prelude::*;
 
 use super::UaType;
 use super::payload;
 use super::payload::Payload;
-use super::payload::PayloadError;
 use super::wrappers::*;
 use crate::time::DateTime;
 use crate::time::unix_timestamp;
 
-pub(crate) trait Attribute {
-    type Native: Clone;
-    type Value: Payload<Native = Self::Native>;
-
-    const ID: ua::AttributeId;
-
-    fn into_python(value: AttributeValue<Self::Value>) -> PyAttributeValue;
-
-    fn wrap(value: ua::DataValue) -> AttributeValue<Self::Value> {
-        AttributeValue {
-            attribute_id: Self::ID,
-            native: value,
-            payload: OnceLock::new(),
-        }
-    }
-}
-
-#[derive(Clone)]
-pub(crate) struct AttributeValue<T: Payload> {
-    attribute_id: ua::AttributeId,
-    native: ua::DataValue,
-    payload: OnceLock<Result<Option<T>, PayloadError>>,
-}
-
-impl<T: Payload> AttributeValue<T> {
-    fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let payload = self.payload.get_or_init(|| match &self.native.value {
-            None | Some(ua::Variant::Empty) => Ok(None),
-            Some(value) => T::decode(value).map(Some),
-        });
-
-        match payload {
-            Ok(Some(value)) => value.to_python(py),
-            Ok(None) => Ok(py.None()),
-            Err(error) => Err((*error).into()),
-        }
-    }
-}
-
 macro_rules! attributes {
     ($($name:ident: $native:ty => $wrapper:ty),* $(,)?) => {
-        $(
-            pub(crate) struct $name;
-
-            impl Attribute for $name {
-                type Native = $native;
-                type Value = $wrapper;
-
-                const ID: ua::AttributeId = ua::AttributeId::$name;
-
-                fn into_python(value: AttributeValue<Self::Value>) -> PyAttributeValue {
-                    PyAttributeValue {
-                        result: ResultValue::$name(value)
-                    }
-                }
-            }
-        )*
-
-        #[derive(Clone)]
-        enum ResultValue {
-            $($name(AttributeValue<$wrapper>),)*
-        }
-
-        impl ResultValue {
-            fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-                match self {
-                    $(Self::$name(value) => value.value(py),)*
-                }
-            }
-
-            fn metadata(&self) -> (ua::AttributeId, &ua::DataValue) {
-                match self {
-                    $(Self::$name(value) => (value.attribute_id, &value.native),)*
-                }
-            }
-        }
+        const _: fn() = || {
+            fn assert_payload<T: Payload<Native = N>, N>() {}
+            $(assert_payload::<$wrapper, $native>();)*
+        };
 
         pub(crate) fn named_attribute(name: &str) -> Option<ua::AttributeId> {
             paste::paste! {
@@ -100,11 +27,9 @@ macro_rules! attributes {
             }
         }
 
-        impl PyAttributeValue {
-            pub(crate) fn from_native(id: ua::AttributeId, value: ua::DataValue) -> Self {
-                match id {
-                    $(ua::AttributeId::$name => $name::into_python($name::wrap(value)),)*
-                }
+        fn convert_attribute(id: ua::AttributeId, value: &ua::Variant, py: Python<'_>) -> PyResult<Py<PyAny>> {
+            match id {
+                $(ua::AttributeId::$name => <$wrapper>::decode(value)?.to_python(py),)*
             }
         }
     };
@@ -141,12 +66,13 @@ attributes! {
     AccessLevelEx: ua::AccessLevelExType => AccessLevelExType,
 }
 
-/// An attribute-aware result with a deferred payload and original quality metadata.
+/// An attribute-aware result with its semantic payload and original quality metadata.
 ///
 /// Returned by Node reads and subscriptions; it is not a DataValue subclass and
 /// provides no raw DataValue accessor. Missing payloads become ``None``. Bad or
-/// Uncertain quality alone does not raise. Access ``value`` to decode the bounded
-/// supported payload, retaining metadata if conversion fails.
+/// Uncertain quality alone does not raise. The payload is converted before this
+/// object is returned. Access ``value`` to retrieve it; a failed conversion
+/// raises then and leaves the metadata intact.
 #[pyclass(
     name = "AttributeValue",
     frozen,
@@ -154,86 +80,121 @@ attributes! {
     generic,
     module = "instro.unstable.opcua.types"
 )]
-#[derive(Clone)]
 pub(crate) struct PyAttributeValue {
-    result: ResultValue,
+    attribute_id: ua::AttributeId,
+    value: PyResult<Py<PyAny>>,
+    status: Option<ua::StatusCode>,
+    source_timestamp: Option<ua::DateTime>,
+    source_picoseconds: Option<u16>,
+    server_timestamp: Option<ua::DateTime>,
+    server_picoseconds: Option<u16>,
+}
+
+impl PyAttributeValue {
+    pub(crate) fn from_native(
+        py: Python<'_>,
+        attribute_id: ua::AttributeId,
+        native: ua::DataValue,
+    ) -> PyResult<Self> {
+        let ua::DataValue {
+            value,
+            status,
+            source_timestamp,
+            source_picoseconds,
+            server_timestamp,
+            server_picoseconds,
+        } = native;
+
+        let value = match value {
+            None | Some(ua::Variant::Empty) => Ok(py.None()),
+            Some(value) => convert_attribute(attribute_id, &value, py),
+        };
+
+        Ok(Self {
+            attribute_id,
+            value,
+            status,
+            source_timestamp,
+            source_picoseconds,
+            server_timestamp,
+            server_picoseconds,
+        })
+    }
+}
+
+impl Clone for PyAttributeValue {
+    fn clone(&self) -> Self {
+        let value = Python::attach(|py| match &self.value {
+            Ok(value) => Ok(value.clone_ref(py)),
+            Err(error) => Err(error.clone_ref(py)),
+        });
+
+        Self { value, ..*self }
+    }
 }
 
 #[pymethods]
 impl PyAttributeValue {
-    /// object | None: The semantic payload, decoded on access.
+    /// object | None: The semantic payload.
     ///
     /// Raises:
     ///     OpcUaError: ``BadTypeMismatch`` for an incompatible fixed attribute
     ///         payload, or ``BadNotSupported`` for unsupported types or dimensions.
     #[getter]
     fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        self.result.value(py)
+        match &self.value {
+            Ok(value) => Ok(value.clone_ref(py)),
+            Err(error) => Err(error.clone_ref(py)),
+        }
     }
 
     /// AttributeId: The attribute associated with this result.
     #[getter]
     fn attribute_id(&self) -> AttributeId {
-        <AttributeId as UaType>::new(self.result.metadata().0)
+        AttributeId::new(self.attribute_id)
     }
 
     /// int | None: Original source fractional field, in units of 10 picoseconds.
     #[getter]
     fn source_picoseconds(&self) -> Option<u16> {
-        self.result.metadata().1.source_picoseconds
+        self.source_picoseconds
     }
 
     /// int | None: Original server fractional field, in units of 10 picoseconds.
     #[getter]
     fn server_picoseconds(&self) -> Option<u16> {
-        self.result.metadata().1.server_picoseconds
+        self.server_picoseconds
     }
 
     /// StatusCode: Original sample quality; defaults to Good when absent.
     #[getter]
     fn status(&self) -> StatusCode {
-        let status = self
-            .result
-            .metadata()
-            .1
-            .status
-            .unwrap_or(ua::StatusCode::Good);
-
-        <StatusCode as UaType>::new(status)
+        let status = self.status.unwrap_or(ua::StatusCode::Good);
+        StatusCode::new(status)
     }
 
     /// DateTime | None: Native source timestamp, without the fractional field.
     #[getter]
     fn source_timestamp(&self) -> Option<DateTime> {
-        self.result
-            .metadata()
-            .1
-            .source_timestamp
-            .map(<DateTime as UaType>::new)
+        self.source_timestamp.map(DateTime::new)
     }
 
     /// DateTime | None: Native server timestamp, without the fractional field.
     #[getter]
     fn server_timestamp(&self) -> Option<DateTime> {
-        self.result
-            .metadata()
-            .1
-            .server_timestamp
-            .map(<DateTime as UaType>::new)
+        self.server_timestamp.map(DateTime::new)
     }
 
     /// int | None: Source Unix nanoseconds, including the truncated fractional field.
     #[getter]
     fn source_unix_timestamp(&self) -> Option<i128> {
-        let native = self.result.metadata().1;
-        unix_timestamp(native.source_timestamp, native.source_picoseconds)
+        unix_timestamp(self.source_timestamp, self.source_picoseconds)
     }
 
     /// int | None: Server Unix nanoseconds, including the truncated fractional field.
     #[getter]
     fn server_unix_timestamp(&self) -> Option<i128> {
-        let native = self.result.metadata().1;
-        unix_timestamp(native.server_timestamp, native.server_picoseconds)
+        unix_timestamp(self.server_timestamp, self.server_picoseconds)
     }
 }
 

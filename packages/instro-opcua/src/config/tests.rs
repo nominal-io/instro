@@ -31,7 +31,7 @@ fn security_policy_names_are_bounded_and_case_insensitive() -> PyResult<()> {
 #[test]
 fn security_mode_rejects_invalid_native_values_and_normalizes_names() -> PyResult<()> {
     with_python(|py| {
-        let invalid = <MessageSecurityMode as UaType>::new(ua::MessageSecurityMode::Invalid);
+        let invalid = MessageSecurityMode::new(ua::MessageSecurityMode::Invalid);
         let invalid = Py::new(py, invalid)?;
         let failure = invalid.extract::<SecurityModeInput>(py).unwrap_err();
         assert!(failure.is_instance_of::<PyValueError>(py));

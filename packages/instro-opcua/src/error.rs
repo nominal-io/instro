@@ -12,7 +12,7 @@ pub(crate) fn status(code: ua::StatusCode, message: impl Into<String>) -> PyErr 
         let error = OpcUaError::new_err(message.into());
         let attached = error
             .value(py)
-            .setattr("status_code", <StatusCode as UaType>::new(code));
+            .setattr("status_code", StatusCode::new(code));
 
         match attached {
             Ok(()) => error,

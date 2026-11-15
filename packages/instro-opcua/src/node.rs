@@ -17,8 +17,6 @@ use crate::values::NodeId;
 use crate::values::PyAttributeValue;
 use crate::values::RelativePath;
 use crate::values::UaType;
-use crate::values::attributes::Attribute;
-use crate::values::attributes::AttributeValue;
 use crate::values::attributes::{self};
 
 pub(crate) enum NodeInput {
@@ -171,9 +169,15 @@ impl Node {
             .await
     }
 
-    fn read<A: Attribute>(&self, py: Python<'_>) -> PyResult<AttributeValue<A::Value>> {
+    fn read_attribute(
+        &self,
+        py: Python<'_>,
+        attribute: ua::AttributeId,
+    ) -> PyResult<PyAttributeValue> {
         let node = self.clone();
-        util::wait(py, async move { node.read_native(A::ID).await }).map(A::wrap)
+        let value = util::wait(py, async move { node.read_native(attribute).await })?;
+
+        PyAttributeValue::from_native(py, attribute, value)
     }
 
     async fn enumerate_children(&self, max_references: u32) -> PyResult<ChildReferences> {
@@ -338,8 +342,8 @@ impl OpcUaClient {
 
         let values = results
             .into_iter()
-            .map(|result| PyAttributeValue::from_native(ua_attr.clone(), result))
-            .collect();
+            .map(|result| PyAttributeValue::from_native(py, ua_attr, result))
+            .collect::<PyResult<_>>()?;
 
         Ok(values)
     }
@@ -389,17 +393,12 @@ impl Node {
     ///         canonical or snake-case attribute name.
     ///
     /// Returns:
-    ///     AttributeValue: Result with payload conversion deferred until ``.value``.
+    ///     AttributeValue: Result whose payload is already converted. Access
+    ///         ``.value`` to retrieve it. A failed conversion raises then.
     ///         Bad or Uncertain sample quality alone does not raise.
     fn get_attribute(&self, py: Python<'_>, attr: &Bound<'_, PyAny>) -> PyResult<PyAttributeValue> {
         let attribute = attribute_id(attr)?;
-
-        let node = self.clone();
-        util::wait(py, async move {
-            node.read_native(attribute)
-                .await
-                .map(|value| PyAttributeValue::from_native(attribute, value))
-        })
+        self.read_attribute(py, attribute)
     }
 
     fn __repr__(&self) -> String {
@@ -418,8 +417,7 @@ macro_rules! attribute_getters {
                 $(
                     #[getter]
                     fn [<$attribute:snake>](&self, py: Python<'_>) -> PyResult<PyAttributeValue> {
-                        self.read::<attributes::$attribute>(py)
-                            .map(attributes::$attribute::into_python)
+                        self.read_attribute(py, ua::AttributeId::$attribute)
                     }
                 )*
             }

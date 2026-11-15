@@ -8,33 +8,24 @@ use pyo3::types::PyList;
 use super::UaType;
 use super::wrappers::*;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum PayloadError {
-    TypeMismatch,
-    NotSupported,
+fn type_mismatch() -> PyErr {
+    crate::error::status(
+        ua::StatusCode::BadTypeMismatch,
+        "payload does not match the selected attribute",
+    )
 }
 
-impl From<PayloadError> for PyErr {
-    fn from(error: PayloadError) -> Self {
-        let (code, message) = match error {
-            PayloadError::TypeMismatch => (
-                ua::StatusCode::BadTypeMismatch,
-                "payload does not match the selected attribute",
-            ),
-            PayloadError::NotSupported => (
-                ua::StatusCode::BadNotSupported,
-                "payload type or dimensions are not supported",
-            ),
-        };
-
-        crate::error::status(code, message)
-    }
+fn not_supported() -> PyErr {
+    crate::error::status(
+        ua::StatusCode::BadNotSupported,
+        "payload type or dimensions are not supported",
+    )
 }
 
 pub(crate) trait Payload: Clone {
     type Native: Clone;
 
-    fn decode(value: &ua::Variant) -> Result<Self, PayloadError>;
+    fn decode(value: &ua::Variant) -> PyResult<Self>;
 
     fn to_python(&self, py: Python<'_>) -> PyResult<Py<PyAny>>;
 }
@@ -42,7 +33,7 @@ pub(crate) trait Payload: Clone {
 pub(crate) trait Scalar: UaType {
     const KIND: ua::VariantScalarTypeId;
 
-    fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError>;
+    fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner>;
 
     fn to_python(&self, py: Python<'_>) -> PyResult<Py<PyAny>>;
 }
@@ -50,8 +41,8 @@ pub(crate) trait Scalar: UaType {
 impl<T: Scalar> Payload for T {
     type Native = T::Inner;
 
-    fn decode(value: &ua::Variant) -> Result<Self, PayloadError> {
-        T::decode_native(value).map(<T as UaType>::new)
+    fn decode(value: &ua::Variant) -> PyResult<Self> {
+        T::decode_native(value).map(T::new)
     }
 
     fn to_python(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
@@ -62,13 +53,13 @@ impl<T: Scalar> Payload for T {
 impl<T: Scalar> Payload for Vec<T> {
     type Native = Vec<T::Inner>;
 
-    fn decode(value: &ua::Variant) -> Result<Self, PayloadError> {
+    fn decode(value: &ua::Variant) -> PyResult<Self> {
         let ua::Variant::Array(array) = value else {
-            return Err(PayloadError::TypeMismatch);
+            return Err(type_mismatch());
         };
 
         if array.value_type != T::KIND {
-            return Err(PayloadError::TypeMismatch);
+            return Err(type_mismatch());
         }
 
         let is_multidimensional = array
@@ -77,7 +68,7 @@ impl<T: Scalar> Payload for Vec<T> {
             .is_some_and(|dimensions| dimensions.len() > 1);
 
         if is_multidimensional {
-            return Err(PayloadError::NotSupported);
+            return Err(not_supported());
         }
 
         array.values.iter().map(T::decode).collect()
@@ -111,10 +102,10 @@ macro_rules! primitive {
             impl Scalar for $type {
                 const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::$variant;
 
-                fn decode_native(value: &ua::Variant) -> Result<Self, PayloadError> {
+                fn decode_native(value: &ua::Variant) -> PyResult<Self> {
                     match value {
                         ua::Variant::$variant(value) => Ok(*value),
-                        _ => Err(PayloadError::TypeMismatch),
+                        _ => Err(type_mismatch()),
                     }
                 }
 
@@ -141,14 +132,18 @@ primitive!(
 );
 
 macro_rules! native_scalar {
-    ($wrapper:ty, $kind:ident, $variant:ident, |$inner:ident| $native:expr) => {
-        impl Scalar for $wrapper {
-            const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::$kind;
+    ($name:ident, |$value:ident| $decode:expr) => {
+        native_scalar!($name, $name, |$value| $decode);
+    };
 
-            fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+    ($wrapper:ty, $variant:ident, |$value:ident| $decode:expr) => {
+        impl Scalar for $wrapper {
+            const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::$variant;
+
+            fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
                 match value {
-                    ua::Variant::$variant($inner) => Ok($native),
-                    _ => Err(PayloadError::TypeMismatch),
+                    ua::Variant::$variant($value) => Ok($decode),
+                    _ => Err(type_mismatch()),
                 }
             }
 
@@ -159,51 +154,40 @@ macro_rules! native_scalar {
     };
 }
 
-native_scalar!(NodeId, NodeId, NodeId, |value| (**value).clone());
-
-native_scalar!(ExpandedNodeId, ExpandedNodeId, ExpandedNodeId, |value| {
-    (**value).clone()
-});
-
-native_scalar!(QualifiedName, QualifiedName, QualifiedName, |value| {
-    (**value).clone()
-});
-
-native_scalar!(LocalizedText, LocalizedText, LocalizedText, |value| {
-    (**value).clone()
-});
-
-native_scalar!(StatusCode, StatusCode, StatusCode, |value| *value);
+native_scalar!(NodeId, |value| (**value).clone());
+native_scalar!(ExpandedNodeId, |value| (**value).clone());
+native_scalar!(QualifiedName, |value| (**value).clone());
+native_scalar!(LocalizedText, |value| (**value).clone());
+native_scalar!(StatusCode, |value| *value);
 
 macro_rules! flag_scalar {
-    ($wrapper:ty, $native:ty, $variant:ident, $repr:ty) => {
-        native_scalar!($wrapper, $variant, $variant, |value| {
-            <$native>::from_bits_retain(*value as $repr)
-        });
+    ($($wrapper:ident => $variant:ident as $repr:ty),* $(,)?) => {
+        $(
+            native_scalar!($wrapper, $variant, |value| {
+                ua::$wrapper::from_bits_retain(*value as $repr)
+            });
+        )*
     };
 }
 
-flag_scalar!(AttributeWriteMask, ua::AttributeWriteMask, UInt32, i32);
-flag_scalar!(AccessLevelType, ua::AccessLevelType, Byte, u8);
-flag_scalar!(AccessLevelExType, ua::AccessLevelExType, UInt32, i32);
 flag_scalar!(
-    AccessRestrictionType,
-    ua::AccessRestrictionType,
-    UInt16,
-    i16
+    AttributeWriteMask => UInt32 as i32,
+    AccessLevelType => Byte as u8,
+    AccessLevelExType => UInt32 as i32,
+    AccessRestrictionType => UInt16 as i16,
+    EventNotifierType => Byte as u8,
 );
-flag_scalar!(EventNotifierType, ua::EventNotifierType, Byte, u8);
 
 impl Scalar for NodeClass {
     const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::Int32;
 
-    fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+    fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
         match value {
             ua::Variant::Int32(value) => {
-                ua::NodeClass::try_from(*value).map_err(|_| PayloadError::TypeMismatch)
+                ua::NodeClass::try_from(*value).map_err(|_| type_mismatch())
             }
 
-            _ => Err(PayloadError::TypeMismatch),
+            _ => Err(type_mismatch()),
         }
     }
 
@@ -212,7 +196,7 @@ impl Scalar for NodeClass {
     }
 }
 
-macro_rules! representation {
+macro_rules! repr {
     (
         $name:ident,
         $native:ty,
@@ -238,10 +222,10 @@ macro_rules! representation {
         impl Scalar for $name {
             const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::$kind;
 
-            fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+            fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
                 match value {
                     ua::Variant::$kind($value) => Ok($decode),
-                    _ => Err(PayloadError::TypeMismatch),
+                    _ => Err(type_mismatch()),
                 }
             }
 
@@ -252,7 +236,7 @@ macro_rules! representation {
     };
 }
 
-representation!(
+repr!(
     Text,
     ua::UAString,
     String,
@@ -260,7 +244,7 @@ representation!(
     |self, py| self.0.as_ref().into_py_any(py)
 );
 
-representation!(
+repr!(
     Bytes,
     ua::ByteString,
     ByteString,
@@ -268,7 +252,7 @@ representation!(
     |self, py| Ok(PyBytes::new(py, self.0.as_ref()).into_any().unbind())
 );
 
-representation!(
+repr!(
     Xml,
     ua::XmlElement,
     XmlElement,
@@ -276,7 +260,7 @@ representation!(
     |self, py| self.0.to_string().into_py_any(py)
 );
 
-representation!(
+repr!(
     Timestamp,
     ua::DateTime,
     DateTime,
@@ -284,7 +268,7 @@ representation!(
     |self, py| crate::time::unix_timestamp(Some(self.0), None).into_py_any(py)
 );
 
-representation!(
+repr!(
     Uuid,
     ua::Guid,
     Guid,
@@ -292,7 +276,7 @@ representation!(
     |self, py| uuid::Uuid::from(self.0.clone()).into_py_any(py)
 );
 
-representation!(SamplingInterval, f64, Double, |value| *value, |self, py| {
+repr!(SamplingInterval, f64, Double, |value| *value, |self, py| {
     let kwargs = PyDict::new(py);
     kwargs.set_item("milliseconds", self.0)?;
 
@@ -309,12 +293,12 @@ macro_rules! structure_scalar {
             impl Scalar for $wrapper {
                 const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::ExtensionObject;
 
-                fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+                fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
                     let ua::Variant::ExtensionObject(object) = value else {
-                        return Err(PayloadError::TypeMismatch);
+                        return Err(type_mismatch());
                     };
 
-                    let body = object.body.as_ref().ok_or(PayloadError::NotSupported)?;
+                    let body = object.body.as_ref().ok_or_else(not_supported)?;
                     body.as_dyn_any_ref()
                         .downcast_ref::<ua::$wrapper>()
                         .cloned()
@@ -352,14 +336,14 @@ macro_rules! structure_scalar {
         impl Scalar for SupportedStructure {
             const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::ExtensionObject;
 
-            fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+            fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
                 let ua::Variant::ExtensionObject(object) = value else {
-                    return Err(PayloadError::TypeMismatch);
+                    return Err(type_mismatch());
                 };
 
                 let body = object.body
                     .as_ref()
-                    .ok_or(PayloadError::NotSupported)?
+                    .ok_or_else(not_supported)?
                     .as_dyn_any_ref();
 
                 $(
@@ -368,13 +352,13 @@ macro_rules! structure_scalar {
                     }
                 )*
 
-                Err(PayloadError::NotSupported)
+                Err(not_supported())
             }
 
             fn to_python(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
                 match self.as_ua_ref() {
                     $(
-                        NativeStructure::$wrapper(value) => <$wrapper as UaType>::new(value.clone())
+                        NativeStructure::$wrapper(value) => <$wrapper>::new(value.clone())
                             .into_py_any(py),
                     )*
                 }
@@ -391,17 +375,17 @@ structure_scalar!(
     EnumField
 );
 
-fn incompatible_structure(object: &ua::ExtensionObject) -> PayloadError {
+fn incompatible_structure(object: &ua::ExtensionObject) -> PyErr {
     let Some(body) = &object.body else {
-        return PayloadError::NotSupported;
+        return not_supported();
     };
 
     let body = body.as_dyn_any_ref();
     // Native fallback bodies retain encoded content without establishing its decoded schema.
     if body.is::<ua::ByteStringBody>() || body.is::<ua::JsonBody>() || body.is::<ua::XmlBody>() {
-        PayloadError::NotSupported
+        not_supported()
     } else {
-        PayloadError::TypeMismatch
+        type_mismatch()
     }
 }
 
@@ -423,9 +407,9 @@ impl UaType for Definition {
 impl Scalar for Definition {
     const KIND: ua::VariantScalarTypeId = ua::VariantScalarTypeId::ExtensionObject;
 
-    fn decode_native(value: &ua::Variant) -> Result<Self::Inner, PayloadError> {
+    fn decode_native(value: &ua::Variant) -> PyResult<Self::Inner> {
         let ua::Variant::ExtensionObject(object) = value else {
-            return Err(PayloadError::TypeMismatch);
+            return Err(type_mismatch());
         };
 
         if let Some(body) = &object.body {
@@ -445,11 +429,11 @@ impl Scalar for Definition {
     fn to_python(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.0 {
             ua::DataTypeDefinition::Structure(value) => {
-                <StructureDefinition as UaType>::new(value.clone()).into_py_any(py)
+                StructureDefinition::new(value.clone()).into_py_any(py)
             }
 
             ua::DataTypeDefinition::Enum(value) => {
-                <EnumDefinition as UaType>::new(value.clone()).into_py_any(py)
+                EnumDefinition::new(value.clone()).into_py_any(py)
             }
         }
     }
@@ -462,7 +446,7 @@ pub(crate) enum ScalarOrList<T> {
 }
 
 impl<T: Scalar> ScalarOrList<T> {
-    fn decode(value: &ua::Variant) -> Result<Self, PayloadError> {
+    fn decode(value: &ua::Variant) -> PyResult<Self> {
         match value {
             ua::Variant::Array(_) => Vec::<T>::decode(value).map(Self::List),
             _ => T::decode(value).map(Self::Scalar),
@@ -488,20 +472,20 @@ macro_rules! bounded_values {
         impl Payload for BoundedValue {
             type Native = Self;
 
-            fn decode(value: &ua::Variant) -> Result<Self, PayloadError> {
+            fn decode(value: &ua::Variant) -> PyResult<Self> {
                 if let ua::Variant::Array(array) = value {
                     let is_multidimensional = array.dimensions
                         .as_ref()
                         .is_some_and(|dimensions| dimensions.len() > 1);
 
                     if is_multidimensional {
-                        return Err(PayloadError::NotSupported);
+                        return Err(not_supported());
                     }
                 }
 
                 let kind = match value {
                     ua::Variant::Array(array) => array.value_type,
-                    value => value.scalar_type_id().ok_or(PayloadError::NotSupported)?,
+                    value => value.scalar_type_id().ok_or_else(not_supported)?,
                 };
 
                 match kind {
@@ -511,7 +495,7 @@ macro_rules! bounded_values {
                     )*
                     ua::VariantScalarTypeId::ExtensionObject =>
                         ScalarOrList::<SupportedStructure>::decode(value).map(Self::Structure),
-                    _ => Err(PayloadError::NotSupported),
+                    _ => Err(not_supported()),
                 }
             }
 

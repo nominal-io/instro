@@ -106,7 +106,8 @@ does not by itself raise. Check `sample.status.is_good`, `.is_uncertain`, or
 `.is_bad` according to the application's quality policy. A missing or empty
 payload is `None`.
 
-Payload conversion happens on `.value`. An incompatible fixed attribute payload
+The payload is converted when the result is created. Another access on that same
+`AttributeValue` returns the same object. An incompatible fixed attribute payload
 raises `OpcUaError` with `BadTypeMismatch`; a valid unsupported payload or a
 multidimensional array raises `BadNotSupported`. The original result metadata
 remains available. The [value reference](/ref/protocols/opcua.md#supported-values)
