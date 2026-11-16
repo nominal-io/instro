@@ -39,3 +39,5 @@ instro = { workspace = true }
 bindings = "pyo3"
 module-name = "instro.unstable._opcua"
 python-source = "."
+# See instro/__init__.pyi. Including in the built wheel would replace the real instro package's types whenever both wheels in one directory.
+exclude = ["instro/__init__.pyi"]
