@@ -11,6 +11,7 @@ name = "_opcua"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+async-channel = "2.5"
 async-opcua.workspace = true
 pyo3.workspace = true
 paste = "1"
