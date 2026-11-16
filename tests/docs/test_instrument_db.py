@@ -165,19 +165,57 @@ def test_with_instro_attaches_after_construction_and_keeps_the_rest():
     assert new == [1, 2, 3, 8, 12]
 
 
+def test_with_wrapper_moves_the_example_inside_pymeasure_instrument():
+    from instrument_db.render import with_wrapper
+
+    code = "from pymeasure.instruments.keithley import Keithley2400\n\nsmu = Keithley2400('GPIB::1')\nsmu.reset()\nx = 1\nprint(smu.voltage)"
+
+    adapted, new = with_wrapper(_smu(), code)
+
+    assert adapted.splitlines() == [
+        "from pymeasure.instruments.keithley import Keithley2400",
+        "from instro.pymeasure import PymeasureInstrument",
+        "",
+        "with PymeasureInstrument(",
+        '    name="smu",',
+        "    instrument=Keithley2400('GPIB::1'),",
+        '    dataset_rid="<dataset rid>",',
+        ") as smu:",
+        "    smu.device.reset()",
+        "    x = 1",
+        "    print(smu.device.voltage)",
+    ]
+    assert new == [2, 4, 5, 6, 7, 8, 9, 11]
+
+
+def test_with_wrapper_flattens_a_multiline_constructor():
+    from instrument_db.render import with_wrapper
+
+    adapted, _ = with_wrapper(
+        _smu(), 'smu = Keithley2400("GPIB::1",\n                  timeout=5000,\n                  )\nsmu.reset()'
+    )
+
+    assert "    instrument=Keithley2400('GPIB::1', timeout=5000)," in adapted
+
+
 def test_with_instro_leaves_examples_that_never_build_the_driver():
-    from instrument_db.render import with_instro
+    from instrument_db.render import with_instro, with_wrapper
 
     assert with_instro(_smu(), "smu.reset()") is None
+    assert with_wrapper(_smu(), "smu = Keithley2400(1)") is None  # nothing to run inside the with block
     assert with_instro(_smu(), "this is not python(") is None
 
 
 def test_stub_shows_the_instro_adapted_docstring_example(tmp_path):
     record = _smu()
-    record = InstrumentRecord(**{**record.__dict__, "extra": {**record.extra, "examples": ["smu = Keithley2400(1)"]}})
+    record = InstrumentRecord(
+        **{**record.__dict__, "extra": {**record.extra, "examples": ["smu = Keithley2400(1)\nsmu.reset()"]}}
+    )
 
     page = stub_page(record, tmp_path)
 
-    assert "```{code-block} python\n:emphasize-lines: 1,2,3,6,8" in page
+    assert "```{code-block} python\n:emphasize-lines: 1,2,3,6,9" in page
     assert 'recorder = attach(smu, "smu"' in page
+    assert "### Write new instro code" in page
+    assert ") as smu:" in page
     assert "## Using the pymeasure driver" not in page

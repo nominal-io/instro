@@ -183,6 +183,63 @@ def with_instro(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
     return "\n".join(line for line, _ in out) + "\n", emphasized
 
 
+def with_wrapper(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
+    """A pymeasure docstring example rewritten as new instro code, and the 1-based lines that changed.
+
+    The line that builds the instrument becomes ``with PymeasureInstrument(...) as var:``, the rest of the
+    example moves inside it, and each use of ``var`` becomes ``var.device``, pymeasure's own instrument. None
+    when ``with_instro`` would also return None.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    built = next(((n, v) for n in tree.body if (v := _constructs(n, r.name))), None)
+    if built is None:
+        return None
+    node, var = built
+    lines = code.splitlines()
+    imports = [n for n in tree.body if isinstance(n, ast.Import | ast.ImportFrom) and (n.end_lineno or 0) < node.lineno]
+    new_imports = ["from instro.pymeasure import PymeasureInstrument"]
+    if not any(isinstance(n, ast.ImportFrom) and any(a.name == r.name for a in n.names) for n in tree.body):
+        new_imports.insert(0, f"from {r.extra['package_import']} import {r.name}")
+    at = max((n.end_lineno or 0 for n in imports), default=0)
+    segment = ast.get_source_segment(code, node.value) or ""
+    instrument = ast.unparse(node.value) if "\n" in segment else segment
+    head = [
+        "with PymeasureInstrument(",
+        f'    name="{var}",',
+        f"    instrument={instrument},",
+        '    dataset_rid="<dataset rid>",',
+        f") as {var}:",
+    ]
+    if not any(line.strip() for line in lines[node.end_lineno or 0 :]):
+        return None  # nothing to run inside the with block
+    uses: dict[int, list[int]] = {}
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Name) and n.id == var and n.lineno > (node.end_lineno or 0):
+            uses.setdefault(n.lineno, []).append(n.col_offset)  # col_offset counts UTF-8 bytes
+
+    out: list[tuple[str, bool]] = []
+    for i, line in enumerate(lines, start=1):
+        if i < node.lineno:
+            out.append((line, False))
+            if i == at:
+                out += [(imp, True) for imp in new_imports]
+        elif i == node.lineno:
+            out += [(h, True) for h in head]
+        elif i > (node.end_lineno or 0):
+            raw = line.encode()
+            for col in sorted(uses.get(i, []), reverse=True):
+                raw = raw[: col + len(var)] + b".device" + raw[col + len(var) :]
+            text = raw.decode()
+            out.append(("    " + text if text.strip() else "", i in uses))
+    if at == 0:
+        out = [(imp, True) for imp in new_imports] + [("", False)] + out
+    emphasized = [n for n, (_, new) in enumerate(out, start=1) if new]
+    return "\n".join(line for line, _ in out) + "\n", emphasized
+
+
 def _fence(code: str) -> str:
     return f"```python\n{code}```\n"
 
@@ -203,20 +260,36 @@ def _body(r: InstrumentRecord, srcdir: Path) -> str:
         module = r.import_path.rsplit(".", 1)[0]
         api = f"https://pymeasure.readthedocs.io/en/latest/api/instruments/{r.extra['vendor_package']}"
         api += f"/{module.rsplit('.', 1)[1]}.html#{r.import_path}"
-        adapted = next((t for code in r.extra.get("examples", []) if (t := with_instro(r, code))), None)
-        if adapted:
-            code, emphasized = adapted
-            return "\n".join(
-                [
-                    "## Publishing through instro\n",
-                    f"Adapted from the [pymeasure documentation for `{r.name}`]({api}). The highlighted lines "
-                    "publish every command and reading through an instro [publisher](/library/publishers.md); "
-                    "the rest is the pymeasure example, unchanged.\n",
-                    f"```{{code-block}} python\n:emphasize-lines: {','.join(map(str, emphasized))}\n\n{code}```\n",
-                    "To start from instro instead, wrap the driver in `PymeasureInstrument`, "
-                    "as [described here](/library/pymeasure.md). Install with `uv add \"instro[pymeasure]\"`.\n",
+        examples = r.extra.get("examples", [])
+        attach_form = next((t for code in examples if (t := with_instro(r, code))), None)
+        wrapper_form = next((t for code in examples if (t := with_wrapper(r, code))), None)
+        if attach_form or wrapper_form:
+
+            def block(form: tuple[str, list[int]]) -> str:
+                code, emphasized = form
+                return f"```{{code-block}} python\n:emphasize-lines: {','.join(map(str, emphasized))}\n\n{code}```\n"
+
+            parts = [
+                "## Publishing through instro\n",
+                f"Adapted from the [pymeasure documentation for `{r.name}`]({api}). The highlighted lines are "
+                "what changes from the pymeasure example. Install with `uv add \"instro[pymeasure]\"`.\n",
+            ]
+            if attach_form:
+                parts += [
+                    "### Publish from existing code\n",
+                    "[`attach()`](/library/pymeasure.md#publish-from-existing-code) publishes every command and "
+                    "reading through an instro [publisher](/library/publishers.md). The rest of the example is "
+                    "unchanged.\n",
+                    block(attach_form),
                 ]
-            )
+            if wrapper_form:
+                parts += [
+                    "### Write new instro code\n",
+                    "[`PymeasureInstrument`](/library/pymeasure.md#write-new-instro-code) wraps the driver in an "
+                    "instro instrument, with tags and background polling. `.device` is the pymeasure instrument.\n",
+                    block(wrapper_form),
+                ]
+            return "\n".join(parts)
         usage = [
             "## Using the pymeasure driver\n",
             _fence(direct[1]),
