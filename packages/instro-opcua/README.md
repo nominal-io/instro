@@ -7,3 +7,5 @@ Anonymous client connection and discovery are available from `instro.unstable.op
 Connection settings and `IdentityToken` configure authentication and security.
 
 Use Nodes for navigation, attribute access, and ordered batch reads.
+
+Subscriptions retain notifications and support optional fallback polling.

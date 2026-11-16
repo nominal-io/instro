@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import assert_type
 
-from instro.unstable.opcua import Node, OpcUaClient
+from instro.unstable.opcua import Node, OpcUaClient, Subscription
 from instro.unstable.opcua.types import (
     AccessLevelExType,
     AttributePayload,
@@ -61,5 +61,10 @@ def rejected_calls(node: Node, client: OpcUaClient) -> None:
     node.get_attribute(1.5)  # type: ignore[arg-type]
     client.get_node(84)  # type: ignore[arg-type]
     client.read_nodes([object()])  # type: ignore[list-item]
+    client.subscribe([node], publishing_interval="fast")  # type: ignore[arg-type]
     OpcUaClient.connect("opc.tcp://localhost", security_mode=3)  # type: ignore[arg-type]
     OpcUaClient.connect("opc.tcp://localhost", request_timeout="slow")  # type: ignore[arg-type]
+
+
+def subscription_results(subscription: Subscription) -> None:
+    assert_type(next(subscription), tuple[Node, AttributeValue[AttributePayload]])
