@@ -78,7 +78,7 @@ class SaleaeLogicMSO(ScopeDriverBase):
         Example::
 
             from instro.scope import InstroScope
-            from instro.unstable.scope.drivers import SaleaeLogicMSO
+            from instro.drivers import SaleaeLogicMSO
 
             with InstroScope(name="mso", driver=SaleaeLogicMSO(), num_channels=4) as scope:
                 scope.set_trigger_source(1)

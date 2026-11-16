@@ -48,6 +48,7 @@ from instro.psu.drivers import (
 )
 from instro.scope.drivers import (
     Keysight1200X,
+    SaleaeLogicMSO,
     ScopeDriverBase,
     SiglentSDS1000XE,
     Tektronix2SeriesMSO,
@@ -108,6 +109,7 @@ __all__ = [
     "VirtualPSU",
     # Scope
     "Keysight1200X",
+    "SaleaeLogicMSO",
     "SiglentSDS1000XE",
     "Tektronix2SeriesMSO",
     "VirtualScope",

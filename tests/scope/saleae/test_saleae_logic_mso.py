@@ -1,4 +1,4 @@
-"""Software tests for the Saleae Logic MSO scope driver (unstable), against a fake ``saleae.mso_api``."""
+"""Software tests for the Saleae Logic MSO scope driver, against a fake ``saleae.mso_api``."""
 
 import math
 import sys
@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from instro.scope.drivers import SaleaeLogicMSO
 from instro.scope.types import AcquisitionState, Coupling, ScopeMeasurementType, TriggerMode, TriggerSlope
-from instro.unstable.scope.drivers import SaleaeLogicMSO
 
 
 class _CaptureTimeoutError(Exception):

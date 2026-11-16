@@ -16,6 +16,8 @@ from instro.lib.registry import (
 
 # simulated and virtual drivers have no real instrument to identify
 _SIMULATED_PREFIXES = ("Simulated", "Virtual")
+# real instruments reached without VISA, so there is no *IDN? for discovery to match
+_NOT_VISA = {("scope", "SaleaeLogicMSO")}
 
 
 @pytest.mark.parametrize(
@@ -24,7 +26,7 @@ _SIMULATED_PREFIXES = ("Simulated", "Virtual")
 )
 def test_every_registered_driver_is_discoverable(category: str, driver_name: str, entry: DriverEntry) -> None:
     """A driver in a vendor registry without an IDN pattern is configurable but invisible to discovery."""
-    if driver_name.startswith(_SIMULATED_PREFIXES):
+    if driver_name.startswith(_SIMULATED_PREFIXES) or (category, driver_name) in _NOT_VISA:
         assert entry.idn_patterns == ()
         return
     assert entry.idn_patterns, f"{category}.{driver_name} has no IdnPattern; `instro discover` cannot recognize it"
