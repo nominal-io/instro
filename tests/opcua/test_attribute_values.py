@@ -30,8 +30,8 @@ def sample(
     status: int | None = None,
     source: ua.DateTime | None = None,
     server: ua.DateTime | None = None,
-    source_picos: int | None = None, # 10-pico intervals
-    server_picos: int | None = None, # 10-pico intervals
+    source_picos: int | None = None,  # 10-pico intervals
+    server_picos: int | None = None,  # 10-pico intervals
 ) -> ua.DataValue:
     result = ua.DataValue(
         Value=ua.Variant(value) if value_type is None else ua.Variant(value, value_type),
@@ -240,7 +240,9 @@ def test_attribute_selectors_use_semantic_conversion(client_node: Node, selector
 
 
 @pytest.mark.parametrize("payload", [None, ua.Variant(None, ua.VariantType.Null)])
-def test_absent_and_explicit_null_payloads_default_to_none_and_good(server_node: ServerNode, client_node: Node, payload: ua.Variant | None):
+def test_absent_and_explicit_null_payloads_default_to_none_and_good(
+    server_node: ServerNode, client_node: Node, payload: ua.Variant | None
+):
     server_node.set_attr(AttributeIds.Value, sample(payload))
 
     result = client_node.value
@@ -280,7 +282,8 @@ def test_single_clock_fraction_does_not_fill_absent_clock(
     timestamp = ua.DateTime(1970, 1, 1, 0, 0, 5, tzinfo=timezone.utc)
 
     wire = sample(
-        ua.Variant(4, ua.VariantType.Int32), **{stamp_kind: timestamp, f"{stamp_kind}_picos": fraction} # type: ignore[arg-type]
+        ua.Variant(4, ua.VariantType.Int32),
+        **{stamp_kind: timestamp, f"{stamp_kind}_picos": fraction},  # type: ignore[arg-type]
     )
 
     server_node.set_attr(AttributeIds.Value, wire)
