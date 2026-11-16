@@ -8,7 +8,6 @@
   "packages/instro-ethernetip": "1.0.3",
   "packages/instro-contrib": "1.2.0",
   "crates/instro-ethernetip": "1.0.0",
-  "crates/instro-opcua": "1.2.0",
   "packages/instro-opcua": "0.1.1",
   "packages/instro-pymeasure": "0.1.0"
 }
