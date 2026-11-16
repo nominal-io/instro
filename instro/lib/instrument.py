@@ -11,7 +11,8 @@ from importlib.metadata import version
 from typing import TYPE_CHECKING, Callable
 
 from instro.lib import _display
-from instro.lib.publishers import Publisher
+from instro.lib.nominal import _resolve_nominal_client_and_dataset
+from instro.lib.publishers import NominalCorePublisher, Publisher
 from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
@@ -176,9 +177,6 @@ class Instrument:
         self, rid: str, nominal_profile: str | None = None, nominal_client: NominalClient | None = None
     ):
         """Attach a NominalCorePublisher for ``rid`` (typically triggered by ``dataset_rid=``)."""
-        from instro.lib.nominal import _resolve_nominal_client_and_dataset
-        from instro.lib.publishers import NominalCorePublisher
-
         logger.info("Adding NominalCorePublisher to instrument '%s' for dataset RID '%s'", self.name, rid)
         if nominal_client is None:
             self.add_publisher(NominalCorePublisher(rid, profile=nominal_profile))

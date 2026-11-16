@@ -27,8 +27,6 @@ Notebook display
     ``set_display_options`` and ``DisplayOptions`` control how instruments and publishers show in notebooks.
 """
 
-from typing import TYPE_CHECKING, Any
-
 from instro.lib._display import DisplayOptions, get_display_options, set_display_options
 from instro.lib.config import (
     FilePublisherConfig,
@@ -52,11 +50,13 @@ from instro.lib.discover import (
 )
 from instro.lib.exceptions import FeatureNotSupportedError, InstroError, InstrumentNotOpenError
 from instro.lib.instrument import Instrument, publish_command, publish_measurement
+from instro.lib.nominal import install_nominal_core_log_handler
 from instro.lib.publishers import (
     BasicBufferedPublisher,
     BufferedPublisher,
     FilePublisher,
     NominalConnectPublisher,
+    NominalCorePublisher,
     PlotlyPublisher,
     Publisher,
     QueuedPublisher,
@@ -87,24 +87,6 @@ from instro.lib.transports import (
     VisaDriver,
 )
 from instro.lib.types import BackgroundDaemonConfig, Command, DeviceInfo, LinearScale, Measurement, ScaleType
-
-if TYPE_CHECKING:
-    from instro.lib.nominal import install_nominal_core_log_handler
-    from instro.lib.publishers import NominalCorePublisher
-
-
-# Loaded on first access so importing instro does not require the `nominal` package (#626).
-def __getattr__(name: str) -> Any:
-    if name == "install_nominal_core_log_handler":
-        from instro.lib.nominal import install_nominal_core_log_handler
-
-        return install_nominal_core_log_handler
-    if name == "NominalCorePublisher":
-        from instro.lib.publishers.nominal_core import NominalCorePublisher
-
-        return NominalCorePublisher
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 __all__ = [
     # Instrument base and errors

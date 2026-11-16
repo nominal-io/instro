@@ -1,28 +1,22 @@
 """Publisher that streams Measurement/Command data to Nominal Core datasets."""
 
+from __future__ import annotations
+
 import inspect
 import logging
 import pathlib
 from datetime import timedelta
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from instro.lib import _display
 from instro.lib.types import Command, Measurement
 
-# Imported first so a missing `nominal` reports itself before the missing `nominal_streaming` it implies.
 from ..nominal import _resolve_nominal_client_and_dataset
 
-try:
+# nominal is imported where it is used so importing instro does not require it (#626).
+if TYPE_CHECKING:
     from nominal.core import Dataset, NominalClient
     from nominal_streaming import NominalDatasetStream
-except ModuleNotFoundError as e:
-    if e.name != "nominal_streaming":
-        raise
-    # nominal only pulls in nominal-streaming on the platforms it publishes wheels for.
-    raise ImportError(
-        "NominalCorePublisher requires the 'nominal-streaming' package, which is not installed. "
-        "nominal installs it only on supported platforms; try: pip install nominal-streaming"
-    ) from e
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +105,8 @@ class NominalCorePublisher:
             if file_fallback is not None
             else ws_signature.parameters["file_fallback"].default,
         )
+
+        from nominal_streaming import NominalDatasetStream
 
         # We need to open the stream manually here because we are using the "rust_experimental" data format
         assert isinstance(write_stream, NominalDatasetStream)

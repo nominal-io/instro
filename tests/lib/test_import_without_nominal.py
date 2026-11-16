@@ -85,16 +85,18 @@ def test_file_publisher_config_builds_without_nominal(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
-def test_nominal_core_publisher_names_missing_package() -> None:
+def test_nominal_core_use_names_missing_package() -> None:
     result = _run_blocked(
         """
-        try:
-            from instro.lib.publishers import NominalCorePublisher
-        except ImportError as e:
-            print(e)
-        else:
-            raise SystemExit("import unexpectedly succeeded")
+        from instro.lib import NominalCorePublisher, install_nominal_core_log_handler
+
+        for use in (lambda: NominalCorePublisher("ri.x"), lambda: install_nominal_core_log_handler("ri.x")):
+            try:
+                use()
+            except ModuleNotFoundError as e:
+                assert e.name == "nominal", e
+            else:
+                raise SystemExit("use unexpectedly succeeded")
         """
     )
     assert result.returncode == 0, result.stderr
-    assert "pip install nominal" in result.stdout

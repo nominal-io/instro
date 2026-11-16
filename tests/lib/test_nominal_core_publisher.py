@@ -32,7 +32,7 @@ def test_needs_exactly_one_dataset():
 def test_dataset_rid_keyword_still_looks_up_the_rid():
     client = create_autospec(NominalClient, instance=True)
     client.get_dataset.return_value = _dataset()
-    with patch("instro.lib.nominal.NominalClient.from_profile", return_value=client) as from_profile:
+    with patch("nominal.core.NominalClient.from_profile", return_value=client) as from_profile:
         publisher = NominalCorePublisher(dataset_rid=RID)
 
     from_profile.assert_called_once_with("default")
@@ -85,7 +85,7 @@ def test_conflicting_credentials_are_rejected(kwargs):
 def test_api_key_is_never_shown():
     client = create_autospec(NominalClient, instance=True)
     client.get_dataset.return_value = _dataset()
-    with patch("instro.lib.nominal.NominalClient.from_token", return_value=client) as from_token:
+    with patch("nominal.core.NominalClient.from_token", return_value=client) as from_token:
         publisher = NominalCorePublisher(RID, api_key="secret-key")
 
     from_token.assert_called_once_with("secret-key")
@@ -121,7 +121,7 @@ def test_card_drops_links_that_are_off_or_unresolvable():
 
 
 def test_instrument_passes_nominal_options_through_and_keeps_them_out_of_tags():
-    with patch("instro.lib.publishers.NominalCorePublisher") as publisher_cls:
+    with patch("instro.lib.instrument.NominalCorePublisher") as publisher_cls:
         instrument = Instrument(name="ut", dataset_rid=RID, nominal_profile="staging")
 
     publisher_cls.assert_called_once_with(RID, profile="staging")
@@ -132,7 +132,7 @@ def test_instrument_fetches_the_dataset_with_nominal_client():
     client = create_autospec(NominalClient, instance=True)
     dataset = _dataset()
     client.get_dataset.return_value = dataset
-    with patch("instro.lib.publishers.NominalCorePublisher") as publisher_cls:
+    with patch("instro.lib.instrument.NominalCorePublisher") as publisher_cls:
         instrument = Instrument(name="ut", dataset_rid=RID, nominal_client=client)
 
     client.get_dataset.assert_called_once_with(RID)
