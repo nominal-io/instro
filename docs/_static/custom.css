@@ -26,3 +26,162 @@ html.dark .driver-card .sd-card-img-bottom {
 .sy-head-brand img {
   height: 20px;
 }
+
+/* Instrument database (instrument_db extension): the search box, filters, and lists on /instruments/. */
+.idb-bar {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0.75rem;
+}
+.idb-search,
+.idb-category {
+  padding: 0.5rem 0.8rem;
+  font: inherit;
+  color: var(--sy-c-text);
+  background: var(--sy-c-background);
+  border: 1px solid var(--sy-c-border);
+  border-radius: 0.5rem;
+}
+.idb-search {
+  flex: 1;
+  min-width: 0;
+}
+.idb-category {
+  max-width: 13rem;
+}
+.idb-search:focus-visible,
+.idb-category:focus-visible,
+.idb-chip:focus-visible {
+  outline: 2px solid var(--sy-c-bold);
+  outline-offset: 1px;
+}
+.idb-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.idb-chips,
+.idb-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+/* Buttons take the theme's text and background colors, so both modes work; the active one swaps them. */
+.idb-chip {
+  padding: 0.2rem 0.75rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--sy-c-text);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid var(--sy-c-border);
+  border-radius: 999px;
+}
+.idb-chip:hover {
+  color: var(--sy-c-bold);
+  border-color: var(--sy-c-light);
+}
+.idb-chip[aria-pressed="true"] {
+  color: var(--sy-c-background);
+  background: var(--sy-c-bold);
+  border-color: var(--sy-c-bold);
+}
+.idb-status {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: var(--sy-c-light);
+}
+
+/* Browse: groups flow in two columns, one dense row per instrument. */
+.idb-browse {
+  column-count: 2;
+  column-gap: 2.5rem;
+}
+.idb-browse[hidden] {
+  display: none;
+}
+.idb-group {
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
+}
+.idb-group[hidden] {
+  display: none;
+}
+.idb-group-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin: 0;
+  padding: 0.35rem 0;
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--sy-c-bold);
+}
+.idb-count-chip {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--sy-c-light);
+}
+ul.idb-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.idb-item {
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+}
+.idb-item[hidden] {
+  display: none;
+}
+.yue .idb a,
+.yue .idb a:hover {
+  text-decoration: none;
+  background-image: none;
+}
+.idb-item > a {
+  display: block;
+  padding: 0.2rem 0.4rem;
+}
+.idb-item > a:hover {
+  background: var(--sy-c-border);
+}
+
+/* Search results: one table, ranked. */
+table.idb-results {
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+table.idb-results[hidden] {
+  display: none;
+}
+.idb-results th,
+.idb-results td {
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+  border: 0;
+}
+.idb-results th {
+  font-weight: 600;
+  border-bottom: 1px solid var(--sy-c-bold);
+}
+.idb-results td:not(:first-child) {
+  color: var(--sy-c-light);
+}
+.idb-results tbody tr:hover {
+  background: var(--sy-c-border);
+}
+@media (max-width: 48rem) {
+  .idb-bar {
+    flex-direction: column;
+  }
+  .idb-category {
+    max-width: none;
+  }
+  .idb-browse {
+    column-count: 1;
+  }
+}

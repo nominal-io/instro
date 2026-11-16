@@ -125,6 +125,10 @@ _check-docs-python:
 build-docs: _check-docs-python
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run --group docs sphinx-build -E -W --keep-going -j auto -b dirhtml docs docs/_build/dirhtml
 
+# refresh docs/_data/instrument_snapshot.json, which the docs read when instrument_db_refresh is "release"; commit it
+update-instrument-db: _check-docs-python
+    cd docs/_ext && uv run --group docs python -m instrument_db
+
 # live-preview the docs on http://127.0.0.1:8000, rebuilding on page, example, or docstring changes
 serve-docs: _check-docs-python
     OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES uv run --group docs --with sphinx-autobuild sphinx-autobuild -j auto -b dirhtml docs docs/_build/dirhtml --watch instro --watch packages --watch examples --ignore "*/docs/examples/*"

@@ -31,6 +31,7 @@ extensions = [
     "pysummary",
     "driver_cards",
     "driver_docs",
+    "instrument_db",
     "examples",
     "nominal_sphinx_theme",
 ]
@@ -117,6 +118,42 @@ autodoc_pydantic_model_show_field_summary = False
 autodoc_pydantic_field_list_validators = False
 autodoc_pydantic_model_member_order = "bysource"
 
+# -- instrument_db: the Instruments tab ---------------------------------------------------------
+# When the instrument list is re-discovered: "build" (every docs build) or "release" (read the committed
+# _data/instrument_snapshot.json, refreshed with `just update-instrument-db`). A dict sets it per source, e.g.
+# {"instro": "build", "pymeasure": "release", "default": "build"}. INSTRO_DOCS_INSTRUMENT_DB overrides it.
+instrument_db_refresh = "build"
+# Sources to list, in order, with their options. Add a library by writing a source in _ext/instrument_db/sources.py.
+instrument_db_sources = {
+    "instro": {},
+    # pymeasure has no instrument categories: class name -> category for ones the keyword rules miss
+    "pymeasure": {
+        "category_overrides": {
+            "AgilentB2981": "dmm",
+            "AgilentB2983": "dmm",
+            "AgilentB2985": "dmm",
+            "AgilentB2987": "dmm",
+            "Keithley2306": "psu",
+            "Keysight81160A": "awg",
+            "AFG3152C": "awg",
+            "YokogawaGS200": "psu",
+            "SG380": "rf",
+            "SR510": "lockin",
+            "SR570": "lockin",
+            "SR830": "lockin",
+            "SR860": "lockin",
+            "SFM": "rf",
+            "ATS525": "temperature",
+            "ATS545": "temperature",
+            "ECO560": "temperature",
+            "ThorlabsMBXSeries": "laser",
+            "ND287": "motion",
+            "Danfysik8500": "psu",
+            "SQM160": "pressure",
+        }
+    },
+}
+
 # -- driver_docs: names exported by instro.<category>.drivers that skip a check --
 driver_docs_exempt = {
     # Device class that vends the EAPSB10000VisaSource / EAPSB10000VisaSink drivers
@@ -170,6 +207,7 @@ html_theme_options = theme_options(
     # section tabs; the sidebar follows them (nominal_sphinx_theme)
     nav_links=[
         {"title": "Guides", "url": "index"},
+        {"title": "Instruments", "url": "instruments/index"},
         {"title": "Examples", "url": "examples/index"},
         {"title": "Reference", "url": "ref/index"},
         {"title": "GitHub", "url": "https://github.com/nominal-io/instro"},

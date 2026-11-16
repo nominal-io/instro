@@ -124,7 +124,7 @@ print(file_pub.file_path.read_text())  # commands and measurements written to th
 :::
 
 :::{grid-item-card} {octicon}`cpu` Supported Instruments
-:link: /instruments
+:link: /instruments/index
 :link-type: doc
 
 :::
