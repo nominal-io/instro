@@ -4,6 +4,8 @@ from threading import Thread
 from typing import TypedDict
 
 import pytest
+from asyncua import ua
+from asyncua.server.address_space import AttributeValue
 from asyncua.server.server import Server
 from pytest import FixtureRequest, TempPathFactory, fixture
 from typing_extensions import Any, Coroutine, Generator, Protocol, TypeVar
@@ -78,3 +80,14 @@ def connection_options(tmp_path: Path, request: FixtureRequest) -> DefaultConnec
 def client(endpoint: str, tmp_path_factory: TempPathFactory) -> Generator[OpcUaClient, None, None]:
     with OpcUaClient.connect(endpoint, pki_dir=tmp_path_factory.mktemp("opcua"), session_retry_limit=0) as connected:
         yield connected
+
+
+@pytest.fixture(scope="session")
+def node(client):
+    return client.get_node("/Objects/2:Rig/2:Temperature")
+
+
+@pytest.fixture
+def attribute_data(server, monkeypatch):
+    attributes = server.iserver.aspace[ua.NodeId("Temperature", 2)].attributes
+    return lambda attribute, value: monkeypatch.setitem(attributes, attribute, AttributeValue(value))

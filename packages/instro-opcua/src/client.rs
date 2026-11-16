@@ -159,10 +159,6 @@ impl OpcUaClient {
         operation(session).await
     }
 
-    #[expect(
-        dead_code,
-        reason = "client identity is checked by the Node API upstack"
-    )]
     pub(crate) fn same_client(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.session, &other.session)
     }
