@@ -1,4 +1,5 @@
 import pytest
+from typing_extensions import TypeVar
 
 from instro.unstable.opcua.types import (
     AccessLevelExType,
@@ -18,21 +19,28 @@ def test_node_id_python_ordering_and_equal_key_lookup():
     assert {first: "retained"}[NodeId("ns=2;i=7")] == "retained"
 
 
+T = TypeVar("T", AccessLevelType, AccessLevelExType, AccessRestrictionType, AttributeWriteMask, EventNotifierType, PermissionType)
+
 @pytest.mark.parametrize(
-    ("wrapper", "left", "right", "union", "intersection"),
+    ("wrapper", "left", "right"),
     [
-        (AccessLevelType, 1, 5, 5, 1),
-        (AccessLevelExType, 1, 513, 513, 1),
-        (AccessRestrictionType, 1, 3, 3, 1),
-        (AttributeWriteMask, 1, 33, 33, 1),
-        (EventNotifierType, 1, 5, 5, 1),
-        (PermissionType, 1, 33, 33, 1),
+        (AccessLevelType, 1, 5),
+        (AccessLevelExType, 1, 513),
+        (AccessRestrictionType, 1, 3),
+        (AttributeWriteMask, 1, 33),
+        (EventNotifierType, 1, 5),
+        (PermissionType, 1, 33),
     ],
 )
-def test_flag_operators_keep_wrapper_and_literal_bits(wrapper, left, right, union, intersection):
+def test_flag_operators_keep_wrapper_and_literal_bits(wrapper: type[T], left: int, right: int):
+    combined_value = left | right
     combined = wrapper(left) | wrapper(right)
-    common = wrapper(left) & wrapper(right)
     assert type(combined) is wrapper
-    assert int(combined) == union
+    assert combined == wrapper(combined_value)
+    assert int(combined) == combined_value
+
+    common_value = left & right
+    common = wrapper(left) & wrapper(right)
     assert type(common) is wrapper
-    assert int(common) == intersection
+    assert common == wrapper(common_value)
+    assert int(common) == common_value
