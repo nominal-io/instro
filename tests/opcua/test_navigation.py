@@ -44,7 +44,11 @@ def test_children_are_usable_nodes(client: OpcUaClient):
 
 def test_batch_read_preserves_mixed_input_order(client: OpcUaClient):
     boolean = client.objects.get_child("/2:Rig/2:Boolean")
-    inputs: list[Node | RelativePath | str] = [boolean, RelativePath("/Objects/2:Rig/2:Float"), "/Objects/2:Rig/2:Temperature"]
+    inputs: list[Node | RelativePath | str] = [
+        boolean,
+        RelativePath("/Objects/2:Rig/2:Float"),
+        "/Objects/2:Rig/2:Temperature",
+    ]
     results = client.read_nodes(inputs)
     assert [result.value for result in results] == [True, 1.25, 23.5]
 
@@ -102,7 +106,9 @@ def test_remote_child_warning_respects_error_filter(client_node: Node, set_remot
             _ = client_node.children
 
 
-def test_browse_failure_stays_primary_when_warning_raises(client_node: Node, set_remote_references: Callable[[int], None]):
+def test_browse_failure_stays_primary_when_warning_raises(
+    client_node: Node, set_remote_references: Callable[[int], None]
+):
     set_remote_references(StatusCodes.BadTimeout)
 
     with warnings.catch_warnings():

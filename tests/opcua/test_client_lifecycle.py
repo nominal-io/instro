@@ -38,6 +38,8 @@ def test_node_retains_client_after_original_reference_is_deleted(endpoint, conne
         assert node.value.value == 23.5
     finally:
         del node
+
+
 from tests.opcua.conftest import AsyncRunner, DefaultConnectionOptions
 
 Endpoint: TypeAlias = tuple[str, int]
@@ -80,12 +82,15 @@ def test_username_authentication_reads_over_selected_secure_mode(
     monkeypatch.setattr(server.iserver, "endpoints", endpoints)
     monkeypatch.setattr(server.iserver.user_manager, "get_user", operator_only)
 
-    options = cast(DefaultConnectionOptions, {
-        **connection_options,
-        "identity": IdentityToken.user_name("operator", "secret"),
-        "security_policy": "Basic256Sha256",
-        "security_mode": mode,
-    })
+    options = cast(
+        DefaultConnectionOptions,
+        {
+            **connection_options,
+            "identity": IdentityToken.user_name("operator", "secret"),
+            "security_policy": "Basic256Sha256",
+            "security_mode": mode,
+        },
+    )
 
     with OpcUaClient.connect(endpoint, **options) as client:
         assert client.get_node("/Objects/2:Rig/2:Temperature").value.value == 23.5

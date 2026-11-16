@@ -88,13 +88,17 @@ def client(endpoint: str, tmp_path_factory: TempPathFactory) -> Generator[OpcUaC
 def test_nodes(server_node: NodeData, client_node: Node) -> tuple[NodeData, Node]:
     return server_node, client_node
 
+
 @pytest.fixture
 def client_node(client: OpcUaClient) -> Node:
     return client.get_node("/Objects/2:Rig/2:Temperature")
 
+
 class ServerNode(Protocol):
     """MonkeyPath-ing adapter for setting test-case-scoped attribute values on the test server node."""
+
     def set_attr(self, attribute_id: AttributeIds, value: ua.DataValue) -> None: ...
+
 
 @pytest.fixture
 def server_node(server: Server, monkeypatch: MonkeyPatch) -> ServerNode:
