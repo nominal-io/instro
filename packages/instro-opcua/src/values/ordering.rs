@@ -213,3 +213,35 @@ pub(super) fn endpoint_description(
         .then_with(|| string(&left.transport_profile_uri, &right.transport_profile_uri))
         .then_with(|| left.security_level.cmp(&right.security_level))
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, reason = "literal native fixtures must parse")]
+mod node_id_order_tests {
+    use std::str::FromStr;
+
+    use Ordering::Greater;
+    use Ordering::Less;
+
+    use super::*;
+
+    #[test]
+    fn native_fields_precede_rendering_and_little_endian_guid_bytes() {
+        let cases = [
+            ("ns=1;i=999", "ns=2;i=1", Less),
+            ("ns=1;i=999", "ns=1;s=a", Less),
+            ("ns=1;i=10", "ns=1;i=2", Greater),
+            ("ns=1;s=z", "ns=1;s=aa", Less),
+            (
+                "g=00000001-0000-0000-0000-000000000000",
+                "g=00000100-0000-0000-0000-000000000000",
+                Less,
+            ),
+        ];
+
+        for (left, right, expected) in cases {
+            let left = ua::NodeId::from_str(left).expect("left fixture");
+            let right = ua::NodeId::from_str(right).expect("right fixture");
+            assert_eq!(node_id(&left, &right), expected);
+        }
+    }
+}

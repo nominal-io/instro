@@ -46,15 +46,26 @@ test-rust:
     cargo nextest run --workspace --all-features --all-targets
     cargo test --workspace --all-features --doc
 
+# run OPC UA native tests and Python tests against the current extension
+test-opcua:
+    cargo nextest run --locked -p instro-opcua-py -p instro-opcua-test --all-targets
+    uv run --reinstall-package instro-opcua pytest tests/opcua
+
 # run all python and Rust tests plus EtherNet/IP packaging checks
 test: test-rust test-python eip-test
 
 # check static typing
-check-types:
+check-types: check-stubs
     uv run mypy
 
+# TODO(cartercanedy): generalize this for ethernetip + remove the lethargic wheel smoke test for ethernetip
+# check OPC UA public type contracts and native stub agreement
+check-stubs:
+    uv run mypy --warn-unused-ignores tests/opcua/typecheck
+    uv run stubtest instro.unstable.opcua
+
 # check static typing across all supported python versions
-check-types-all:
+check-types-all: check-stubs
     uv run mypy --python-version 3.14
     uv run mypy --python-version 3.13
     uv run mypy --python-version 3.12

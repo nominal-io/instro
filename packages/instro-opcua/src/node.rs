@@ -310,7 +310,7 @@ impl OpcUaClient {
                     }
                 };
 
-                Ok(ua::ReadValueId::new(node.node_id, ua_attr.clone()))
+                Ok(ua::ReadValueId::new(node.node_id, ua_attr))
             })
             .collect::<PyResult<Vec<_>>>()?;
 
@@ -631,4 +631,225 @@ async fn collect_children<'a>(
 }
 
 #[cfg(test)]
-mod tests;
+#[allow(clippy::expect_used)]
+mod browsing_tests {
+    use instro_opcua_test::FolderSpec;
+    use instro_opcua_test::ParentRef;
+    use instro_opcua_test::TestServer;
+    use ua::StatusCode as Code;
+
+    use super::*;
+    use crate::client::lifecycle_tests::failure_status;
+    use crate::client::lifecycle_tests::native_client;
+
+    fn target(id: u32) -> ua::BrowsePathTarget {
+        ua::BrowsePathTarget {
+            target_id: ua::NodeId::new(2, id).into(),
+            remaining_path_index: u32::MAX,
+        }
+    }
+
+    #[test]
+    fn translation_checks_count_status_ambiguity_and_remote_resolution() {
+        Python::initialize();
+        assert_eq!(
+            failure_status(translated_node(vec![])),
+            Code::BadUnexpectedError
+        );
+
+        let mut remote = target(41);
+        remote.target_id.server_index = 1;
+        let mut unresolved = target(42);
+        unresolved.remaining_path_index = 0;
+        let cases = [
+            (Code::BadTimeout, None, Code::BadTimeout),
+            (Code::Good, None, Code::BadNoMatch),
+            (
+                Code::Good,
+                Some(vec![target(41), target(42)]),
+                Code::BadTooManyMatches,
+            ),
+            (
+                Code::Good,
+                Some(vec![remote]),
+                Code::UncertainReferenceOutOfServer,
+            ),
+            (
+                Code::Good,
+                Some(vec![unresolved]),
+                Code::UncertainReferenceOutOfServer,
+            ),
+        ];
+
+        for (status_code, targets, expected) in cases {
+            let result = ua::BrowsePathResult {
+                status_code,
+                targets,
+            };
+
+            assert_eq!(failure_status(translated_node(vec![result])), expected);
+        }
+    }
+
+    fn reference(id: u32, server_index: u32) -> ua::ReferenceDescription {
+        ua::ReferenceDescription {
+            node_id: ua::ExpandedNodeId {
+                node_id: ua::NodeId::new(2, id),
+                server_index,
+                ..Default::default()
+            },
+            browse_name: ua::QualifiedName::new(2, format!("Child{id}")),
+            ..Default::default()
+        }
+    }
+
+    fn page(point: &[u8], references: Vec<ua::ReferenceDescription>) -> ua::BrowseResult {
+        ua::BrowseResult {
+            status_code: ua::StatusCode::Good,
+            continuation_point: ua::ByteString::from(point),
+            references: Some(references),
+        }
+    }
+
+    #[tokio::test]
+    async fn continuation_pages_collect_local_children_and_retain_remote_diagnostics()
+    -> PyResult<()> {
+        let mut script = [
+            (b"first".as_slice(), page(b"second", vec![reference(42, 3)])),
+            (b"second".as_slice(), page(b"", vec![reference(43, 0)])),
+        ]
+        .into_iter();
+
+        let initial = Ok(vec![page(b"first", vec![reference(41, 0)])]);
+        let children = collect_children(initial, |release, points| {
+            let (point, response) = script.next().expect("unexpected continuation call");
+            assert_eq!(
+                (release, points),
+                (false, vec![ua::ByteString::from(point)])
+            );
+
+            Box::pin(async move { Ok(vec![response]) })
+        })
+        .await;
+
+        assert!(script.next().is_none());
+        let ids = children
+            .result?
+            .into_iter()
+            .map(|item| item.node_id.node_id)
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            ids,
+            vec![ua::NodeId::new(2, 41_u32), ua::NodeId::new(2, 43_u32)]
+        );
+
+        assert_eq!(children.invalid, vec![reference(42, 3)]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn failed_and_malformed_pages_release_all_points_without_masking_status() {
+        Python::initialize();
+        let one = ua::ByteString::from(&b"one"[..]);
+        let two = ua::ByteString::from(&b"two"[..]);
+        let bad_page = ua::BrowseResult {
+            status_code: Code::BadTimeout,
+            ..Default::default()
+        };
+
+        let cases = [
+            (
+                vec![page(b"one", vec![])],
+                None,
+                vec![(false, vec![one.clone()]), (true, vec![one.clone()])],
+                Code::BadTimeout,
+            ),
+            (
+                vec![page(b"one", vec![])],
+                Some(vec![bad_page]),
+                vec![(false, vec![one.clone()]), (true, vec![one.clone()])],
+                Code::BadTimeout,
+            ),
+            (
+                vec![page(b"one", vec![]), page(b"two", vec![])],
+                None,
+                vec![(true, vec![one, two])],
+                Code::BadUnexpectedError,
+            ),
+        ];
+
+        for (initial, next_page, expected_calls, expected_status) in cases {
+            let mut calls = Vec::new();
+            let children = collect_children(Ok(initial), |release, points| {
+                calls.push((release, points));
+                let response = match (release, next_page.clone()) {
+                    (false, Some(page)) => Ok(page),
+                    (false, None) => Err(error::status(Code::BadTimeout, "next request failed")),
+                    (true, _) => Err(error::status(Code::BadNotSupported, "release failed")),
+                };
+
+                Box::pin(async move { response })
+            })
+            .await;
+
+            assert_eq!(calls, expected_calls);
+            assert_eq!(failure_status(children.result), expected_status);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn native_page_limit_preserves_all_children_and_paths_from_root() -> PyResult<()> {
+        let server = TestServer::builder()
+            .add_folder(FolderSpec::new(7100_u32, "Panel"))
+            .add_folder(FolderSpec::new(7101_u32, "Left").parent(ParentRef::Label("Panel".into())))
+            .add_folder(FolderSpec::new(7102_u32, "Right").parent(ParentRef::Label("Panel".into())))
+            .add_folder(
+                FolderSpec::new(7103_u32, "Center").parent(ParentRef::Label("Panel".into())),
+            )
+            .start()
+            .expect("server starts");
+
+        let pki = tempfile::tempdir().expect("temporary PKI");
+        let client = native_client(&server, pki.path()).await;
+        let connected = client
+            .with_session(async |session| Ok(session.wait_for_connection().await))
+            .await?;
+
+        assert!(connected);
+
+        let namespace = server.namespace_index();
+        let path =
+            ua::RelativePath::try_from(format!("/Objects/{namespace}:Panel")).expect("panel path");
+
+        let panel = Node::root(client.clone()).resolve(path).await?;
+        let children =
+            tokio::task::spawn_blocking(move || Python::attach(|py| panel.browse_children(py, 1)))
+                .await
+                .expect("browse task")?;
+
+        let mut actual = children
+            .into_iter()
+            .map(|node| {
+                (
+                    node.node_id,
+                    node.browse_path.starting_node,
+                    String::from(&node.browse_path.relative_path),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        actual.sort_by_key(|(id, _, _)| id.to_string());
+        let expected = [(7101, "Left"), (7102, "Right"), (7103, "Center")].map(|(id, name)| {
+            (
+                ua::NodeId::new(namespace, id),
+                ua::NodeId::new(0, 84_u32),
+                format!("/0:Objects/{namespace}:Panel/{namespace}:{name}"),
+            )
+        });
+
+        assert_eq!(actual, expected);
+        client.disconnect_async().await?;
+        Ok(())
+    }
+}

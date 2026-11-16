@@ -1019,3 +1019,20 @@ impl LocalizedText {
         h.finish()
     }
 }
+
+#[cfg(test)]
+mod relative_path_identity_tests {
+    use super::*;
+
+    #[test]
+    fn null_and_present_empty_paths_have_equal_comparison_and_hash() {
+        let absent = RelativePath(ua::RelativePath { elements: None });
+        let empty = RelativePath(ua::RelativePath {
+            elements: Some(Vec::new()),
+        });
+
+        assert!(absent == empty);
+        assert_eq!(absent.partial_cmp(&empty), Some(std::cmp::Ordering::Equal));
+        assert_eq!(absent.__hash__(), empty.__hash__());
+    }
+}

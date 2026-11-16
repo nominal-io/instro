@@ -534,3 +534,100 @@ bounded_values!(
     QualifiedName => QualifiedName,
     LocalizedText => LocalizedText
 );
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod decoding_boundary_tests {
+    use ua::StatusCode as Code;
+
+    use super::*;
+    use crate::client::lifecycle_tests::failure_status;
+
+    fn array(
+        kind: ua::VariantScalarTypeId,
+        values: Vec<ua::Variant>,
+        dimensions: Option<Vec<u32>>,
+    ) -> ua::Variant {
+        ua::Variant::Array(Box::new(ua::Array {
+            value_type: kind,
+            values,
+            dimensions,
+        }))
+    }
+
+    #[test]
+    fn fixed_scalar_and_list_decoders_enforce_declared_shape_and_elements() -> PyResult<()> {
+        use ua::VariantScalarTypeId::Int32;
+        use ua::VariantScalarTypeId::UInt32;
+
+        Python::initialize();
+        assert_eq!(
+            failure_status(i32::decode(&ua::Variant::Double(42.0))),
+            Code::BadTypeMismatch
+        );
+
+        assert_eq!(
+            failure_status(Vec::<u32>::decode(&ua::Variant::UInt32(7))),
+            Code::BadTypeMismatch
+        );
+
+        let cases = [
+            (Int32, vec![], None, Code::BadTypeMismatch),
+            (
+                UInt32,
+                vec![ua::Variant::Int32(7)],
+                None,
+                Code::BadTypeMismatch,
+            ),
+            (
+                UInt32,
+                vec![ua::Variant::UInt32(7)],
+                Some(vec![1, 1]),
+                Code::BadNotSupported,
+            ),
+        ];
+
+        for (kind, values, dimensions, expected) in cases {
+            let value = array(kind, values, dimensions);
+            assert_eq!(failure_status(Vec::<u32>::decode(&value)), expected);
+        }
+
+        let empty = array(UInt32, vec![], None);
+        assert_eq!(Vec::<u32>::decode(&empty)?, Vec::<u32>::new());
+        Ok(())
+    }
+
+    #[test]
+    fn bounded_payload_rejects_unsupported_shapes_and_fixed_roles_reject_mixed_structures() {
+        Python::initialize();
+        let unsupported = [
+            ua::Variant::Empty,
+            ua::Variant::Variant(Box::new(ua::Variant::Int32(1))),
+            ua::Variant::ExtensionObject(ua::ExtensionObject::null()),
+            array(ua::VariantScalarTypeId::UInt32, vec![], Some(vec![0, 0])),
+        ];
+
+        for value in unsupported {
+            assert_eq!(
+                failure_status(BoundedValue::decode(&value)),
+                Code::BadNotSupported
+            );
+        }
+
+        let role = ua::ExtensionObject::new(ua::RolePermissionType::default());
+        let field = ua::ExtensionObject::new(ua::EnumField::default());
+        let mixed = array(
+            ua::VariantScalarTypeId::ExtensionObject,
+            vec![
+                ua::Variant::ExtensionObject(role),
+                ua::Variant::ExtensionObject(field),
+            ],
+            None,
+        );
+
+        assert_eq!(
+            failure_status(Vec::<RolePermissionType>::decode(&mixed)),
+            Code::BadTypeMismatch
+        );
+    }
+}

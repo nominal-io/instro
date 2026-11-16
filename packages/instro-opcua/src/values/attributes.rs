@@ -197,7 +197,3 @@ impl PyAttributeValue {
         unix_timestamp(self.server_timestamp, self.server_picoseconds)
     }
 }
-
-#[cfg(test)]
-#[path = "attribute_tests.rs"]
-mod tests;

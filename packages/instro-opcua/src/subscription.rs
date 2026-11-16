@@ -570,3 +570,58 @@ fn polled_is_older(polled: &ua::DataValue, notification: &ua::DataValue) -> bool
             < (note, notification.server_picoseconds.unwrap_or(0))
     })
 }
+
+#[cfg(test)]
+mod polling_freshness_tests {
+    use super::*;
+
+    #[test]
+    fn either_comparable_clock_can_make_poll_strictly_older() {
+        let timestamp = ua::DateTime::from(116_444_736_000_000_000);
+        let sample = |source: Option<u16>, server: Option<u16>| ua::DataValue {
+            source_timestamp: source.map(|_| timestamp),
+            source_picoseconds: source,
+            server_timestamp: server.map(|_| timestamp),
+            server_picoseconds: server,
+            ..Default::default()
+        };
+
+        let later_tick = ua::DataValue {
+            source_timestamp: Some(ua::DateTime::from(116_444_736_000_000_001)),
+            source_picoseconds: Some(0),
+            ..Default::default()
+        };
+
+        let missing_fraction = ua::DataValue {
+            source_timestamp: Some(timestamp),
+            ..Default::default()
+        };
+
+        let cases = [
+            (
+                sample(Some(101), Some(900)),
+                sample(Some(102), Some(800)),
+                true,
+            ),
+            (
+                sample(Some(900), Some(101)),
+                sample(Some(800), Some(102)),
+                true,
+            ),
+            (
+                sample(Some(102), Some(102)),
+                sample(Some(101), Some(101)),
+                false,
+            ),
+            (sample(Some(101), None), sample(Some(101), None), false),
+            (sample(None, Some(101)), sample(Some(102), None), false),
+            (sample(Some(0), None), sample(None, None), false),
+            (sample(Some(9000), None), later_tick, true),
+            (missing_fraction, sample(Some(0), None), false),
+        ];
+
+        for (polled, notification, expected) in cases {
+            assert_eq!(polled_is_older(&polled, &notification), expected);
+        }
+    }
+}

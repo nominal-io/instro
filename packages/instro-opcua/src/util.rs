@@ -79,36 +79,3 @@ pub(crate) fn receive<T: Send>(py: Python<'_>, mut receiver: mpsc::Receiver<T>) 
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use std::time::Duration;
-
-    use super::*;
-
-    #[test]
-    fn bridge_offloads_foreign_current_thread_and_rejects_same_runtime() -> PyResult<()> {
-        Python::initialize();
-        let foreign = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
-
-        Python::attach(|py| {
-            foreign.block_on(async {
-                let foreign_runtime_result = wait(py, async {
-                    tokio::time::sleep(Duration::from_millis(1)).await;
-                    Ok(17)
-                })?;
-
-                assert_eq!(foreign_runtime_result, 17);
-                let failure = block_on(&foreign, py, async { 0 })
-                    .err()
-                    .ok_or_else(|| PyRuntimeError::new_err("same-runtime wait was admitted"))?;
-
-                assert!(failure.is_instance_of::<PyRuntimeError>(py));
-                PyResult::Ok(())
-            })
-        })
-    }
-}

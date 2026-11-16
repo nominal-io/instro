@@ -11,7 +11,9 @@ uv sync --extra <name>           # install one optional package (daq, labjack, n
 just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
 just test                        # all tests: python + Rust; no hardware required
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
+just check-stubs                 # OPC UA type contracts and native stub agreement (included in check-types)
 just test-python / test-rust     # single-language tests
+just test-opcua                  # native OPC UA tests, then pytest with rebuilt bindings
 just build-docs / serve-docs     # docs site (docs/, Sphinx): strict build / live preview; needs the `docs` group, Python >=3.12
 just notebook / test-notebooks   # example notebooks (examples/notebooks/*.md, Jupytext MyST): open in JupyterLab / run all top to bottom
 uv build --wheel --package <name> # build a wheel for a workspace package
@@ -43,6 +45,8 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 - **Driver migrations from `instro-contrib` or `instro-unstable` are not breaking changes**, including moves to core or another workspace package that change imports. Use a normal Conventional Commit title without `!` or a `BREAKING CHANGE` footer for the migration itself; no major-version release or release override is required solely for the move. Document the new import path in the PR and affected user docs. See [migration policy](./CONTRIBUTING.md#pull-request-titles).
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
+- **Type contract checks belong in static analysis recipes.** `check-types` and `check-types-all` include `check-stubs` for OPC UA. Use `assert_type` examples and error-code-specific `type: ignore[...]` annotations checked with `--warn-unused-ignores`; run `stubtest` directly against the built native extension. Do not wrap these CLI checks in pytest subprocess tests.
+- **OPC UA test boundaries.** Call private Rust subjects directly in inline unit tests; interpreter initialization is acceptable when PyO3 requires it. Test Python conversion, properties, operators, errors, warnings, signals, and public workflows with pytest against a current-source extension. Keep peer controls at service or transport boundaries.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
 - **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.

@@ -674,4 +674,164 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 
 #[cfg(test)]
-pub(crate) mod tests;
+#[allow(clippy::expect_used)]
+pub(crate) mod lifecycle_tests {
+    use std::path::Path;
+    use std::time::Duration;
+
+    use futures_util::poll;
+    use instro_opcua_test::TestServer;
+
+    use super::*;
+
+    pub(crate) fn failure_status<T>(result: PyResult<T>) -> ua::StatusCode {
+        let error = result.err().expect("operation unexpectedly succeeded");
+        Python::attach(|py| {
+            let value = error
+                .value(py)
+                .getattr("status_code")
+                .expect("missing status code");
+
+            *value
+                .extract::<crate::values::StatusCode>()
+                .expect("invalid status code")
+                .as_ua_ref()
+        })
+    }
+
+    pub(crate) async fn native_client(server: &TestServer, pki: &Path) -> OpcUaClient {
+        Python::initialize();
+        let certificates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/opcua/certs");
+        let mut factory = ClientBuilder::new()
+            .application_name("Rust lifecycle test")
+            .application_uri("urn:nominal:instro-opcua-client")
+            .pki_dir(pki)
+            .certificate_path(certificates.join("client-cert.pem"))
+            .private_key_path(certificates.join("client-key.pem"))
+            .create_sample_keypair(false)
+            .trust_server_certs(true)
+            .verify_server_certs(false)
+            .session_retry_limit(-1)
+            .session_retry_initial(Duration::from_millis(1))
+            .session_retry_max(Duration::from_millis(10))
+            .client()
+            .expect("native client configuration");
+
+        let endpoint = ua::EndpointDescription {
+            endpoint_url: server.endpoint_url().into(),
+            security_policy_uri: opcua::crypto::SecurityPolicy::None.to_uri().into(),
+            security_mode: ua::MessageSecurityMode::None,
+            ..Default::default()
+        };
+
+        let (session, driver) = factory
+            .connect_to_matching_endpoint(endpoint, opcua::client::IdentityToken::Anonymous)
+            .await
+            .expect("native endpoint discovery");
+
+        OpcUaClient::from_native(session, driver)
+    }
+
+    #[tokio::test]
+    async fn disconnect_drains_admitted_work_and_first_caller_owns_native_completion()
+    -> PyResult<()> {
+        let server = TestServer::builder().start().expect("server starts");
+        let pki = tempfile::tempdir().expect("temporary PKI");
+        let mut client = native_client(&server, pki.path()).await;
+        let mut native_completion = client.native_state();
+        let (completion, controlled) = watch::channel(ClientState::Recovering);
+        client.state = controlled;
+        let (release, gate) = oneshot::channel();
+        let operation = client.with_session(async |_| {
+            gate.await.expect("release operation");
+            Ok(73)
+        });
+
+        tokio::pin!(operation);
+        assert!(poll!(operation.as_mut()).is_pending());
+
+        let disconnect = client.disconnect_async();
+        tokio::pin!(disconnect);
+        assert!(poll!(disconnect.as_mut()).is_pending());
+
+        let late = client.with_session(async |_| Ok(91));
+        tokio::pin!(late);
+        assert!(poll!(late.as_mut()).is_pending());
+
+        release.send(()).expect("operation still waiting");
+        assert_eq!(operation.await?, 73);
+        assert!(poll!(disconnect.as_mut()).is_pending());
+        assert_eq!(
+            failure_status(late.await),
+            ua::StatusCode::BadServerNotConnected
+        );
+
+        client.disconnect_async().await?;
+        wait_for_completion(&mut native_completion).await?;
+        assert!(poll!(disconnect.as_mut()).is_pending());
+
+        completion.send_replace(ClientState::Finished(Ok(ua::StatusCode::BadTimeout)));
+        assert_eq!(failure_status(disconnect.await), ua::StatusCode::BadTimeout);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn disconnect_during_real_recovery_finishes_native_loop() -> PyResult<()> {
+        let server = TestServer::builder().start().expect("server starts");
+        let pki = tempfile::tempdir().expect("temporary PKI");
+        let client = native_client(&server, pki.path()).await;
+        let mut state = client.native_state();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !matches!(*state.borrow_and_update(), ClientState::Connected) {
+                state.changed().await.expect("native connection progress");
+            }
+
+            drop(server);
+            while !matches!(*state.borrow_and_update(), ClientState::Recovering) {
+                state.changed().await.expect("native recovery progress");
+            }
+
+            client.disconnect_async().await?;
+            assert!(matches!(*state.borrow(), ClientState::Finished(_)));
+            Ok(())
+        })
+        .await
+        .expect("native recovery and disconnection complete")
+    }
+
+    #[tokio::test]
+    async fn ready_activation_cancellation_returns_none_after_native_cleanup() -> PyResult<()> {
+        let server = TestServer::builder().start().expect("server starts");
+        let pki = tempfile::tempdir().expect("temporary PKI");
+        let client = native_client(&server, pki.path()).await;
+        let state = client.native_state();
+        let (cancel, mut cancelled) = oneshot::channel();
+        cancel.send(()).expect("activation receiver exists");
+
+        assert!(client.activate(&mut cancelled).await?.is_none());
+        assert!(matches!(*state.borrow(), ClientState::Finished(_)));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn last_owner_drop_finishes_native_loop() -> PyResult<()> {
+        let server = TestServer::builder().start().expect("server starts");
+        let pki = tempfile::tempdir().expect("temporary PKI");
+        let client = native_client(&server, pki.path()).await;
+        let mut state = client.native_state();
+        while !matches!(*state.borrow_and_update(), ClientState::Connected) {
+            state.changed().await.expect("native connection progress");
+        }
+
+        drop(client);
+        wait_for_completion(&mut state).await
+    }
+
+    #[test]
+    fn retry_backoff_rejects_reachable_overflow_but_zero_retries_skip_it() {
+        Python::initialize();
+        assert!(validate_retry_timing(Duration::MAX, Duration::MAX, 1).is_err());
+        assert!(validate_retry_timing(Duration::MAX, Duration::MAX, 0).is_ok());
+    }
+}

@@ -184,12 +184,22 @@ impl crate::values::UaType for Duration {
 }
 
 #[cfg(test)]
-mod tests {
+mod timestamp_tests {
     use super::*;
 
     #[test]
-    fn unix_timestamp_preserves_dates_before_unix_epoch() {
-        let timestamp = ua::DateTime::from(116_444_735_999_999_999_i64);
-        assert_eq!(unix_timestamp(Some(timestamp), None), Some(-100));
+    fn unix_nanoseconds_preserve_signed_ticks_and_truncate_fraction() {
+        let cases = [
+            (Some(116_444_735_999_999_999), None, Some(-100)),
+            (Some(116_444_736_000_000_001), Some(1399), Some(113)),
+            (None, Some(1399), None),
+        ];
+
+        for (ticks, fraction, expected) in cases {
+            assert_eq!(
+                unix_timestamp(ticks.map(ua::DateTime::from), fraction),
+                expected
+            );
+        }
     }
 }

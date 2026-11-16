@@ -120,6 +120,8 @@ Common dev tasks (via [just](https://github.com/casey/just)):
 just check           # all static analysis: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy)
 just test            # all tests: python + Rust workspace + EtherNet/IP wheel checks (no hardware required)
 just check-python    # python static analysis in the default development environment
+just check-stubs     # OPC UA type contracts and agreement with the native extension
+just test-opcua      # native tests, then Python tests with rebuilt OPC UA bindings
 just test-python     # python unit tests only
 just check-rust      # nightly rustfmt + clippy with the committed Cargo.lock
 just test-rust       # Rust library/integration/doc tests only
@@ -129,6 +131,8 @@ Notes:
 
 - The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
 - `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, OPC UA, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
+- `just check-types` and `just check-types-all` include `check-stubs`. OPC UA type examples use `assert_type` for inferred types and error-code-specific `type: ignore[...]` annotations with `--warn-unused-ignores` for rejected calls. These checks run during static analysis rather than pytest; `stubtest` imports the installed native extension, so it must be built for the current checkout.
+- `just test-opcua` runs direct Rust unit tests and the native fixture crate, then rebuilds the extension before pytest. Python tests share one loopback server; individual tests own their subscriptions, fault clients, and restored service patches. Teardown clears the stopped server’s address space instead of leaving it for process-finalization garbage collection. Private Rust tests do not register or import the extension to dispatch native subjects.
 - Add vendor extras only when needed, for example `uv sync --extra nidaq`. `uv sync --extra all` selects the extras listed in [pyproject.toml](./pyproject.toml); it does not install proprietary system SDKs or every workspace member.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 

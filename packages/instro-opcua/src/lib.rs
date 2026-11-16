@@ -23,6 +23,3 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<subscription::Subscription>()?;
     client::register(module)
 }
-
-#[cfg(test)]
-mod test_support;
