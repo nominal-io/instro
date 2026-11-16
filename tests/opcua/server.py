@@ -32,7 +32,9 @@ async def start_server() -> Server:
     )
 
     namespace = ua.Int16(await server.register_namespace("urn:instro:tests"))
-    rig = await server.nodes.objects.add_folder(ua.NodeId(ua.String("Rig"), ua.Int16(namespace)), ua.QualifiedName("Rig", namespace))
+    rig = await server.nodes.objects.add_folder(
+        ua.NodeId(ua.String("Rig"), ua.Int16(namespace)), ua.QualifiedName("Rig", namespace)
+    )
 
     nodes: list[tuple[ua.String, Any]] = [
         (ua.String(name), value) for name, value in [("Temperature", 23.5), ("Float", 1.25), ("Boolean", True)]
