@@ -24,20 +24,3 @@ pub(crate) fn status(code: ua::StatusCode, message: impl Into<String>) -> PyErr 
 pub(crate) fn native(error: ua::Error) -> PyErr {
     status(error.status(), error.to_string())
 }
-
-#[cfg(test)]
-#[allow(clippy::expect_used)]
-pub(crate) fn failure_status<T>(result: PyResult<T>) -> ua::StatusCode {
-    let error = result.err().expect("operation unexpectedly succeeded");
-    Python::attach(|py| {
-        let value = error
-            .value(py)
-            .getattr("status_code")
-            .expect("missing status code");
-
-        *value
-            .extract::<crate::values::StatusCode>()
-            .expect("invalid status code")
-            .as_ua_ref()
-    })
-}
