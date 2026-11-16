@@ -393,5 +393,6 @@ pub(crate) fn validate_certificate_paths(
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<IdentityToken>()?;
     module.add_class::<SecurityPolicy>()
 }

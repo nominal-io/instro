@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 from threading import Thread
 
 import pytest
@@ -7,7 +8,7 @@ from typing_extensions import Any, Coroutine, Generator, Protocol, TypeVar
 
 from instro.unstable.opcua import OpcUaClient
 
-from .server import start_server
+from .server import CERT_DIR, start_server
 
 T = TypeVar("T")
 
@@ -46,7 +47,21 @@ def endpoint(server: Server) -> str:
     return f"opc.tcp://127.0.0.1:{server.bserver.port}/instro-tests/"
 
 
+@pytest.fixture
+def connection_options(tmp_path, request):
+    return dict(
+        pki_dir=tmp_path,
+        request_timeout=2,
+        session_retry_limit=0,
+        session_name=request.node.name,
+        certificate_path=CERT_DIR / "client-cert.pem",
+        private_key_path=CERT_DIR / "client-key.pem",
+        trust_server_certs=True,
+        verify_server_certs=False,
+    )
+
+
 @pytest.fixture(scope="session")
-def client(endpoint: str) -> Generator[OpcUaClient, None, None]:
-    with OpcUaClient.connect(endpoint) as connected:
+def client(endpoint: str, tmp_path_factory) -> Generator[OpcUaClient, None, None]:
+    with OpcUaClient.connect(endpoint, pki_dir=tmp_path_factory.mktemp("opcua"), session_retry_limit=0) as connected:
         yield connected
