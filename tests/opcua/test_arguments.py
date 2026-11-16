@@ -16,7 +16,7 @@ from instro.unstable.opcua.types import SecurityPolicy
         ("Aes256Sha256RsaPss", "Aes256-Sha256-RsaPss", "Aes256_Sha256_RsaPss"),
     ],
 )
-def test_security_policy_normalizes_public_spellings(spelling, canonical, uri_suffix):
+def test_security_policy_normalizes_public_spellings(spelling: str, canonical: str, uri_suffix: str):
     policy = SecurityPolicy(spelling)
     assert policy.name == canonical
     assert policy.uri == f"http://opcfoundation.org/UA/SecurityPolicy#{uri_suffix}"
