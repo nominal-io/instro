@@ -19,7 +19,16 @@ def test_node_id_python_ordering_and_equal_key_lookup():
     assert {first: "retained"}[NodeId("ns=2;i=7")] == "retained"
 
 
-T = TypeVar("T", AccessLevelType, AccessLevelExType, AccessRestrictionType, AttributeWriteMask, EventNotifierType, PermissionType)
+T = TypeVar(
+    "T",
+    AccessLevelType,
+    AccessLevelExType,
+    AccessRestrictionType,
+    AttributeWriteMask,
+    EventNotifierType,
+    PermissionType,
+)
+
 
 @pytest.mark.parametrize(
     ("wrapper", "left", "right"),
