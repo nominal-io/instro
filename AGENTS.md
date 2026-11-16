@@ -5,12 +5,13 @@ Context for AI coding tools (Claude Code, Cursor, OpenAI Codex CLI, GitHub Copil
 ## Quick reference
 
 ```bash
-uv sync                          # default dev/test environment, including native EtherNet/IP
+uv sync                          # default dev/test environment, including native EtherNet/IP and OPC UA
 uv sync --extra all              # additionally select all extras defined in pyproject.toml
 uv sync --extra <name>           # install one optional package (daq, labjack, nidaq, mccdaq, i2c, aardvark, plot)
 just check                       # all lints: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy, lockfiles)
 just test                        # all tests: python + Rust; no hardware required
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
+just check-stubs                 # OPC UA type contracts and native stub agreement (included in check-types)
 just test-python / test-rust     # single-language tests
 just build-docs / serve-docs     # docs site (docs/, Sphinx): strict build / live preview; needs the `docs` group, Python >=3.12
 just notebook / test-notebooks   # example notebooks (examples/notebooks/*.md, Jupytext MyST): open in JupyterLab / run all top to bottom
@@ -19,7 +20,7 @@ uv build --wheel --package <name> # build a wheel for a workspace package
 
 `just check` and `just test` cover local linting and tests. [Build/test CI](./.github/workflows/build-check-test.yml) also checks `uv lock --check` and runs across supported OS/Python combinations. Separate workflows check [the docs build](./.github/workflows/docs-check.yml) (`just build-docs`, warnings as errors) and [PR titles](./.github/workflows/lint-pr-title.yml). A local pass does not guarantee a full CI pass. The [scheduled latest-dependencies workflow](./.github/workflows/latest-deps-test.yml) re-resolves dependencies and runs Python tests; it is not part of PR CI.
 
-The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` package, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. `test-rust` runs Rust tests with [`cargo-nextest`](https://nexte.st/) (plus `cargo test --doc` for doctests, which nextest skips); install it with `cargo install cargo-nextest --locked` or a prebuilt binary. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
+The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local maturin-built `instro-ethernetip` and `instro-opcua` packages, so fresh setup for Python checks/tests also needs Rust and a C/C++ compiler/linker. `just check` and `just test` additionally need CMake and LLVM/libclang for the OPC UA workspace crates. The [justfile](./justfile) uses a separate nightly rustfmt for `check-rust` and `fix-rust`; install it with `rustup toolchain install nightly --profile minimal --component rustfmt`. `test-rust` runs Rust tests with [`cargo-nextest`](https://nexte.st/) (plus `cargo test --doc` for doctests, which nextest skips); install it with `cargo install cargo-nextest --locked` or a prebuilt binary. See [Prerequisites](./CONTRIBUTING.md#prerequisites) for per-OS setup.
 
 ## Codebase layout
 
@@ -43,6 +44,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 - **Driver migrations from `instro-contrib` or `instro-unstable` are not breaking changes**, including moves to core or another workspace package that change imports. Use a normal Conventional Commit title without `!` or a `BREAKING CHANGE` footer for the migration itself; no major-version release or release override is required solely for the move. Document the new import path in the PR and affected user docs. See [migration policy](./CONTRIBUTING.md#pull-request-titles).
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
+- **Type contract checks belong in static analysis recipes.** `check-types` and `check-types-all` include `check-stubs` for OPC UA. Use `assert_type` examples and error-code-specific `type: ignore[...]` annotations checked with `--warn-unused-ignores`; run `stubtest` directly against the built native extension. Do not wrap these CLI checks in pytest subprocess tests.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
 - **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.

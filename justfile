@@ -50,11 +50,17 @@ test-rust:
 test: test-rust test-python eip-test
 
 # check static typing
-check-types:
+check-types: check-stubs
     uv run mypy
 
+# TODO(cartercanedy): generalize this for ethernetip + remove the lethargic wheel smoke test for ethernetip
+# check OPC UA public type contracts and native stub agreement
+check-stubs:
+    uv run mypy --warn-unused-ignores tests/opcua/typecheck
+    uv run stubtest instro.unstable.opcua
+
 # check static typing across all supported python versions
-check-types-all:
+check-types-all: check-stubs
     uv run mypy --python-version 3.14
     uv run mypy --python-version 3.13
     uv run mypy --python-version 3.12

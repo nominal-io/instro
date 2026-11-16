@@ -1,7 +1,22 @@
+mod config;
+mod error;
+mod time;
+#[expect(
+    dead_code,
+    reason = "native decoding is consumed by the Node API upstack"
+)]
+mod values;
+
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
 
 #[pymodule]
-fn _opcua(_module: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add("OpcUaError", module.py().get_type::<error::OpcUaError>())?;
+
+    module.add_class::<time::Duration>()?;
+    module.add_class::<time::DateTime>()?;
+    values::register(module)?;
+    config::register(module)?;
+
     Ok(())
 }
