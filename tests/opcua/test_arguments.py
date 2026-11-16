@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 import pytest
 
-from instro.unstable.opcua.types import SecurityPolicy
+from instro.unstable.opcua import OpcUaClient
+from instro.unstable.opcua.types import Duration, SecurityPolicy
 
 
 @pytest.mark.parametrize(
@@ -25,3 +28,36 @@ def test_security_policy_normalizes_public_spellings(spelling: str, canonical: s
 def test_security_policy_rejects_unknown_name():
     with pytest.raises(ValueError):
         SecurityPolicy("Basic512")
+
+
+@pytest.mark.parametrize(
+    ("changes", "error"),
+    [
+        ({"identity": "anonymous"}, TypeError),
+        ({"security_policy": 1}, TypeError),
+        ({"security_policy": "unknown"}, ValueError),
+        ({"security_mode": 1}, TypeError),
+        ({"security_mode": "unknown"}, ValueError),
+        ({"request_timeout": True}, TypeError),
+        ({"request_timeout": "2"}, TypeError),
+        ({"request_timeout": -1}, ValueError),
+        ({"request_timeout": float("nan")}, ValueError),
+        ({"request_timeout": float("inf")}, ValueError),
+        ({"request_timeout": timedelta(seconds=-1)}, ValueError),
+        ({"request_timeout": Duration(2**63)}, ValueError),
+        ({"session_retry_limit": -2}, ValueError),
+        ({"session_retry_limit": True}, TypeError),
+        ({"session_timeout": 2**32}, ValueError),
+        ({"max_chunk_count": -1}, ValueError),
+        ({"max_chunk_size": 1.5}, TypeError),
+        ({"keep_alive_interval": 0}, ValueError),
+        ({"session_retry_initial": Duration(2**63), "session_retry_limit": 1}, ValueError),
+        ({"certificate_path": None}, ValueError),
+        ({"private_key_path": None}, ValueError),
+        ({"unknown_option": 1}, TypeError),
+    ],
+)
+def test_invalid_connection_arguments_fail_before_network(changes, error, connection_options):
+    options = connection_options | changes
+    with pytest.raises(error):
+        OpcUaClient.connect("opc.tcp://127.0.0.1:1", **options)
