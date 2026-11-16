@@ -1,9 +1,11 @@
 from datetime import timedelta
 
 import pytest
+from typing_extensions import Any
 
 from instro.unstable.opcua import OpcUaClient
 from instro.unstable.opcua.types import Duration, SecurityPolicy
+from tests.opcua.conftest import DefaultConnectionOptions
 
 
 @pytest.mark.parametrize(
@@ -31,7 +33,7 @@ def test_security_policy_rejects_unknown_name():
 
 
 @pytest.mark.parametrize(
-    ("changes", "error"),
+    ("invalid_opt", "error"),
     [
         ({"identity": "anonymous"}, TypeError),
         ({"security_policy": 1}, TypeError),
@@ -57,7 +59,10 @@ def test_security_policy_rejects_unknown_name():
         ({"unknown_option": 1}, TypeError),
     ],
 )
-def test_invalid_connection_arguments_fail_before_network(changes, error, connection_options):
-    options = connection_options | changes
+def test_invalid_connection_arguments_fail_before_network(
+    invalid_opt: dict[str, Any], error: type[Exception], connection_options: DefaultConnectionOptions
+):
+    options: dict[str, Any] = connection_options | invalid_opt
+
     with pytest.raises(error):
         OpcUaClient.connect("opc.tcp://127.0.0.1:1", **options)
