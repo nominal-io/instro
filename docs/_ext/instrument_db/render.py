@@ -6,6 +6,7 @@ records of a type with no template still get a stub, with the import line and a 
 
 from __future__ import annotations
 
+import ast
 import html
 import json
 import posixpath
@@ -134,6 +135,54 @@ EXAMPLES: dict[str, Callable[[InstrumentRecord], list[tuple[str, str]]]] = {
 }
 
 
+def _constructs(node: ast.stmt, class_name: str) -> str | None:
+    """The variable name when ``node`` is ``var = ClassName(...)``, else None."""
+    if not (isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)):
+        return None
+    call = node.value
+    if not isinstance(call, ast.Call):
+        return None
+    func = call.func
+    named = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else None
+    return node.targets[0].id if named == class_name else None
+
+
+def with_instro(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
+    """A pymeasure docstring example rewritten to publish through instro, and the 1-based lines that are new.
+
+    ``attach()`` goes right after the line that builds the instrument and ``recorder.close()`` at the end, so
+    everything else is the pymeasure example as written. None when the example does not construct the
+    driver at its top level (or is not valid Python), since there is nowhere to attach.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    built = next(((n, v) for n in tree.body if (v := _constructs(n, r.name))), None)
+    if built is None:
+        return None
+    node, var = built
+    lines = code.splitlines()
+    imports = [n for n in tree.body if isinstance(n, ast.Import | ast.ImportFrom)]
+    new_imports = ["from instro.lib import NominalCorePublisher", "from instro.pymeasure import attach"]
+    if not any(isinstance(n, ast.ImportFrom) and any(a.name == r.name for a in n.names) for n in imports):
+        new_imports.insert(0, f"from {r.extra['package_import']} import {r.name}")
+    at = max((n.end_lineno or 0 for n in imports), default=0)
+    attach = f'recorder = attach({var}, "{var}", [NominalCorePublisher(dataset_rid="<dataset rid>")])'
+    out: list[tuple[str, bool]] = []
+    for i, line in enumerate(lines, start=1):
+        out.append((line, False))
+        if i == at:
+            out += [(imp, True) for imp in new_imports]
+        if i == node.end_lineno:
+            out.append((attach, True))
+    if at == 0:
+        out = [(imp, True) for imp in new_imports] + [("", False)] + out
+    out += [("", False), ("recorder.close()  # flush and close the publishers", True)]
+    emphasized = [n for n, (_, new) in enumerate(out, start=1) if new]
+    return "\n".join(line for line, _ in out) + "\n", emphasized
+
+
 def _fence(code: str) -> str:
     return f"```python\n{code}```\n"
 
@@ -154,10 +203,27 @@ def _body(r: InstrumentRecord, srcdir: Path) -> str:
         module = r.import_path.rsplit(".", 1)[0]
         api = f"https://pymeasure.readthedocs.io/en/latest/api/instruments/{r.extra['vendor_package']}"
         api += f"/{module.rsplit('.', 1)[1]}.html#{r.import_path}"
+        adapted = next((t for code in r.extra.get("examples", []) if (t := with_instro(r, code))), None)
+        if adapted:
+            code, emphasized = adapted
+            return "\n".join(
+                [
+                    "## Publishing through instro\n",
+                    f"Adapted from the [pymeasure documentation for `{r.name}`]({api}). The highlighted lines "
+                    "publish every command and reading through an instro [publisher](/library/publishers.md); "
+                    "the rest is the pymeasure example, unchanged.\n",
+                    f"```{{code-block}} python\n:emphasize-lines: {','.join(map(str, emphasized))}\n\n{code}```\n",
+                    "To start from instro instead, wrap the driver in `PymeasureInstrument`, "
+                    "as [described here](/library/pymeasure.md). Install with `uv add \"instro[pymeasure]\"`.\n",
+                ]
+            )
+        usage = [
+            "## Using the pymeasure driver\n",
+            _fence(direct[1]),
+        ]
         return "\n".join(
             [
-                "## Using the pymeasure driver\n",
-                _fence(direct[1]),
+                *usage,
                 "## Publishing through instro\n",
                 "Wrap the driver to publish every command and reading through an instro "
                 "[publisher](/library/publishers.md), as [described here](/library/pymeasure.md).\n",

@@ -13,6 +13,7 @@ import inspect
 import logging
 import pkgutil
 import re
+import textwrap
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Protocol
@@ -42,6 +43,47 @@ def _first_line(doc: str | None) -> str:
     if len(text) > 160:
         text = text[:159].rsplit(" ", 1)[0].rstrip(",;:") + "…"
     return text
+
+
+_DIRECTIVE = re.compile(r"^(\s*)\.\.\s+(?:code-block|code|sourcecode)::\s*(\w*)\s*$")
+MAX_EXAMPLE_LINES = 40
+MAX_EXAMPLES = 2
+
+
+def docstring_examples(doc: str | None) -> list[str]:
+    """Python code blocks in a docstring: ``.. code-block:: python`` directives and ``::`` literal blocks.
+
+    Blocks over ``MAX_EXAMPLE_LINES`` lines are skipped (cutting one would leave broken code), and at most
+    ``MAX_EXAMPLES`` are kept. Blocks in other languages are ignored.
+    """
+    lines = (doc or "").expandtabs().splitlines()
+    blocks: list[str] = []
+    i = 0
+    while i < len(lines):
+        directive = _DIRECTIVE.match(lines[i])
+        literal = not directive and lines[i].rstrip().endswith("::") and not lines[i].lstrip().startswith("..")
+        if not directive and not literal:
+            i += 1
+            continue
+        base = len(directive.group(1)) if directive else len(lines[i]) - len(lines[i].lstrip())
+        i += 1
+        if directive and directive.group(2) not in ("", "python", "py", "python3"):
+            continue
+        block: list[str] = []
+        while i < len(lines):
+            line = lines[i]
+            indent = len(line) - len(line.lstrip())
+            if line.strip() and indent <= base:
+                break
+            if line.strip().startswith(":") and not block:  # directive options, e.g. :linenos:
+                i += 1
+                continue
+            block.append(line)
+            i += 1
+        code = textwrap.dedent("\n".join(block)).strip("\n")
+        if code.strip() and len(code.splitlines()) <= MAX_EXAMPLE_LINES:
+            blocks.append(code)
+    return blocks[:MAX_EXAMPLES]
 
 
 def _required_params(params: list[tuple[str, bool]]) -> list[str]:
@@ -411,6 +453,7 @@ class PymeasureSource:
                         "package_import": package.__name__,
                         "required_params": _required_params(params),
                         "read_example": read_example,
+                        "examples": docstring_examples(inspect.getdoc(cls)),
                         "library_version": version,
                     },
                 )

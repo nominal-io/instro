@@ -128,3 +128,56 @@ def test_first_line_joins_a_wrapped_first_sentence():
     doc = "Represent the Keithley 2400 SourceMeter and provide a\nhigh-level interface. More detail.\n\nLater."
 
     assert _first_line(doc) == "Represent the Keithley 2400 SourceMeter and provide a high-level interface"
+
+
+def test_docstring_examples_take_python_blocks_and_skip_other_languages():
+    from instrument_db.sources import docstring_examples
+
+    doc = (
+        "A thing.\n\n.. code-block:: python\n    :linenos:\n\n    smu = Thing(1)\n    smu.reset()\n\n"
+        ".. code-block:: console\n\n    $ not python\n\nUsage::\n\n    thing.read()\n\nAfter."
+    )
+
+    assert docstring_examples(doc) == ["smu = Thing(1)\nsmu.reset()", "thing.read()"]
+
+
+def test_with_instro_attaches_after_construction_and_keeps_the_rest():
+    from instrument_db.render import with_instro
+
+    code = "smu = Keithley2400(\n    'GPIB::1',\n)\nsmu.reset()\nprint(smu.voltage)"
+
+    adapted, new = with_instro(_smu(), code)
+
+    assert adapted.splitlines() == [
+        "from pymeasure.instruments.keithley import Keithley2400",
+        "from instro.lib import NominalCorePublisher",
+        "from instro.pymeasure import attach",
+        "",
+        "smu = Keithley2400(",
+        "    'GPIB::1',",
+        ")",
+        'recorder = attach(smu, "smu", [NominalCorePublisher(dataset_rid="<dataset rid>")])',
+        "smu.reset()",
+        "print(smu.voltage)",
+        "",
+        "recorder.close()  # flush and close the publishers",
+    ]
+    assert new == [1, 2, 3, 8, 12]
+
+
+def test_with_instro_leaves_examples_that_never_build_the_driver():
+    from instrument_db.render import with_instro
+
+    assert with_instro(_smu(), "smu.reset()") is None
+    assert with_instro(_smu(), "this is not python(") is None
+
+
+def test_stub_shows_the_instro_adapted_docstring_example(tmp_path):
+    record = _smu()
+    record = InstrumentRecord(**{**record.__dict__, "extra": {**record.extra, "examples": ["smu = Keithley2400(1)"]}})
+
+    page = stub_page(record, tmp_path)
+
+    assert "```{code-block} python\n:emphasize-lines: 1,2,3,6,8" in page
+    assert 'recorder = attach(smu, "smu"' in page
+    assert "## Using the pymeasure driver" not in page

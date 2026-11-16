@@ -862,6 +862,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "wfg = AWG401x_AFG(\"TCPIP::192.168.0.123::INSTR\")\n\nwfg.reset()                     # Reset the instrument at default state\n\nwfg.channels[1].shape = \"SINUSOID\"    # Sets a sine waveform on CH1\nwfg.channels[1].frequency = 4.7e3     # Sets the frequency to 4.7 kHz on CH1\nwfg.channels[1].amplitude = 1         # Set amplitude of 1 V on CH1\nwfg.channels[1].offset = 0            # Set the amplitude to 0 V on CH1\nwfg.channels[1].enabled = True        # Enables the CH1\n\nwfg.channels[2].shape = \"SQUARE\"      # Sets a square waveform on CH2\nwfg.channels[2].frequency = 100e6     # Sets the frequency to 100 MHz on CH2\nwfg.channels[2].amplitude = 0.5         # Set amplitude of 0.5 V on CH2\nwfg.channels[2].offset = 0            # Set the amplitude to 0 V on CH2\nwfg.channels[2].enabled = True        # Enables the CH2\n\nwfg.enabled = True              # Enable output of waveform generator\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
      "id": "activetechnologies-AWG401x_AFG",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.activetechnologies",
@@ -883,6 +886,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "wfg = AWG401x_AWG(\"TCPIP::192.168.0.123::INSTR\")\n\nwfg.reset()             # Reset the instrument at default state\n\n# Set a oscillating waveform\nwfg.waveforms[\"MyWaveform\"] = [1, 0] * 8\n\nfor i in range(1, wfg.num_ch + 1):\n    wfg.entries[1].channels[i].voltage_high = 1       # Sets high voltage = 1\n    wfg.entries[1].channels[i].voltage_low = 0        # Sets low voltage = 1\n    wfg.entries[1].channels[i].waveform = \"SQUARE\"    # Sets a square wave\n    wfg.setting_ch[i].enabled = True            # Enable channel\n\nwfg.entries.resize(2)           # Resize the number of entries to 2\n\nwfg.entries[2].channels[1].waveform = \"MyWaveform\"   # Set custom waveform\n\nwfg.enabled = True              # Enable output of waveform generator\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
      "id": "activetechnologies-AWG401x_AWG",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.activetechnologies",
@@ -904,6 +910,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "# Default channel for the Agilent 33220A\nwfg = Agilent33220A(\"GPIB::10\")\n\nwfg.shape = \"SINUSOID\"          # Sets a sine waveform\nwfg.frequency = 4.7e3           # Sets the frequency to 4.7 kHz\nwfg.amplitude = 1               # Set amplitude of 1 V\nwfg.offset = 0                  # Set the amplitude to 0 V\n\nwfg.burst_state = True          # Enable burst mode\nwfg.burst_ncycles = 10          # A burst will consist of 10 cycles\nwfg.burst_mode = \"TRIGGERED\"    # A burst will be applied on a trigger\nwfg.trigger_source = \"BUS\"      # A burst will be triggered on TRG*\n\nwfg.output = True               # Enable output of waveform generator\nwfg.trigger()                   # Trigger a burst\nwfg.wait_for_trigger()          # Wait until the triggering is finished\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
      "id": "agilent-Agilent33220A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -925,6 +934,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "generator = Agilent33500(\"GPIB::1\")\n\ngenerator.shape = 'SIN'                 # Sets default channel output signal shape to sine\ngenerator.channels[1].shape = 'SIN'           # Sets channel 1 output signal shape to sine\ngenerator.frequency = 1e3               # Sets default channel output frequency to 1 kHz\ngenerator.channels[1].frequency = 1e3         # Sets channel 1 output frequency to 1 kHz\ngenerator.channels[2].amplitude = 5           # Sets channel 2 output amplitude to 5 Vpp\ngenerator.channels[2].output = 'on'           # Enables channel 2 output\n\ngenerator.channels[1].shape = 'ARB'           # Set channel 1 shape to arbitrary\ngenerator.channels[1].arb_srate = 1e6         # Set channel 1 sample rate to 1MSa/s\n\ngenerator.channels[1].data_volatile_clear()   # Clear channel 1 volatile internal memory\ngenerator.channels[1].data_arb(               # Send data of arbitrary waveform to channel 1\n    'test',\n    range(-10000, 10000, +20),          # In this case a simple ramp\n    data_format='DAC'                   # Data format is set to 'DAC'\n )\ngenerator.channels[1].arb_file = 'test'       # Select the transmitted waveform 'test'"
+     ],
      "id": "agilent-Agilent33500",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -946,6 +958,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-Agilent33521A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -967,6 +980,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP33120A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -988,6 +1002,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP8116A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -1009,6 +1024,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keysight-Keysight33250A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -1030,6 +1046,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "generator = Keysight81160A(\"GPIB::1\")        # Replace with your device address\ngenerator.reset()                            # Reset the generator to default settings\n\ngenerator.shape = \"SIN\"                      # Set default channel output shape to sine\ngenerator.channels[1].shape = \"SIN\"          # Set channel 1 output signal shape to sine\ngenerator.frequency = 1e3                    # Set default channel output frequency to 1 kHz\ngenerator.channels[1].frequency = 1e3        # Set channel 1 output frequency to 1 kHz\ngenerator.channels[2].amplitude = 5          # Set channel 2 output amplitude to 5 Vpp\ngenerator.channels[2].offset = 0.5           # Set channel 2 output offset to 0.5 V\ngenerator.channels[2].output = True          # Enable channel 2 output\n\n# Output a square wave at 1 kHz with 5 Vpp and 0.5 V offset\ngenerator.channels[2].apply_square(1e3, 5, 0)\n\nch1 = generator.channels[1]                  # Short form for channel 1\nwaveform = [-2.0, -1.5, 0.0, 1.5, 2.0]       # Define a user-defined waveform in Volts\nch1.waveform_volatile = waveform             # Set user-defined waveform to volatile memory\nprint(f\"{ch1.free_memory_slots} slots free\") # Get number of slots in non-volatile memory\nch1.save_waveform(waveform, \"test\")          # Save the waveform to non-volatile memory\nch1.shape = \"USER\"                           # Set channel 1 shape to user-defined\nch1.trigger_mode = \"MAN\"                     # Set trigger mode to manual\nch1.trigger_count = 2                        # Set number of cycles to be generated to 2\nch1.output = True                            # Enable channel 1 output\ngenerator.trigger()                          # Trigger the generator to output the waveform\nch1.delete_waveform(\"test\")                  # Delete the waveform from non-volatile memory"
+     ],
      "id": "keysight-Keysight81160A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -1051,6 +1070,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "rigol-DG800",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.rigol",
@@ -1072,6 +1092,9 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "afg=AFG3152C(\"GPIB::1\")        # AFG on GPIB 1\nafg.reset()                    # Reset to default\nafg.ch1.shape='sinusoidal'     # Sinusoidal shape\nafg.ch1.unit='VPP'             # Sets CH1 unit to VPP\nafg.ch1.amp_vpp=1              # Sets the CH1 level to 1 VPP\nafg.ch1.frequency=1e3          # Sets the CH1 frequency to 1KHz\nafg.ch1.enable()               # Enables the output from CH1"
+     ],
      "id": "tektronix-AFG3152C",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.tektronix",
@@ -1093,6 +1116,7 @@
     "category": "awg",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "teledyne-TeledyneT3AFG",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.teledyne",
@@ -1114,6 +1138,9 @@
     "category": "daq",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.velleman import VellemanK8090, VellemanK8090Switches as Switches\n\ninstrument = VellemanK8090(\"ASRL1::INSTR\")\n\n# Get status update from device\nlast_on, curr_on, time_on = instrument.status\n\n# Toggle a selection of channels on\ninstrument.switch_on = Switches.CH3 | Switches.CH4 | Switches.CH5"
+     ],
      "id": "velleman-VellemanK8090",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.velleman",
@@ -1135,6 +1162,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-Agilent34410A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1156,6 +1184,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "dmm = Agilent34450A(\"USB0::...\")\ndmm.reset()\ndmm.configure_voltage()\nprint(dmm.voltage)\ndmm.shutdown()"
+     ],
      "id": "agilent-Agilent34450A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1177,6 +1208,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.agilent import Agilent4156\n\n# explicitly define r/w terminations; set sufficiently large timeout or None.\nsmu = Agilent4156(\"GPIB0::25\", read_termination = '\\n', write_termination = '\\n',\n                  timeout=None)\n\n# reset the instrument\nsmu.reset()\n\n# define configuration file for instrument and load config\nsmu.configure(\"configuration_file.json\")\n\n# save data variables, some or all of which are defined in the json config file.\nsmu.save(['VC', 'IC', 'VB', 'IB'])\n\n# take measurements\nstatus = smu.measure()\n\n# measured data is a pandas dataframe and can be exported to csv.\ndata = smu.get_data(path='./t1.csv')"
+     ],
      "id": "agilent-Agilent4156",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1198,6 +1232,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "agilent = Agilent4284A(\"GPIB::1::INSTR\")\n\nagilent.reset()                         # Return instrument settings to default\n                                          values\nagilent.frequency = 10e3                # Set frequency to 10 kHz\nagilent.voltage = 0.02                  # Set AC voltage to 20 mV\nagilent.mode = 'ZTR'                    # Set impedance mode to measure\n                                          impedance magnitude [Ohm] and phase\n                                          [rad]\nagilent.sweep_measurement(\n    'frequency', [1e4, 1e3, 100]        # Perform frequency sweep measurement\n)                                       # at 10 kHz, 1 kHz, and 100 Hz\nagilent.enable_high_power()             # Enable upper current, voltage, and\n                                          bias limits, if properly configured.\n\nagilent.correction.open_enabled = True     # Enable the OPEN correction\nagilent.correction.spot1.enabled = True    # Enable the correction for SPOT1\nagilent.correction.spot1.frequency = 10e3  # Set SPOT1 frequency to 10 kHz\nagilent.correction.spot1.measure_open()    # Measure the OPEN structure for SPOT1"
+     ],
      "id": "agilent-Agilent4284A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1219,6 +1256,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-Agilent4294A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1240,6 +1278,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentB1500",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1261,6 +1300,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentB2981",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1282,6 +1322,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentB2983",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1303,6 +1344,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentB2985",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1324,6 +1366,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentB2987",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1345,6 +1388,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentE4980",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1366,6 +1410,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentE5270B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -1387,6 +1432,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "andeenhagerling-AH2500A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.andeenhagerling",
@@ -1408,6 +1454,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "andeenhagerling-AH2700A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.andeenhagerling",
@@ -1429,6 +1476,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "meter = FWBell5080('/dev/ttyUSB0')  # Connects over serial port /dev/ttyUSB0 (Linux)\n\nmeter.units = 'gauss'               # Sets the measurement units to Gauss\nmeter.range = 1                     # Sets the range to 3 kG\nprint(meter.field)                  # Reads and prints a field measurement in G\n\nfields = meter.fields(100)          # Samples 100 field measurements\nprint(fields.mean(), fields.std())  # Prints the mean and standard deviation of the samples"
+     ],
      "id": "fwbell-FWBell5080",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.fwbell",
@@ -1450,6 +1500,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP3437A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -1471,6 +1522,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "dmm = HP34401A(\"GPIB::1\")\ndmm.function_ = \"DCV\"\nprint(dmm.reading)  # -> Single float reading\n\ndmm.nplc = 0.02\ndmm.autozero_enabled = False\ndmm.trigger_count = 100\ndmm.trigger_delay = \"MIN\"\nprint(dmm.reading)  # -> Array of 100 very fast readings"
+     ],
      "id": "hp-HP34401A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -1492,6 +1546,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP3478A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -1513,6 +1568,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "meter = Keithley2000(\"GPIB::1\")\nmeter.measure_voltage()\nprint(meter.voltage)"
+     ],
      "id": "keithley-Keithley2000",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1534,6 +1592,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley2182(\"GPIB::1\")\n\nkeithley.reset()                        # Return instrument settings to default\n                                          values\nkeithley.thermocouple = 'S'             # Sets thermocouple type to S\nkeithley.active_channel = 1             # Sets channel 1 for active measurement\nkeithley.channel_function = 'voltage'   # Configures active channel for voltage\n                                          measurement\nprint(keithley.voltage)                 # Prints the voltage in volts\n\nkeithley.ch_1.setup_voltage()           # Set channel 1 active and prepare\n                                          voltage measurement\nkeithley.ch_2.setup_temperature()       # Set channel 2 active and prepare\n                                          temperature measurement"
+     ],
      "id": "keithley-Keithley2182",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1555,6 +1616,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "smu = Keithley2400(\"GPIB::1\")\nsmu.reset()                        # Resets the instrument\n\nsmu.source_mode = \"current\"        # Sets up to source current\nsmu.source_enabled = True          # Enables the source output\n\nsmu.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(smu.voltage)                 # Prints the voltage in Volts\n\nsmu.reset()                        # Resets the instrument"
+     ],
      "id": "keithley-Keithley2400",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1576,6 +1640,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley2400(\"GPIB::1\")\n\nkeithley.apply_current()                # Sets up to source current\nkeithley.source_current_range = 10e-3   # Sets the source current range to 10 mA\nkeithley.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nkeithley.source_current = 0             # Sets the source current to 0 mA\nkeithley.enable_source()                # Enables the source output\n\nkeithley.measure_voltage()              # Sets up to measure voltage\n\nkeithley.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(keithley.voltage)                 # Prints the voltage in Volts\n\nkeithley.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
      "id": "keithley-Keithley2400Legacy",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1597,6 +1664,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley2450(\"GPIB::1\")\n\nkeithley.apply_current()                # Sets up to source current\nkeithley.source_current_range = 10e-3   # Sets the source current range to 10 mA\nkeithley.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nkeithley.source_current = 0             # Sets the source current to 0 mA\nkeithley.enable_source()                # Enables the source output\n\nkeithley.measure_voltage()              # Sets up to measure voltage\n\nkeithley.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(keithley.voltage)                 # Prints the voltage in Volts\n\nkeithley.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
      "id": "keithley-Keithley2450",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1618,6 +1688,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2510",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1639,6 +1710,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2600",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1660,6 +1732,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley2700(\"GPIB::1\")"
+     ],
      "id": "keithley-Keithley2700",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1681,6 +1756,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2750",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1702,6 +1778,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley4200",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1723,6 +1800,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley6517B(\"GPIB::1\")\n\nkeithley.apply_voltage()              # Sets up to source current\nkeithley.source_voltage_range = 200   # Sets the source voltage\n                                      # range to 200 V\nkeithley.source_voltage = 20          # Sets the source voltage to 20 V\nkeithley.enable_source()              # Enables the source output\n\nkeithley.measure_resistance()         # Sets up to measure resistance\n\nkeithley.ramp_to_voltage(50)          # Ramps the voltage to 50 V\nprint(keithley.resistance)            # Prints the resistance in Ohms\n\nkeithley.shutdown()                   # Ramps the voltage to 0 V\n                                      # and disables output"
+     ],
      "id": "keithley-Keithley6517B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1744,6 +1824,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = KeithleyDAQ6510(\"GPIB::1\")\nkeithley = KeithleyDAQ6510(\"TCPIP::192.168.1.1::INSTR\")\n\nprint(keithley.current)                 # Prints the current in Amps\nkeithley.current_range = 10E-6          # Select the 10 uA range\n\nprint(keithley.voltage)                 # Prints the voltage in Volts\nkeithley.voltage_range = 100e-3         # Select the 100 mV range\n\nprint(keithley.resistance)              # Prints the resistance in Ohms\nkeithley.offset_compensated = \"ON\"      # Turns offset-compensated ohms on\n\nkeithley.open_channels([134, 135])      # Open channels 134 and 135 on the MUX card\nkeithley.close_channel(133)             # Close channel 133 on the MUX card"
+     ],
      "id": "keithley-KeithleyDAQ6510",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1765,6 +1848,10 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "# Access via LAN\nip_address = \"xxx.xxx.xxx.xxx\"\ndmm = KeithleyDMM6500(f\"TCPIP::{ip_address}::inst0::INSTR\")",
+      "import pyvisa\nrm = pyvisa.ResourceManager()\nresources = rm.list_resources()\n\n# assume there is only one USB instruments\n# Ex. ('USB0::1510::25856::01234567::0::INSTR')\n\ndmm = KeithleyDMM6500( resources[0] )\n\n# Measure voltage\ndmm.measure_voltage()\nprint(dmm.voltage)\n\n# Measure AC voltage\ndmm.measure_voltage(ac=True)\nprint(dmm.voltage)"
+     ],
      "id": "keithley-KeithleyDMM6500",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -1786,6 +1873,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "gaussmeter = LakeShore421(\"COM1\")\ngaussmeter.unit = \"T\"               # Set units to Tesla\ngaussmeter.auto_range = True        # Turn on auto-range\ngaussmeter.fast_mode = True         # Turn on fast-mode"
+     ],
      "id": "lakeshore-LakeShore421",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -1807,6 +1897,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "lakeshore-LakeShore425",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -1828,6 +1919,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "ptw-ptwDIAMENTOR",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ptw",
@@ -1849,6 +1941,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "ptw-ptwUNIDOS",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ptw",
@@ -1870,6 +1963,9 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.racal import Racal1992\ncounter = Racal1992(\"GPIB0::10\")"
+     ],
      "id": "racal-Racal1992",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.racal",
@@ -1891,6 +1987,7 @@
     "category": "dmm",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thorlabs-ThorlabsPM100USB",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thorlabs",
@@ -1912,6 +2009,7 @@
     "category": "eload",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "aimtti-LD400P",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -1933,6 +2031,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "aculight-Argos",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aculight",
@@ -1954,6 +2053,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "ilxlightwave-LDP3811",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ilxlightwave",
@@ -1975,6 +2075,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "ipgphotonics-YAR",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ipgphotonics",
@@ -1996,6 +2097,9 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "laser = N7776C(address)\nlaser.sweep_wl_start = 1550\nlaser.sweep_wl_stop = 1560\nlaser.sweep_speed = 1\nlaser.sweep_mode = 'CONT'\nlaser.output_enabled = 1\nwhile laser.sweep_state == 1:\n    log.info('Sweep in progress.')\nlaser.output_enabled = 0"
+     ],
      "id": "keysight-KeysightN7776C",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -2017,6 +2121,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "santec-TSL500Series",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.santec",
@@ -2038,6 +2143,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "santec-TSL550",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.santec",
@@ -2059,6 +2165,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "santec-TSL570",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.santec",
@@ -2080,6 +2187,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-LDC500Series",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -2101,6 +2209,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thorlabs-ThorlabsMBXSeries",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thorlabs",
@@ -2122,6 +2231,7 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thorlabs-ThorlabsPro8000",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thorlabs",
@@ -2143,6 +2253,9 @@
     "category": "laser",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "laser = IBeamSmart(\"SomeResourceString\")\nlaser.emission = True\nlaser.ch_2.power = 1000  # µW\nlaser.ch_2.enabled = True\nlaser.shutdown()"
+     ],
      "id": "toptica-IBeamSmart",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.toptica",
@@ -2164,6 +2277,7 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "ametek-Ametek7270",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ametek",
@@ -2185,6 +2299,9 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "lockin7225 = DSP7225(\"GPIB0::12::INSTR\")\nlockin7225.imode = \"voltage mode\"       # Set to measure voltages\nlockin7225.reference = \"internal\"       # Use internal oscillator\nlockin7225.fet = 1                      # Use FET pre-amp\nlockin7225.shield = 0                   # Ground shields\nlockin7225.coupling = 0                 # AC input coupling\nlockin7225.time_constant = 0.10         # Filter time set to 100 ms\nlockin7225.sensitivity = 2E-3           # Sensitivity set to 2 mV\nlockin7225.frequency = 100              # Set oscillator frequency to 100 Hz\nlockin7225.voltage = 1                  # Set oscillator amplitude to 1 V\nlockin7225.gain = 20                    # Set AC gain to 20 dB\nprint(lockin7225.x)                     # Measure X channel voltage\nlockin7225.shutdown()                    # Instrument shutdown"
+     ],
      "id": "signalrecovery-DSP7225",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.signalrecovery",
@@ -2206,6 +2323,9 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "lockin7265 = DSP7265(\"GPIB0::12::INSTR\")\nlockin7265.imode = \"voltage mode\"       # Set to measure voltages\nlockin7265.reference = \"internal\"       # Use internal oscillator\nlockin7265.fet = 1                      # Use FET pre-amp\nlockin7265.shield = 0                   # Ground shields\nlockin7265.coupling = 0                 # AC input coupling\nlockin7265.time_constant = 0.10         # Filter time set to 100 ms\nlockin7265.sensitivity = 2E-3           # Sensitivity set to 2 mV\nlockin7265.frequency = 100              # Set oscillator frequency to 100 Hz\nlockin7265.voltage = 1                  # Set oscillator amplitude to 1 V\nlockin7265.gain = 20                    # Set AC gain to 20 dB\nprint(lockin7265.x)                     # Measure X channel voltage\nlockin7265.shutdown()                   # Instrument shutdown"
+     ],
      "id": "signalrecovery-DSP7265",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.signalrecovery",
@@ -2227,6 +2347,7 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-SR510",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -2248,6 +2369,7 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-SR570",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -2269,6 +2391,7 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-SR830",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -2290,6 +2413,7 @@
     "category": "lockin",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-SR860",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -2311,6 +2435,7 @@
     "category": "motion",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anaheimautomation-DPSeriesMotorController",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anaheimautomation",
@@ -2332,6 +2457,7 @@
     "category": "motion",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "attocube-ANC300Controller",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.attocube",
@@ -2351,6 +2477,7 @@
     "category": "motion",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "heidenhain-ND287",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.heidenhain",
@@ -2372,6 +2499,7 @@
     "category": "motion",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "newport-ESP300",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.newport",
@@ -2393,6 +2521,7 @@
     "category": "motion",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "parker-ParkerGV6",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.parker",
@@ -2414,6 +2543,9 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "nfa = AgilentN8975A(\"GPIB0::16::INSTR\")\nnfa.adapter.connection.timeout = 30000  # set a new timeout to 30 sec\nnfa.abort()  # abort all running measurements\nnfa.single()  # perform a single sweep measurement\nnfa.complete\nnoise_figure = nfa.noise_figure_db  # get the noise figure data\ngain = nfa.gain_db  # get the gain data"
+     ],
      "id": "agilent-AgilentN8975A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -2435,6 +2567,9 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.formfactor.velox import Velox\n\nprober = Velox(\"GPIB0::28::INSTR\")  # replace the resource to your needs\ncoordinates = prober.wafermap.step_first_die()  # move to the first die in the wafermap\nwhile not self.wafermap.end_reached:\n    prober.chuck.move_contact()  # move to contact height\n    # ...\n    # code for measurement, processing and storing data\n    # ...\n    prober.chuck.move_separation()  # move to separation height\n    coordinates = prober.wafermap.step_next_die()  # move to the next die in the wafermap"
+     ],
      "id": "formfactor-Velox",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.formfactor",
@@ -2456,6 +2591,7 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "philips-PM6669",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.philips",
@@ -2477,6 +2613,9 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "scontrol = razorbillRP100(\"ASRL/dev/ttyACM0::INSTR\")\n\nscontrol.output_1 = True      # turns output on\nscontrol.slew_rate_1 = 1      # sets slew rate to 1V/s\nscontrol.voltage_1 = 10       # sets voltage on output 1 to 10V"
+     ],
      "id": "razorbill-razorbillRP100",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.razorbill",
@@ -2498,6 +2637,7 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "redpitaya-RedPitayaScpi",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.redpitaya",
@@ -2517,6 +2657,7 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "tcpowerconversion-CXN",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.tcpowerconversion",
@@ -2538,6 +2679,7 @@
     "category": "other",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "temptronic-ATSBase",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.temptronic",
@@ -2559,6 +2701,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "edwards-Nxds",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.edwards",
@@ -2580,6 +2723,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "inficon-SQM160",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.inficon",
@@ -2601,6 +2745,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "mksinst-MKS937B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.mksinst",
@@ -2622,6 +2767,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "mksinst-MKS974B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.mksinst",
@@ -2643,6 +2789,9 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "rod4 = ROD4(\"ASRL1::INSTR\")\n\nprint(rod4.version)             # Print version and series number\nrod4.ch_1.mfc_range = 500       # Sets Channel 1 MFC range to 500 sccm\nrod4.ch_2.valve_mode = 'flow'   # Sets Channel 2 MFC to flow control\nrod4.ch_3.setpoint = 50         # Sets Channel 3 MFC to flow at 50% of full range\nprint(rod4.ch_4.actual_flow)    # Prints Channel 4 actual MFC flow in %"
+     ],
      "id": "proterial-ROD4",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.proterial",
@@ -2664,6 +2813,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-SmartlineV1",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2685,6 +2835,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-SmartlineV2",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2706,6 +2857,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-VSH",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2727,6 +2879,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-VSM",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2748,6 +2901,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-VSP",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2769,6 +2923,7 @@
     "category": "pressure",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thyracont-VSR",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thyracont",
@@ -2790,6 +2945,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "advantest-AdvantestR6245",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.advantest",
@@ -2811,6 +2967,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "advantest-AdvantestR6246",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.advantest",
@@ -2832,6 +2989,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL068P",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2853,6 +3013,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL155P",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2874,6 +3037,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL303P",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2895,6 +3061,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL303QMDP",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2916,6 +3085,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL303QMTP",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2937,6 +3109,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
      "id": "aimtti-PL601P",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aimtti",
@@ -2958,6 +3133,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "aja-DCXS",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.aja",
@@ -2979,6 +3155,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "magnet = AMI430(\"TCPIP::web.address.com::7180::SOCKET\")\n\n\nmagnet.coilconst = 1.182                 # kGauss/A\nmagnet.voltage_limit = 2.2               # Sets the voltage limit in V\n\nmagnet.target_current = 10               # Sets the target current to 10 A\nmagnet.target_field = 1                  # Sets target field to 1 kGauss\n\nmagnet.ramp_rate_current = 0.0357       # Sets the ramp rate in A/s\nmagnet.ramp_rate_field = 0.0422         # Sets the ramp rate in kGauss/s\nmagnet.ramp                             # Initiates the ramping\nmagnet.pause                            # Pauses the ramping\nmagnet.status                           # Returns the status of the magnet\n\nmagnet.ramp_to_current(5)             # Ramps the current to 5 A\n\nmagnet.shutdown()                     # Ramps the current to zero and disables output"
+     ],
      "id": "ami-AMI430",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.ami",
@@ -3000,6 +3179,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "bkprecision-BKPrecision9130B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.bkprecision",
@@ -3021,6 +3201,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "danfysik-Danfysik8500",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.danfysik",
@@ -3042,6 +3223,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "source = SM7045D(\"GPIB::8\")\n\nsource.ramp_to_zero(1)               # Set output to 0 before enabling\nsource.enable()                      # Enables the output\nsource.current = 1                   # Sets a current of 1 Amps"
+     ],
      "id": "deltaelektronika-SM7045D",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.deltaelektronika",
@@ -3063,6 +3247,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "hpp120256 = EurotestHPP120256(\"GPIB0::20::INSTR\")\n\nprint(hpp120256.id)\nprint(hpp120256.lam_status)\nprint(hpp120256.status)\n\nhpp120256.ramp_to_zero(100.0)\n\nhpp120256.voltage_ramp = 50.0  # V/s\nhpp120256.current_limit = 2.0  # mA\ninst.kill_enabled = True  # Enable over-current protection\ntime.sleep(1.0)  # Give time to enable kill\ninst.output_enabled = True\ntime.sleep(1.0)  # Give time to output on\n\nabs_output_voltage_error = 0.02 # kV\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 40.0)\n\n# Here voltage HV output should be at 0.0 kV\n\nprint(\"Setting the output voltage to 1.0kV...\")\nhpp120256.voltage_setpoint = 1.0  # kV\n\n# Now HV output should be rising to reach the 1.0kV at 50.0 V/s\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 40.0)\n\n# Here voltage HV output should be at 1.0 kV\n\nhpp120256.shutdown()\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 60.0)\n\n# Here voltage HV output should be at 0.0 kV\n\ninst.output_enabled = False\n\n# Now the HV voltage source is in safe state"
+     ],
      "id": "eurotest-EurotestHPP120256",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.eurotest",
@@ -3084,6 +3271,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP6632A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3105,6 +3293,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP6633A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3126,6 +3315,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP6634A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3147,6 +3337,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2200",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -3168,6 +3359,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "source = Keithley2260B(\"GPIB::1\")\nsource.voltage = 1\nprint(source.voltage)\nprint(source.current)\nprint(source.power)\nprint(source.applied)"
+     ],
      "id": "keithley-Keithley2260B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -3189,6 +3383,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2281S",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -3210,6 +3405,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keithley-Keithley2306",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -3231,6 +3427,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "keithley = Keithley6221(\"GPIB::1\")\nkeithley.clear()\n\n# Use the keithley as an AC source\nkeithley.waveform_function = \"square\"   # Set a square waveform\nkeithley.waveform_amplitude = 0.05      # Set the amplitude in Amps\nkeithley.waveform_offset = 0            # Set zero offset\nkeithley.source_compliance = 10         # Set compliance (limit) in V\nkeithley.waveform_dutycycle = 50        # Set duty cycle of wave in %\nkeithley.waveform_frequency = 347       # Set the frequency in Hz\nkeithley.waveform_ranging = \"best\"      # Set optimal output ranging\nkeithley.waveform_duration_cycles = 100 # Set duration of the waveform\n\n# Link end of waveform to Service Request status bit\nkeithley.operation_event_enabled = 128  # OSB listens to end of wave\nkeithley.srq_event_enabled = 128        # SRQ listens to OSB\n\nkeithley.waveform_arm()                 # Arm (load) the waveform\n\nkeithley.waveform_start()               # Start the waveform\n\nkeithley.adapter.wait_for_srq()         # Wait for the pulse to finish\n\nkeithley.waveform_abort()               # Disarm (unload) the waveform\n\nkeithley.shutdown()                     # Disables output"
+     ],
      "id": "keithley-Keithley6221",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keithley",
@@ -3252,6 +3451,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "kepco-KepcoBOP3612",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.kepco",
@@ -3273,6 +3473,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "supply = KeysightE36312A(resource)\nsupply.ch_1.voltage_setpoint=10\nsupply.ch_1.current_setpoint=0.1\nsupply.ch_1.output_enabled=True\nprint(supply.ch_1.voltage)"
+     ],
      "id": "keysight-KeysightE36312A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -3294,6 +3497,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "supply = KeysightE3631A(resource)\nsupply.ch_1.voltage_setpoint=10\nsupply.ch_1.current_setpoint=0.1\nsupply.ch_1.output_enabled=True\nprint(supply.ch_1.voltage)"
+     ],
      "id": "keysight-KeysightE3631A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -3315,6 +3521,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "keysight-KeysightN5767A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -3336,6 +3543,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "novanta-Fpu60",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.novanta",
@@ -3357,6 +3565,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "ips = IPS120_10(\"GPIB::25\")  # Default channel for the IPS\n\nips.enable_control()         # Enables the power supply and remote control\n\nips.train_magnet([           # Train the magnet after it has been cooled-down\n    (11.8, 1.0),\n    (13.9, 0.4),\n    (14.9, 0.2),\n    (16.0, 0.1),\n])\n\nips.set_field(12)           # Bring the magnet to 12 T. The switch heater will\n                            # be turned off when the field is reached and the\n                            # current is ramped back to 0 (i.e. persistent mode).\n\nprint(self.field)           # Print the current field (whether in persistent or\n                            # non-persistent mode)\n\nips.set_field(0)            # Bring the magnet to 0 T. The persistent mode will be\n                            # turned off first (i.e. current back to set-point and\n                            # switch-heater on); afterwards the switch-heater will\n                            # again be turned off.\n\nips.disable_control()       # Disables the control of the supply, turns off the\n                            # switch-heater and clamps the output."
+     ],
      "id": "oxfordinstruments-IPS120_10",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.oxfordinstruments",
@@ -3378,6 +3589,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "ps = PS120_10(\"GPIB::25\")   # Default channel for the IPS\n\nps.enable_control()         # Enables the power supply and remote control\n\nps.train_magnet([           # Train the magnet after it has been cooled-down\n    (11.8, 1.0),\n    (13.9, 0.4),\n    (14.9, 0.2),\n    (16.0, 0.1),\n])\n\nps.set_field(12)            # Bring the magnet to 12 T. The switch heater will\n                            # be turned off when the field is reached and the\n                            # current is ramped back to 0 (i.e. persistent mode).\n\nprint(self.field)           # Print the current field (whether in persistent or\n                            # non-persistent mode)\n\nps.set_field(0)             # Bring the magnet to 0 T. The persistent mode will be\n                            # turned off first (i.e. current back to set-point and\n                            # switch-heater on); afterwards the switch-heater will\n                            # again be turned off.\n\nps.disable_control()        # Disables the control of the supply, turns off the\n                            # switch-heater and clamps the output."
+     ],
      "id": "oxfordinstruments-PS120_10",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.oxfordinstruments",
@@ -3399,6 +3613,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "rohdeschwarz-HMP4040",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.rohdeschwarz",
@@ -3420,6 +3635,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "siglenttechnologies-SPD1168X",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.siglenttechnologies",
@@ -3441,6 +3657,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "siglenttechnologies-SPD1305X",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.siglenttechnologies",
@@ -3462,6 +3679,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "spellmanhv-SpellmanXRV",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.spellmanhv",
@@ -3483,6 +3701,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = TDK_Gen40_38(\"COM3\", 6)       # COM port and daisy-chain address\npsu.remote = \"REM\"                  # PSU in remote mode\npsu.output_enabled = True           # Turn on output\npsu.ramp_to_current(2.0)            # Ramp to 2.0 A of current\nprint(psu.current)                  # Measure actual PSU current\nprint(psu.voltage)                  # Measure actual PSU voltage\npsu.shutdown()                      # Run shutdown command"
+     ],
      "id": "tdk-TDK_Gen40_38",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.tdk",
@@ -3504,6 +3725,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "psu = TDK_Gen80_65(\"COM3\", 6)       # COM port and daisy-chain address\npsu.remote = \"REM\"                  # PSU in remote mode\npsu.output_enabled = True           # Turn on output\npsu.ramp_to_current(2.0)            # Ramp to 2.0 A of current\nprint(psu.current)                  # Measure actual PSU current\nprint(psu.voltage)                  # Measure actual PSU voltage\npsu.shutdown()                      # Run shutdown command"
+     ],
      "id": "tdk-TDK_Gen80_65",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.tdk",
@@ -3525,6 +3749,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "source = TexioPSW360L30(\"TCPIP::xxx.xxx.xxx.xxx::2268::SOCKET\")\nsource.voltage = 1\nprint(source.voltage)\nprint(source.current)\nprint(source.power)\nprint(source.applied)"
+     ],
      "id": "texio-TexioPSW360L30",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.texio",
@@ -3546,6 +3773,9 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "yoko = Yokogawa7651(\"GPIB::1\")\n\nyoko.apply_current()                # Sets up to source current\nyoko.source_current_range = 10e-3   # Sets the current range to 10 mA\nyoko.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nyoko.source_current = 0             # Sets the source current to 0 mA\n\nyoko.enable_source()                # Enables the current output\nyoko.ramp_to_current(5e-3)          # Ramps the current to 5 mA\n\nyoko.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
      "id": "yokogawa-Yokogawa7651",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -3567,6 +3797,7 @@
     "category": "psu",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-YokogawaGS200",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -3588,6 +3819,9 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "generator = Agilent8257D(\"GPIB::1\")\n\ngenerator.power = 0                     # Sets the output power to 0 dBm\ngenerator.frequency = 5                 # Sets the output frequency to 5 GHz\ngenerator.enable()                      # Enables the output"
+     ],
      "id": "agilent-Agilent8257D",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -3609,6 +3843,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anapico-APSIN12G",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anapico",
@@ -3630,6 +3865,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMG3692C",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -3651,6 +3887,9 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import HP11713A\nfrom pymeasure.instruments.hp.hp11713a import Attenuator_110dB\n\nsd = HP11713A(\"GPIB::1\")\n\nsd.ATTENUATOR_Y = Attenuator_110dB\nsd.attenuation_y(10)\nsd.ch_0.enabled = True"
+     ],
      "id": "hp-HP11713A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3672,6 +3911,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP437B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3693,6 +3933,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP8657B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -3714,6 +3955,9 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.kuhneelectronic import Kusg245_250A\n\ngenerator = Kusg245_250A(\"ASRL3::INSTR\", power_limit=100) # limits the output\n                                                          # power set-point to 100 W\n\ngenerator.external_enabled = False      # biasing and RF output controlled by serial comm\ngenerator.power = 20                    # Sets the output power to 20 Watts\ngenerator.bias_enabled = True           # Enables amplifier biasing\ngenerator.rf_enabled = True             # Enables the RF output\n\np_fwd = generator.power_forward         # Reads forward power in Watts\np_rev = generator.power_reverse         # Reads reflected power in Watts"
+     ],
      "id": "kuhneelectronic-Kusg245_250A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.kuhneelectronic",
@@ -3735,6 +3979,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "pendulum-CNT91",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.pendulum",
@@ -3756,6 +4001,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "rohdeschwarz-SFM",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.rohdeschwarz",
@@ -3777,6 +4023,7 @@
     "category": "rf",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "srs-SG380",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.srs",
@@ -3798,6 +4045,9 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "scope = KeysightDSOX1102G(resource)\nscope.autoscale()\nch1_data_array, ch1_preamble = scope.download_data(source=\"channel1\", points=2000)\n# ...\nscope.shutdown()"
+     ],
      "id": "keysight-KeysightDSOX1102G",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
@@ -3819,6 +4069,9 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "scope = LeCroyT3DSO1204(resource)\nscope.autoscale()\nch1_data_array, ch1_preamble = scope.download_waveform(source=\"C1\", points=2000)\n# ...\nscope.shutdown()"
+     ],
      "id": "lecroy-LeCroyT3DSO1204",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lecroy",
@@ -3840,6 +4093,7 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "siglenttechnologies-SDS1000XHD",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.siglenttechnologies",
@@ -3861,6 +4115,7 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "siglenttechnologies-SDS1072CML",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.siglenttechnologies",
@@ -3882,6 +4137,7 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "tektronix-TDS2000",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.tektronix",
@@ -3903,6 +4159,7 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "teledyne-TeledyneMAUI",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.teledyne",
@@ -3924,6 +4181,7 @@
     "category": "scope",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "teledyne-TeledyneOscilloscope",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.teledyne",
@@ -3945,6 +4203,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-AgilentE4408B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -3966,6 +4225,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS2090A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -3987,6 +4247,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS9710C",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4008,6 +4269,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS9740A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4029,6 +4291,9 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import HP8560A\nfrom pymeasure.instruments.hp.hp856Xx import AmplitudeUnits\n\nsa = HP8560A(\"GPIB::1\")\n\nsa.amplitude_unit = AmplitudeUnits.DBUV\nsa.start_frequency = 299.5e6\nsa.stop_frequency = 300.5e6\n\nprint(sa.marker_amplitude)"
+     ],
      "id": "hp-HP8560A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -4050,6 +4315,9 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import 8561B\nfrom pymeasure.instruments.hp.hp856Xx import AmplitudeUnits\n\nsa = HP8560A(\"GPIB::1\")\n\nsa.amplitude_unit = AmplitudeUnits.DBUV\nsa.start_frequency = 6.4e9\nsa.stop_frequency = 6.5e9\n\nprint(sa.marker_amplitude)"
+     ],
      "id": "hp-HP8561B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -4071,6 +4339,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "rohdeschwarz-FSL",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.rohdeschwarz",
@@ -4092,6 +4361,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "rohdeschwarz-FSW",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.rohdeschwarz",
@@ -4113,6 +4383,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6370C",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4134,6 +4405,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6370D",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4155,6 +4427,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6370E",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4176,6 +4449,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6370Series",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4197,6 +4471,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6373",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4218,6 +4493,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6373B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4239,6 +4515,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6375",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4260,6 +4537,7 @@
     "category": "spectrum",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "yokogawa-AQ6375B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.yokogawa",
@@ -4281,6 +4559,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "fluke-Fluke7341",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.fluke",
@@ -4302,6 +4581,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hcp-TC038",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hcp",
@@ -4323,6 +4603,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hcp-TC038D",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hcp",
@@ -4344,6 +4625,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "controller = LakeShore211(\"GPIB::1\")\n\nprint(controller.temperature_celsius)     # Print the sensor temperature in celsius"
+     ],
      "id": "lakeshore-LakeShore211",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -4365,6 +4649,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "monitor = LakeShore224('GPIB::1')\n\nprint(monitor.input_A.kelvin)           # Print the temperature in kelvin on sensor A\nmonitor.input_A.wait_for_temperature()  # Wait for the temperature on sensor A to stabilize."
+     ],
      "id": "lakeshore-LakeShore224",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -4386,6 +4673,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "controller = LakeShore331(\"GPIB::1\")\n\nprint(controller.output_1.setpoint)         # Print the current setpoint for loop 1\ncontroller.output_1.setpoint = 50           # Change the loop 1 setpoint to 50 K\ncontroller.output_1.heater_range = 'low'    # Change the heater range to low.\ncontroller.input_A.wait_for_temperature()   # Wait for the temperature to stabilize.\nprint(controller.input_A.kelvin             # Print the temperature at sensor A."
+     ],
      "id": "lakeshore-LakeShore331",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -4407,6 +4697,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "controller = LakeShore3xx(\"GPIB::1\")\n\nprint(controller.output_1.setpoint)         # Print the current setpoint for loop 1\ncontroller.output_1.setpoint = 50           # Change the loop 1 setpoint to 50 K\ncontroller.output_1.heater_range = 'low'    # Change the heater range to low.\ncontroller.input_A.wait_for_temperature()   # Wait for the temperature to stabilize.\nprint(controller.input_A.kelvin)            # Print the temperature at sensor A."
+     ],
      "id": "lakeshore-LakeShore3xx",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.lakeshore",
@@ -4428,6 +4721,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "itc = ITC503(\"GPIB::24\")        # Default channel for the ITC503\n\nitc.control_mode = \"RU\"         # Set the control mode to remote\nitc.heater_gas_mode = \"AUTO\"    # Turn on auto heater and flow\nitc.auto_pid = True             # Turn on auto-pid\n\nprint(itc.temperature_setpoint) # Print the current set-point\nitc.temperature_setpoint = 300  # Change the set-point to 300 K\nitc.wait_for_temperature()      # Wait for the temperature to stabilize\nprint(itc.temperature_1)        # Print the temperature at sensor 1"
+     ],
      "id": "oxfordinstruments-ITC503",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.oxfordinstruments",
@@ -4449,6 +4745,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "controller = MercuryiTC(\"GPIB::1\")\n\n# Print the current measured temperature of the motherboard temperature sensor aka 'MB1.T1'\nprint(controller.TS_MB.temperature)\n\n# Print the motherboard temperature sensor control-loop setpoint\nprint(controller.TS['MB1.T1'].loop_T_setpoint)\n\n# Add new temperature sensor with UID 'DB6.T1'\ncontroller.add_temperature_sensor('DB6.T1')\n\n# Print the new sensor's temperature\nprint(controller.TS['DBS.T1'].temperature)"
+     ],
      "id": "oxfordinstruments-MercuryiTC",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.oxfordinstruments",
@@ -4470,6 +4769,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "temptronic-ATS525",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.temptronic",
@@ -4491,6 +4791,9 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "ts = ATS545('ASRL3::INSTR')  # replace adapter address\nts.configure()  # basic configuration (defaults to T-DUT)\nts.start()  # starts flow (head position not changed)\nts.set_temperature(25)  # sets temperature to 25 degC\nts.wait_for_settling()  # blocks script execution and polls for settling\nts.shutdown(head=False)  # disables thermostream, keeps head down"
+     ],
      "id": "temptronic-ATS545",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.temptronic",
@@ -4512,6 +4815,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "temptronic-ECO560",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.temptronic",
@@ -4533,6 +4837,7 @@
     "category": "temperature",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "thermotron-Thermotron3800",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.thermotron",
@@ -4554,6 +4859,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "advantest-AdvantestR3767CG",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.advantest",
@@ -4575,6 +4881,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "agilent-Agilent8722ES",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -4596,6 +4903,9 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "# connect to the VNA and make a measurement consisting of 10 averages\nvna = AgilentE5062A(\"TCPIP::192.168.2.233::INSTR\")\nch = vna.channels[1]            # use channel 1\nch.visible_traces = 4            # use all 4 traces\nfor i, (tr, parameter) in enumerate(zip(\n        ch.traces.values(),\n        ['S11', 'S12', 'S21', 'S22'])):\n    tr.parameter = parameter\n\nch.averages = 10                # use 10x averaging\nch.averaging_enabled = True     # turn averaging on\nch.trigger_continuous = False   # turn off continuous triggering\nvna.trigger_source = 'BUS'      # require remote trigger\nvna.abort()                     # stop the current sweep\nch.restart_averaging()          # clear current averaging\nfor _ in range(ch.averages):\n    ch.trigger_initiate()       # arm channel 1 for single sweep\n    vna.trigger_single()        # send a trigger\n    vna.wait_for_complete()     # wait until the sweep is complete\n\n# see `agilentE5062A.data` for an example of saving the measurement"
+     ],
      "id": "agilent-AgilentE5062A",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.agilent",
@@ -4617,6 +4927,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS4642B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4638,6 +4949,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS4644B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4659,6 +4971,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS4645B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4680,6 +4993,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS4647B",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4701,6 +5015,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "anritsu-AnritsuMS464xB",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.anritsu",
@@ -4722,6 +5037,7 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [],
      "id": "hp-HP8753E",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.hp",
@@ -4741,6 +5057,9 @@
     "category": "vna",
     "driver_type": "pymeasure",
     "extra": {
+     "examples": [
+      "pna = KeysightPNA(\"GPIB0::16::INSTR\",\n                  timeout=5000,\n                  )\n\npna.load_state(\"D:/States/MyState.csa\")\npna.adapter.connection.timeout = 20000  # set a new timeout to 20 sec\npna.ch_1.single()  # execute a single trigger of channel 1\npna.complete  # wait till the sweep has finished\nx_data = pna.ch_1.tr_1.x_data  # get the X data of trace 1 in channel 1\ny_data = pna.ch_2.tr_5.y_data  # get the Y data of trace 5 in channel 2\ny_complex = pna.ch_2.tr_5.y_data_complex  # get the complex Y data of trace 5 in channel 2\npna.ch_1.tr_1.mkr_1.enabled = True  # Activate marker 1 on trace 1 in channel 1\npna.ch_1.tr_1.mkr_1.x = 123e6  # Set marker 1 to 123 MHz\nmkr_y = pna.ch_1.tr_1.mkr_1.y  # Read the marker 1 y data"
+     ],
      "id": "keysight-KeysightPNA",
      "library_version": "0.16.0",
      "package_import": "pymeasure.instruments.keysight",
