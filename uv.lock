@@ -753,7 +753,7 @@ wheels = [
 
 [[package]]
 name = "instro"
-version = "1.23.0"
+version = "1.24.0"
 source = { editable = "." }
 default-groups = ["dev", "test"]
 dependencies = [
@@ -924,7 +924,7 @@ test = [
 
 [[package]]
 name = "instro-contrib"
-version = "1.1.0"
+version = "1.2.0"
 source = { editable = "packages/instro-contrib" }
 dependencies = [
     { name = "instro" },
@@ -935,7 +935,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-daq-labjack"
-version = "1.1.1"
+version = "1.2.0"
 source = { editable = "packages/instro-daq-labjack" }
 dependencies = [
     { name = "instro" },
@@ -950,7 +950,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-mcc"
-version = "1.1.1"
+version = "1.2.0"
 source = { editable = "packages/instro-daq-mcc" }
 dependencies = [
     { name = "instro" },
@@ -965,7 +965,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-daq-ni"
-version = "1.1.1"
+version = "1.2.0"
 source = { editable = "packages/instro-daq-ni" }
 dependencies = [
     { name = "instro" },
@@ -980,7 +980,7 @@ requires-dist = [
 
 [[package]]
 name = "instro-ethernetip"
-version = "1.0.2"
+version = "1.0.3"
 source = { editable = "packages/instro-ethernetip" }
 dependencies = [
     { name = "instro" },
@@ -991,7 +991,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-i2c-aardvark"
-version = "1.0.1"
+version = "1.1.0"
 source = { editable = "packages/instro-i2c-aardvark" }
 dependencies = [
     { name = "instro" },
@@ -1017,7 +1017,7 @@ requires-dist = [{ name = "instro", editable = "." }]
 
 [[package]]
 name = "instro-pymeasure"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "packages/instro-pymeasure" }
 dependencies = [
     { name = "instro" },
