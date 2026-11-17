@@ -19,14 +19,10 @@ from .records import InstrumentRecord, category_title, slug
 ROOT = "instruments"  # docs folder of the whole section
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
 
-# driver_type -> (badge label, one-line description of where the driver comes from)
+# driver_type -> (badge label, docs URL of the library, "" for instro itself)
 DRIVER_TYPES: dict[str, tuple[str, str]] = {
-    "instro": ("instro", "Native instro driver, used through its instrument class."),
-    "pymeasure": (
-        "pymeasure",
-        "Driver from [pymeasure](https://pymeasure.readthedocs.io), a third-party library. "
-        "instro publishes what it sends and reads.",
-    ),
+    "instro": ("instro", ""),
+    "pymeasure": ("pymeasure", "https://pymeasure.readthedocs.io"),
 }
 
 CATEGORY_NOUN = {
@@ -147,8 +143,8 @@ def _constructs(node: ast.stmt, class_name: str) -> str | None:
     return node.targets[0].id if named == class_name else None
 
 
-def with_instro(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
-    """A pymeasure docstring example rewritten to publish through instro, and the 1-based lines that are new.
+def with_instro(r: InstrumentRecord, code: str) -> str | None:
+    """A pymeasure docstring example rewritten to publish through instro.
 
     ``attach()`` goes right after the line that builds the instrument and ``recorder.close()`` at the end, so
     everything else is the pymeasure example as written. None when the example does not construct the
@@ -179,12 +175,11 @@ def with_instro(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
     if at == 0:
         out = [(imp, True) for imp in new_imports] + [("", False)] + out
     out += [("", False), ("recorder.close()  # flush and close the publishers", True)]
-    emphasized = [n for n, (_, new) in enumerate(out, start=1) if new]
-    return "\n".join(line for line, _ in out) + "\n", emphasized
+    return "\n".join(line for line, _ in out) + "\n"
 
 
-def with_wrapper(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None:
-    """A pymeasure docstring example rewritten as new instro code, and the 1-based lines that changed.
+def with_wrapper(r: InstrumentRecord, code: str) -> str | None:
+    """A pymeasure docstring example rewritten as new instro code.
 
     The line that builds the instrument becomes ``with PymeasureInstrument(...) as var:``, the rest of the
     example moves inside it, and each use of ``var`` becomes ``var.device``, pymeasure's own instrument. None
@@ -236,8 +231,7 @@ def with_wrapper(r: InstrumentRecord, code: str) -> tuple[str, list[int]] | None
             out.append(("    " + text if text.strip() else "", i in uses))
     if at == 0:
         out = [(imp, True) for imp in new_imports] + [("", False)] + out
-    emphasized = [n for n, (_, new) in enumerate(out, start=1) if new]
-    return "\n".join(line for line, _ in out) + "\n", emphasized
+    return "\n".join(line for line, _ in out) + "\n"
 
 
 def _fence(code: str) -> str:
@@ -263,47 +257,50 @@ def _body(r: InstrumentRecord, srcdir: Path) -> str:
         examples = r.extra.get("examples", [])
         attach_form = next((t for code in examples if (t := with_instro(r, code))), None)
         wrapper_form = next((t for code in examples if (t := with_wrapper(r, code))), None)
-        if attach_form or wrapper_form:
-
-            def block(form: tuple[str, list[int]]) -> str:
-                code, emphasized = form
-                return f"```{{code-block}} python\n:emphasize-lines: {','.join(map(str, emphasized))}\n\n{code}```\n"
-
-            parts = [
-                "## Publishing through instro\n",
-                f"Adapted from the [pymeasure documentation for `{r.name}`]({api}). The highlighted lines are "
-                "what changes from the pymeasure example. Install with `uv add \"instro[pymeasure]\"`.\n",
+        adapted = bool(attach_form or wrapper_form)
+        wrapper_form = wrapper_form or publish[1]
+        if not attach_form:
+            var = slug(r.name).replace("-", "_")
+            lines = direct[1].splitlines()
+            at = next(i for i, ln in enumerate(lines) if ln.startswith(f"{var} = "))
+            lines.insert(
+                at + 1, f'recorder = attach({var}, "{var}", [NominalCorePublisher(dataset_rid="<dataset rid>")])'
+            )
+            lines = [
+                "from instro.lib import NominalCorePublisher",
+                "from instro.pymeasure import attach",
+                *lines,
+                "recorder.close()  # flush and close the publishers",
             ]
-            if attach_form:
-                parts += [
-                    "### Publish from existing code\n",
-                    "[`attach()`](/library/pymeasure.md#publish-from-existing-code) publishes every command and "
-                    "reading through an instro [publisher](/library/publishers.md). The rest of the example is "
-                    "unchanged.\n",
-                    block(attach_form),
-                ]
-            if wrapper_form:
-                parts += [
-                    "### Write new instro code\n",
-                    "[`PymeasureInstrument`](/library/pymeasure.md#write-new-instro-code) wraps the driver in an "
-                    "instro instrument, with tags and background polling. `.device` is the pymeasure instrument.\n",
-                    block(wrapper_form),
-                ]
-            return "\n".join(parts)
-        usage = [
-            "## Using the pymeasure driver\n",
-            _fence(direct[1]),
-        ]
+            attach_form = "\n".join(lines) + "\n"
+
+        def block(code: str) -> str:
+            return f"```python\n{code}```\n"
+
+        closing = (
+            f"The examples are adapted from the [pymeasure documentation for `{r.name}`]({api}), "
+            "which lists every property and method.\n"
+            if adapted
+            else f"For the full list of properties and methods, see the [pymeasure documentation for "
+            f"`{r.name}`]({api}).\n"
+        )
         return "\n".join(
             [
-                *usage,
                 "## Publishing through instro\n",
-                "Wrap the driver to publish every command and reading through an instro "
-                "[publisher](/library/publishers.md), as [described here](/library/pymeasure.md).\n",
-                _fence(publish[1]),
-                "Install with `uv add \"instro[pymeasure]\"`.\n",
-                f"For the full list of properties and methods, see the [pymeasure documentation for "
-                f"`{r.name}`]({api}).\n",
+                f"instro publishes the commands you send to a {r.name} and the values you read from it, through "
+                "any [publisher](/library/publishers.md). It takes two forms, both described in the "
+                "[pymeasure guide](/library/pymeasure.md). Install with `uv add \"instro[pymeasure]\"`.\n",
+                "### With a PymeasureInstrument\n",
+                "[`PymeasureInstrument`](/library/pymeasure.md#write-new-instro-code) wraps the driver in an "
+                "instro instrument, with tags and background polling. The instrument is created inside the "
+                "`with` block, and `.device` is the pymeasure instrument.\n",
+                block(wrapper_form),
+                "### With existing pymeasure code (`attach()`)\n",
+                "[`attach()`](/library/pymeasure.md#publish-from-existing-code) adds publishing to pymeasure "
+                "code you already have. The imports, the `attach()` call after the instrument is created, "
+                "and `recorder.close()` are all that instro adds.\n",
+                block(attach_form),
+                closing,
             ]
         )
     return "\n".join(["## Usage\n", f"```python\nfrom {r.import_path.rsplit('.', 1)[0]} import {r.name}\n```\n"])
@@ -326,7 +323,7 @@ def _yaml_str(text: str) -> str:
 
 
 def stub_page(r: InstrumentRecord, srcdir: Path) -> str:
-    badge, blurb = DRIVER_TYPES.get(r.driver_type, (r.driver_type, ""))
+    badge, library_url = DRIVER_TYPES.get(r.driver_type, (r.driver_type, ""))
     title = r.display_name
     description = (
         f"Control the {title} {noun(r)} from Python with the {badge} {r.name} driver: "
@@ -334,7 +331,7 @@ def stub_page(r: InstrumentRecord, srcdir: Path) -> str:
     )
     image = _image(r, srcdir)
     meta = [
-        f"**Driver:** {badge}",
+        f"**Driver:** [{badge}]({library_url})" if library_url else f"**Driver:** {badge}",
         f"**Type:** [{category_title(r.category)}](/{ROOT}/type/{slug(r.category)}.md)",
         f"**Manufacturer:** [{r.manufacturer}](/{ROOT}/manufacturer/{slug(r.manufacturer)}.md)",
     ]
@@ -357,8 +354,6 @@ def stub_page(r: InstrumentRecord, srcdir: Path) -> str:
         )
     if r.simulated:
         parts.append("This driver simulates the instrument: no hardware is needed.\n")
-    if blurb and r.driver_type != "instro":
-        parts.append(f"{blurb}\n")
     parts.append(f"{summary_of(r).rstrip('…')}{'' if summary_of(r).endswith('…') else '.'}\n")
     parts.append(_body(r, srcdir))
     return "\n".join(parts)

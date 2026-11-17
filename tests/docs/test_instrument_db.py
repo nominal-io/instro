@@ -146,7 +146,7 @@ def test_with_instro_attaches_after_construction_and_keeps_the_rest():
 
     code = "smu = Keithley2400(\n    'GPIB::1',\n)\nsmu.reset()\nprint(smu.voltage)"
 
-    adapted, new = with_instro(_smu(), code)
+    adapted = with_instro(_smu(), code)
 
     assert adapted.splitlines() == [
         "from pymeasure.instruments.keithley import Keithley2400",
@@ -162,7 +162,6 @@ def test_with_instro_attaches_after_construction_and_keeps_the_rest():
         "",
         "recorder.close()  # flush and close the publishers",
     ]
-    assert new == [1, 2, 3, 8, 12]
 
 
 def test_with_wrapper_moves_the_example_inside_pymeasure_instrument():
@@ -170,7 +169,7 @@ def test_with_wrapper_moves_the_example_inside_pymeasure_instrument():
 
     code = "from pymeasure.instruments.keithley import Keithley2400\n\nsmu = Keithley2400('GPIB::1')\nsmu.reset()\nx = 1\nprint(smu.voltage)"
 
-    adapted, new = with_wrapper(_smu(), code)
+    adapted = with_wrapper(_smu(), code)
 
     assert adapted.splitlines() == [
         "from pymeasure.instruments.keithley import Keithley2400",
@@ -185,13 +184,12 @@ def test_with_wrapper_moves_the_example_inside_pymeasure_instrument():
         "    x = 1",
         "    print(smu.device.voltage)",
     ]
-    assert new == [2, 4, 5, 6, 7, 8, 9, 11]
 
 
 def test_with_wrapper_flattens_a_multiline_constructor():
     from instrument_db.render import with_wrapper
 
-    adapted, _ = with_wrapper(
+    adapted = with_wrapper(
         _smu(), 'smu = Keithley2400("GPIB::1",\n                  timeout=5000,\n                  )\nsmu.reset()'
     )
 
@@ -214,8 +212,9 @@ def test_stub_shows_the_instro_adapted_docstring_example(tmp_path):
 
     page = stub_page(record, tmp_path)
 
-    assert "```{code-block} python\n:emphasize-lines: 1,2,3,6,9" in page
+    assert "emphasize" not in page
     assert 'recorder = attach(smu, "smu"' in page
-    assert "### Write new instro code" in page
+    assert "### With a PymeasureInstrument" in page
+    assert "### With existing pymeasure code (`attach()`)" in page
     assert ") as smu:" in page
     assert "## Using the pymeasure driver" not in page
