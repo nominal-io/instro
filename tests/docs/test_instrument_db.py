@@ -230,3 +230,14 @@ def test_instro_category_follows_the_base_class_and_nested_vendor_packages_are_w
     (nested / "nidaq.py").write_text("")
     names = [n for n, _ in InstroSource._modules("pkg.drivers", [str(tmp_path)])]
     assert names == ["pkg.drivers.ni", "pkg.drivers.ni.nidaq"]
+
+
+def test_vendor_sdk_driver_packages_are_found_without_being_installed():
+    """Drivers in ``packages/`` (``instro-daq-ni`` ...) are read from source, so a docs build needs no vendor SDK."""
+    found = {r.name: r for r in InstroSource().discover()}
+    for name in ("NIDAQDriver", "LabJackTSeriesDriver", "MCCDriver", "Aardvark"):
+        assert name in found, f"{name} is missing from the instrument database"
+        assert found[name].manufacturer != "Other"
+    # a driver the importable walk also finds is listed once
+    paths = [r.import_path for r in InstroSource().discover()]
+    assert len(paths) == len(set(paths))

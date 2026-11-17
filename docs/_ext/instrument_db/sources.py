@@ -22,6 +22,8 @@ from .records import InstrumentRecord
 
 logger = logging.getLogger(__name__)
 
+WORKSPACE_PACKAGES = Path(__file__).resolve().parents[3] / "packages"
+
 
 class DriverSource(Protocol):
     name: str
@@ -144,8 +146,19 @@ _INSTRUMENT_CLASSES: dict[str, tuple[str, str]] = {
 _TIERS = (("instro", "stable"), ("instro.unstable", "unstable"), ("instro.contrib", "contrib"))
 
 
+# Drivers whose class name doesn't start with the manufacturer: class name -> (manufacturer, model)
+_NAMED_DRIVERS: dict[str, tuple[str, str]] = {
+    "NIDAQDriver": ("National Instruments", "NI-DAQmx"),
+    "LabJackTSeriesDriver": ("LabJack", "T-series"),
+    "MCCDriver": ("Measurement Computing", "MCC DAQ"),
+    "Aardvark": ("Total Phase", "Aardvark"),
+}
+
+
 def _split_model(class_name: str, manufacturer_hint: str | None) -> tuple[str, str]:
     """Split ``Keysight1200X`` into ``("Keysight", "1200X")`` by class-name prefix."""
+    if class_name in _NAMED_DRIVERS:
+        return _NAMED_DRIVERS[class_name]
     for prefix, display in _CLASS_PREFIXES:
         if class_name.startswith(prefix) and len(class_name) > len(prefix):
             return display, class_name[len(prefix) :]
@@ -210,6 +223,7 @@ class InstroSource:
 
     def discover(self) -> Iterator[InstrumentRecord]:
         idn = self._idn_patterns()
+        seen: set[str] = set()
         for root, tier in _TIERS:
             try:
                 package = importlib.import_module(root)
@@ -218,7 +232,23 @@ class InstroSource:
                 continue
             for sub in sorted(pkgutil.iter_modules(package.__path__), key=lambda m: m.name):
                 if sub.ispkg:
-                    yield from self._category(root, sub.name, tier, idn)
+                    for record in self._category(root, sub.name, tier, idn):
+                        seen.add(record.import_path)
+                        yield record
+        # Driver packages in the repo's ``packages/`` that aren't installed, such as the vendor-SDK ones
+        # (``instro-daq-ni``): their modules are read from source, so nothing needs installing.
+        for record in self._from_workspace(idn):
+            if record.import_path not in seen:
+                yield record
+
+    def _from_workspace(self, idn: dict[str, Any]) -> Iterator[InstrumentRecord]:
+        """Drivers in ``packages/*/instro[/unstable|/contrib]/<category>/drivers``, read without importing them."""
+        for tier_root, tier in _TIERS:
+            parts = tier_root.split(".")
+            for drivers in sorted(WORKSPACE_PACKAGES.glob("*/" + "/".join(parts) + "/*/drivers")):
+                category = drivers.parent.name
+                for mod_name, mod_path in self._modules(f"{tier_root}.{category}.drivers", [str(drivers)]):
+                    yield from self._from_source(mod_path, mod_name, category, tier)
 
     @staticmethod
     def _idn_patterns() -> dict[str, Any]:
