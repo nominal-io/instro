@@ -1,14 +1,14 @@
 """Base instrument interface and background daemon support."""
 
+from __future__ import annotations
+
 import functools
 import logging
 import threading
 import time
 from collections import deque
 from importlib.metadata import version
-from typing import Callable
-
-from nominal.core import NominalClient
+from typing import TYPE_CHECKING, Callable
 
 from instro.lib import _display
 from instro.lib.nominal import _resolve_nominal_client_and_dataset
@@ -17,6 +17,9 @@ from instro.lib.publishers.channel_buffer import (
     DequeInMemoryPublisher,
 )
 from instro.lib.types import BackgroundDaemonConfig, Command, Measurement
+
+if TYPE_CHECKING:
+    from nominal.core import NominalClient
 
 
 def publish_command(func: Callable) -> Callable:

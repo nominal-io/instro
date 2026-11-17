@@ -32,7 +32,7 @@ def test_needs_exactly_one_dataset():
 def test_dataset_rid_keyword_still_looks_up_the_rid():
     client = create_autospec(NominalClient, instance=True)
     client.get_dataset.return_value = _dataset()
-    with patch("instro.lib.nominal.NominalClient.from_profile", return_value=client) as from_profile:
+    with patch("nominal.core.NominalClient.from_profile", return_value=client) as from_profile:
         publisher = NominalCorePublisher(dataset_rid=RID)
 
     from_profile.assert_called_once_with("default")
@@ -85,7 +85,7 @@ def test_conflicting_credentials_are_rejected(kwargs):
 def test_api_key_is_never_shown():
     client = create_autospec(NominalClient, instance=True)
     client.get_dataset.return_value = _dataset()
-    with patch("instro.lib.nominal.NominalClient.from_token", return_value=client) as from_token:
+    with patch("nominal.core.NominalClient.from_token", return_value=client) as from_token:
         publisher = NominalCorePublisher(RID, api_key="secret-key")
 
     from_token.assert_called_once_with("secret-key")

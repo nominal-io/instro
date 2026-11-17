@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping
-from typing import Any, TypedDict
-
-import requests.exceptions
-import urllib3.exceptions
-from nominal.core import Dataset, NominalClient, exceptions
-from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from instro.lib.types import Measurement
+
+# nominal is imported where it is used so importing instro does not require it (#626).
+if TYPE_CHECKING:
+    from nominal.core import Dataset, NominalClient
 
 
 class CoreEnqueueDict(TypedDict):
@@ -33,6 +32,8 @@ def _resolve_nominal_client(
     api_key: str | None = None,
 ) -> NominalClient:
     """Return ``client``, or build one from an API key or an on-disk profile (``"default"`` when omitted)."""
+    from nominal.core import NominalClient, exceptions
+
     if client is not None:
         if profile or api_key:
             raise ValueError("Pass either client or profile/api_key, not both.")
@@ -63,6 +64,10 @@ def _resolve_nominal_client_and_dataset(
 ) -> tuple[NominalClient, Dataset]:
     """Resolve a NominalClient and dataset from a dataset RID."""
     resolved_client = _resolve_nominal_client(client, profile, api_key)
+    # Installed by nominal, so imported after it is known to be present.
+    import requests.exceptions
+    import urllib3.exceptions
+
     try:
         dataset = resolved_client.get_dataset(dataset_rid)
     except (
@@ -88,6 +93,8 @@ def install_nominal_core_log_handler(
     default_args: Mapping[str, str] | None = None,
 ) -> Any:
     """Install Nominal's logging handler, looking up the dataset by RID."""
+    from nominal.experimental.logging import install_nominal_log_handler as _install_nominal_log_handler
+
     _, dataset = _resolve_nominal_client_and_dataset(dataset_rid)
     return _install_nominal_log_handler(
         dataset=dataset,
