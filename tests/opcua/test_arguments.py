@@ -46,7 +46,7 @@ def test_security_policy_rejects_unknown_name():
         ({"request_timeout": float("nan")}, ValueError),
         ({"request_timeout": float("inf")}, ValueError),
         ({"request_timeout": timedelta(seconds=-1)}, ValueError),
-        ({"request_timeout": Duration(2**63)}, ValueError),
+        ({"request_timeout": Duration(2**64 - 1, 999_999_999)}, ValueError),
         ({"session_retry_limit": -2}, ValueError),
         ({"session_retry_limit": True}, TypeError),
         ({"session_timeout": 2**32}, ValueError),
