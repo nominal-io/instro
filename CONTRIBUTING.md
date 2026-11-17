@@ -102,6 +102,12 @@ sudo apt-get install -y cmake clang libclang-dev pkg-config
 
 `build-essential` (gcc + make + linker), `cmake`, and `clang`/`libclang-dev` cover the `open62541-sys` + `mbedtls` C build and the `bindgen` step. On Fedora/RHEL the equivalents are `gcc gcc-c++ make cmake clang clang-devel pkgconf-pkg-config`.
 
+If several LLVM versions are installed (Ubuntu 26.04 ships three), `bindgen` loads the newest `libclang` but takes its include paths from the default `clang`, and `open62541-sys` fails with `unknown type name 'atomic_uintptr_t'`. Point it at the `libclang` that matches `clang`:
+
+```bash
+export LIBCLANG_PATH="$(dirname "$(dirname "$(readlink -f "$(command -v clang)")")")/lib"
+```
+
 </details>
 
 ### Install and run

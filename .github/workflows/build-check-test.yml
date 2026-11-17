@@ -39,8 +39,20 @@ jobs:
         uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: cargo-nextest
+      # Key the Rust cache on the runner image: a target/ built on one Ubuntu release links against
+      # libraries (such as its system libpython) that the next release does not ship.
+      - name: Read runner image
+        id: image
+        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # Ubuntu 26.04 ships several LLVMs. bindgen loads the newest libclang but takes its include
+      # paths from the default `clang`, and the mismatched `stdatomic.h` pair breaks open62541-sys.
+      - name: Match libclang to the default clang
+        if: runner.os == 'Linux'
+        run: echo "LIBCLANG_PATH=$(dirname "$(dirname "$(readlink -f "$(command -v clang)")")")/lib" >> "$GITHUB_ENV"
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ steps.image.outputs.os }}
       - name: Install dependencies
         run: |
           just install
@@ -82,8 +94,20 @@ jobs:
       # `check-rust` runs `cargo +nightly fmt`, which needs its own toolchain + component.
       - name: Install nightly rustfmt
         run: rustup toolchain install nightly --profile minimal --component rustfmt
+      # Key the Rust cache on the runner image: a target/ built on one Ubuntu release links against
+      # libraries (such as its system libpython) that the next release does not ship.
+      - name: Read runner image
+        id: image
+        run: echo "os=$ImageOS" >> "$GITHUB_OUTPUT"
+      # Ubuntu 26.04 ships several LLVMs. bindgen loads the newest libclang but takes its include
+      # paths from the default `clang`, and the mismatched `stdatomic.h` pair breaks open62541-sys.
+      - name: Match libclang to the default clang
+        if: runner.os == 'Linux'
+        run: echo "LIBCLANG_PATH=$(dirname "$(dirname "$(readlink -f "$(command -v clang)")")")/lib" >> "$GITHUB_ENV"
       - name: Cache Rust build output
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          key: ${{ steps.image.outputs.os }}
       - name: Rust format and lint checks
         run: |
           just check-rust
