@@ -418,7 +418,7 @@ impl OpcUaClient {
             .map(|value| value.as_ua_ref().clone())
             .unwrap_or(opcua::client::IdentityToken::Anonymous);
 
-        let runtime = crate::shared_rt::get(py)?;
+        let runtime = util::get_runtime(py)?;
         let (cancel, mut cancelled) = oneshot::channel::<()>();
         let (result_tx, result_rx) = mpsc::sync_channel(1);
 
@@ -538,7 +538,7 @@ fn get_endpoints(py: Python<'_>, endpoint_url: String) -> PyResult<Vec<EndpointD
         .client()
         .map_err(|errors| PyValueError::new_err(errors.join("; ")))?;
 
-    let runtime = crate::shared_rt::get(py)?;
+    let runtime = util::get_runtime(py)?;
     let (cancel, mut cancelled) = oneshot::channel::<()>();
     let (tx, rx) = mpsc::sync_channel(1);
 
