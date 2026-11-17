@@ -104,7 +104,7 @@ def _instro_example(r: InstrumentRecord) -> list[tuple[str, str]]:
 def _pymeasure_example(r: InstrumentRecord) -> list[tuple[str, str]]:
     x = r.extra
     package = x["package_import"]
-    first, *rest = x.get("required_params") or ["adapter"]
+    rest = (x.get("required_params") or ["adapter"])[1:]
     args = ", ".join(['"<visa_resource>"', *[_placeholder(p) for p in rest]])
     var = slug(r.name).replace("-", "_")
     direct = [f"from {package} import {r.name}", "", f"{var} = {r.name}({args})"]
@@ -120,7 +120,11 @@ def _pymeasure_example(r: InstrumentRecord) -> list[tuple[str, str]]:
         f"    instrument={r.name}({args}),",
         '    dataset_rid="<dataset rid>",',
         ") as instrument:",
-        "    instrument.start()",
+        *(
+            [f"    print(instrument.device.{x['read_example']})"]
+            if x.get("read_example")
+            else ["    instrument.start()"]
+        ),
     ]
     return [("python", "\n".join(direct) + "\n"), ("python", "\n".join(publish) + "\n")]
 

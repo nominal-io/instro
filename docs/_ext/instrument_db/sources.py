@@ -14,7 +14,7 @@ import logging
 import pkgutil
 import re
 import textwrap
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -152,8 +152,17 @@ def _split_model(class_name: str, manufacturer_hint: str | None) -> tuple[str, s
     return manufacturer_hint or "", class_name
 
 
-def _ast_classes(path: Path) -> Iterator[tuple[str, str | None, list[tuple[str, bool]]]]:
-    """``(class name, docstring, __init__ params)`` for driver classes in a module that can't be imported.
+def _base_category(bases: Iterable[str]) -> str | None:
+    """The category a ``<Category>DriverBase`` base names (``ELoadDriverBase`` is ``eload``), if it is one."""
+    for b in bases:
+        category = b.removesuffix("DriverBase").lower()
+        if b.endswith("DriverBase") and category in _INSTRUMENT_CLASSES:
+            return category
+    return None
+
+
+def _ast_classes(path: Path) -> Iterator[tuple[str, str | None, list[tuple[str, bool]], str | None]]:
+    """``(class name, docstring, __init__ params, base category)`` for driver classes in a module that can't be imported.
 
     Used for drivers whose vendor SDK isn't installed: a class counts when a base is named ``*DriverBase``.
     """
@@ -172,7 +181,7 @@ def _ast_classes(path: Path) -> Iterator[tuple[str, str | None, list[tuple[str, 
                 defaults = [None] * (len(positional) - len(args.defaults)) + list(args.defaults)
                 params = [(a.arg, d is None) for a, d in zip(positional, defaults, strict=True) if a.arg != "self"]
                 params += [(a.arg, d is None) for a, d in zip(args.kwonlyargs, args.kw_defaults, strict=True)]
-        yield node.name, ast.get_docstring(node), params
+        yield node.name, ast.get_docstring(node), params, _base_category(bases)
 
 
 def _import_from(module: str, name: str, category: str) -> str:
@@ -182,7 +191,7 @@ def _import_from(module: str, name: str, category: str) -> str:
         try:
             if hasattr(importlib.import_module(candidate), name):
                 return candidate
-        except ImportError:
+        except Exception:  # a vendor SDK that is missing or Windows-only can fail in any way
             continue
     return "instro.drivers" if root == "instro" else f"{root}.{category}.drivers"
 
@@ -195,6 +204,9 @@ class InstroSource:
     """
 
     name = "instro"
+
+    def __init__(self, **_options: Any) -> None:
+        pass
 
     def discover(self) -> Iterator[InstrumentRecord]:
         idn = self._idn_patterns()
@@ -225,13 +237,12 @@ class InstroSource:
             if exc.name and drivers_name.startswith(exc.name):
                 return
             raise
-        for mod_info in sorted(pkgutil.iter_modules(drivers.__path__), key=lambda m: m.name):
-            mod_name = f"{drivers_name}.{mod_info.name}"
+        for mod_name, mod_path in self._modules(drivers_name, list(drivers.__path__)):
             try:
                 mod = importlib.import_module(mod_name)
             except Exception as exc:  # a vendor SDK missing or Windows-only, which is expected
                 logger.info("instrument_db: reading %s from source (%s)", mod_name, type(exc).__name__)
-                yield from self._from_source(mod_name, category, tier)
+                yield from self._from_source(mod_path, mod_name, category, tier)
                 continue
             for name, cls in sorted(vars(mod).items()):
                 if (
@@ -247,15 +258,34 @@ class InstroSource:
                         if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
                     ]
                     yield self._record(
-                        name, mod_name, category, tier, inspect.getdoc(cls), params, idn.get(f"{mod_name}.{name}", ())
+                        name,
+                        mod_name,
+                        category,
+                        tier,
+                        inspect.getdoc(cls),
+                        params,
+                        idn.get(f"{mod_name}.{name}", ()),
+                        _base_category(b.__name__ for b in cls.__mro__[1:]),
                     )
 
-    def _from_source(self, mod_name: str, category: str, tier: str) -> Iterator[InstrumentRecord]:
-        spec = importlib.util.find_spec(mod_name)
-        if spec is None or not spec.origin or not spec.origin.endswith(".py"):
+    @classmethod
+    def _modules(cls, package: str, path: list[str]) -> Iterator[tuple[str, Path]]:
+        """Dotted name and source file of each module under a drivers package, nested vendor subpackages included.
+
+        Paths come from the directory walk, so no package is imported (a vendor SDK may be missing).
+        """
+        for info in sorted(pkgutil.iter_modules(path), key=lambda m: m.name):
+            name = f"{package}.{info.name}"
+            where = Path(getattr(info.module_finder, "path", "")) / info.name
+            yield name, (where / "__init__.py" if info.ispkg else where.with_suffix(".py"))
+            if info.ispkg:
+                yield from cls._modules(name, [str(where)])
+
+    def _from_source(self, path: Path, mod_name: str, category: str, tier: str) -> Iterator[InstrumentRecord]:
+        if not path.is_file():
             return
-        for name, doc, params in _ast_classes(Path(spec.origin)):
-            yield self._record(name, mod_name, category, tier, doc, params, ())
+        for name, doc, params, base in _ast_classes(path):
+            yield self._record(name, mod_name, category, tier, doc, params, (), base)
 
     @staticmethod
     def _record(
@@ -266,18 +296,21 @@ class InstroSource:
         doc: str | None,
         params: list[tuple[str, bool]],
         patterns: tuple[Any, ...],
+        base_category: str | None = None,
     ) -> InstrumentRecord:
         simulated = name.startswith(("Virtual", "Simulated"))
-        vendor_hint = next((_INSTRO_VENDORS.get(v.upper()) for p in patterns for v in p.vendors), None)
+        vendor_hint = next(
+            (d for p in patterns for v in p.vendors if (d := _INSTRO_VENDORS.get(v.upper())) is not None), None
+        )
         manufacturer, model = _split_model(name, vendor_hint)
         if simulated:
             manufacturer, model = "instro", re.sub(r"(?<=[a-z])(?=[A-Z])", " ", name)
         channels = next((p.num_channels for p in patterns if p.num_channels), None)
         import_from = _import_from(module, name, category)
-        instrument = _INSTRUMENT_CLASSES.get(category)
+        instrument = _INSTRUMENT_CLASSES.get(base_category or category)
         return InstrumentRecord(
             driver_type="instro",
-            category=category,
+            category=base_category or category,
             manufacturer=manufacturer or vendor_hint or "Other",
             model=model,
             name=name,
@@ -464,4 +497,4 @@ SOURCES: dict[str, type] = {"instro": InstroSource, "pymeasure": PymeasureSource
 
 def make_source(name: str, **options: Any) -> DriverSource:
     cls = SOURCES[name]
-    return cls(**options) if cls is PymeasureSource else cls()
+    return cls(**options)

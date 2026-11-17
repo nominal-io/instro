@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parents[2] / "docs" / "_ext"))
 import instrument_db  # noqa: E402
 from instrument_db.records import InstrumentRecord  # noqa: E402
 from instrument_db.render import home_page, rel_url, stub_page  # noqa: E402
-from instrument_db.sources import _first_line, pymeasure_category  # noqa: E402
+from instrument_db.sources import InstroSource, _base_category, _first_line, pymeasure_category  # noqa: E402
 
 
 def _scope() -> InstrumentRecord:
@@ -218,3 +218,15 @@ def test_stub_shows_the_instro_adapted_docstring_example(tmp_path):
     assert "### With existing pymeasure code (`attach()`)" in page
     assert ") as smu:" in page
     assert "## Using the pymeasure driver" not in page
+
+
+def test_instro_category_follows_the_base_class_and_nested_vendor_packages_are_walked(tmp_path):
+    assert _base_category(["ELoadDriverBase"]) == "eload"
+    assert _base_category(["object"]) is None
+
+    nested = tmp_path / "ni"
+    nested.mkdir()
+    (nested / "__init__.py").write_text("")
+    (nested / "nidaq.py").write_text("")
+    names = [n for n, _ in InstroSource._modules("pkg.drivers", [str(tmp_path)])]
+    assert names == ["pkg.drivers.ni", "pkg.drivers.ni.nidaq"]
