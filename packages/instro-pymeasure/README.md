@@ -2,6 +2,8 @@
 
 Publish [pymeasure](https://pymeasure.readthedocs.io) instrument commands and readings through any [instro](https://github.com/nominal-io/instro) publisher. Your drivers don't change.
 
+This package is pre-1.0: its API may change between minor releases.
+
 Setting a property publishes a command on `<name>.<channel>.cmd`. Reading one publishes a measurement on `<name>.<channel>`.
 
 ```bash
