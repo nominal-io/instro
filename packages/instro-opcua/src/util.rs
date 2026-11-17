@@ -3,16 +3,25 @@ use std::time::Duration;
 
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
 use tokio::runtime::RuntimeFlavor;
+
+pub(crate) fn get_runtime(py: Python<'_>) -> PyResult<&'static Runtime> {
+    static RUNTIME: PyOnceLock<Runtime> = PyOnceLock::new();
+
+    RUNTIME.get_or_try_init(py, || {
+        Runtime::new().map_err(|error| PyRuntimeError::new_err(error.to_string()))
+    })
+}
 
 pub(crate) fn wait<F, T>(py: Python<'_>, future: F) -> PyResult<T>
 where
     F: Future<Output = PyResult<T>> + Send + 'static,
     T: Send + 'static,
 {
-    let runtime = crate::shared_rt::get(py)?;
+    let runtime = get_runtime(py)?;
     block_on(runtime, py, future)?
 }
 
