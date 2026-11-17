@@ -12,11 +12,14 @@ import sys
 import textwrap
 from pathlib import Path
 
+NOMINAL_TREE = frozenset({"nominal", "nominal_streaming", "polars", "pandas"})
+NOMINAL_TREE_AND_NUMPY = NOMINAL_TREE | {"numpy"}
+
 BLOCKER = textwrap.dedent(
     """
     import importlib.abc, sys
 
-    BLOCKED = {"nominal", "nominal_streaming", "polars", "pandas", "numpy"}
+    BLOCKED = set(sys.argv[1:])
 
     class _Blocker(importlib.abc.MetaPathFinder):
         def find_spec(self, name, path, target=None):
@@ -51,9 +54,9 @@ VENDOR_MODULES = [
 ]
 
 
-def _run_blocked(code: str) -> subprocess.CompletedProcess[str]:
+def _run_blocked(code: str, blocked: frozenset[str] = NOMINAL_TREE_AND_NUMPY) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [sys.executable, "-c", BLOCKER + textwrap.dedent(code)],
+        [sys.executable, "-c", BLOCKER + textwrap.dedent(code), *sorted(blocked)],
         capture_output=True,
         text=True,
         timeout=120,
@@ -61,13 +64,26 @@ def _run_blocked(code: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_categories_import_without_nominal() -> None:
+    result = _run_blocked(
+        f"""
+        import importlib
+        for name in {CORE_MODULES!r}:
+            importlib.import_module(name)
+        """
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_vendor_packages_import_without_nominal() -> None:
+    # Vendor SDKs may need numpy themselves (nidaqmx imports it), so only the nominal tree is blocked.
     installed_vendors = [name for name in VENDOR_MODULES if importlib.util.find_spec(name) is not None]
     result = _run_blocked(
         f"""
         import importlib
-        for name in {CORE_MODULES + installed_vendors!r}:
+        for name in {installed_vendors!r}:
             importlib.import_module(name)
-        """
+        """,
+        blocked=NOMINAL_TREE,
     )
     assert result.returncode == 0, result.stderr
 
