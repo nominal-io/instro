@@ -4,7 +4,7 @@ card: Modbus RTU
 image: ModbusRTU.png
 myst:
   html_meta:
-    description: "A connection type for ModbusDevice"
+    description: "Connect to a Modbus RTU device over a serial port from Python with instro's ModbusDevice: set the transport to rtu with the port, baud rate and framing."
 ---
 
 # Modbus RTU

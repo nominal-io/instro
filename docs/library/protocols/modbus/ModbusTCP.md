@@ -4,7 +4,7 @@ card: Modbus TCP
 image: ModbusTCP.png
 myst:
   html_meta:
-    description: "A connection type for ModbusDevice"
+    description: "Connect to a Modbus TCP device from Python with instro's ModbusDevice: set the transport to tcp with a host and port, or pass a ModbusTCPTransport."
 ---
 
 # Modbus TCP
