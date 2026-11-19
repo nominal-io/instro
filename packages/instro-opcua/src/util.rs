@@ -1,90 +1,237 @@
-use std::sync::mpsc;
+use std::ffi::c_ulong;
 use std::time::Duration;
 
+use futures_util::TryFutureExt as _;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::sync::PyOnceLock;
 use tokio::runtime::Handle;
 use tokio::runtime::Runtime;
 use tokio::runtime::RuntimeFlavor;
+use tokio::task::unconstrained;
+use tokio::time::Instant;
+use tokio::time::MissedTickBehavior;
+use tokio::time::interval_at;
 
-pub(crate) fn get_runtime(py: Python<'_>) -> PyResult<&'static Runtime> {
-    static RUNTIME: PyOnceLock<Runtime> = PyOnceLock::new();
-
-    RUNTIME.get_or_try_init(py, || {
-        Runtime::new().map_err(|error| PyRuntimeError::new_err(error.to_string()))
-    })
+unsafe extern "C" {
+    // `pyo3::ffi` doesn't expose this function, so need a raw ffi call
+    fn PyThread_get_thread_ident() -> c_ulong;
 }
 
-pub(crate) fn wait<F, T>(py: Python<'_>, future: F) -> PyResult<T>
-where
-    F: Future<Output = PyResult<T>> + Send + 'static,
-    T: Send + 'static,
-{
-    let runtime = get_runtime(py)?;
-    block_on(runtime, py, future)?
+// In 3.11-3.12, the first import of the `threading` module initializes the
+// thread info for `threading.main_thread`. Since the edge case of users
+// spawning threads without importing `threading` first is extremely unlikely,
+// not going to change the impl here, just documenting it. This is no longer an
+// issue in 3.13+, though
+pub fn is_main_thread(py: Python<'_>) -> bool {
+    static MAIN_THREAD_ID: PyOnceLock<c_ulong> = PyOnceLock::new();
+
+    let id_result = MAIN_THREAD_ID.get_or_try_init(py, || {
+        py.import("threading")?
+            .getattr("main_thread")?
+            .call0()?
+            .getattr("ident")?
+            .extract::<c_ulong>()
+    });
+
+    matches!(id_result, Ok(id) if *id == unsafe { PyThread_get_thread_ident() })
 }
 
-fn block_on<F, T>(runtime: &Runtime, py: Python<'_>, future: F) -> PyResult<T>
+pub fn spawn_detached<F, T>(py: Python<'_>, fut: F) -> PyResult<impl Future<Output = PyResult<T>>>
 where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    py.detach(|| {
-        if let Ok(current) = Handle::try_current()
-            && current.runtime_flavor() == RuntimeFlavor::CurrentThread
-        {
-            if current.id() == runtime.handle().id() {
-                return Err(PyRuntimeError::new_err(
-                    "cannot synchronously wait on the same current-thread Tokio runtime",
-                ));
-            }
+    let runtime = get_runtime(py)?;
 
-            return pollster::block_on(runtime.spawn(future))
-                .map_err(|error| PyRuntimeError::new_err(error.to_string()));
-        }
-
-        tokio::task::block_in_place(|| Ok(runtime.block_on(future)))
-    })
+    Ok(runtime
+        .spawn(fut)
+        .map_err(|error| PyRuntimeError::new_err(error.to_string())))
 }
 
-pub(crate) fn blocking<T>(operation: impl FnOnce() -> T) -> T {
-    let on_current_thread_runtime = Handle::try_current()
-        .is_ok_and(|handle| handle.runtime_flavor() == RuntimeFlavor::CurrentThread);
+pub(crate) fn get_runtime(py: Python<'_>) -> PyResult<&'static Runtime> {
+    static RUNTIME: PyOnceLock<Runtime> = PyOnceLock::new();
 
-    if on_current_thread_runtime {
-        operation()
-    } else {
-        tokio::task::block_in_place(operation)
+    RUNTIME.get_or_try_init(
+        py,
+        #[cold]
+        || Runtime::new().map_err(|error| PyRuntimeError::new_err(error.to_string())),
+    )
+}
+
+const INTERRUPT_INTERVAL: Duration = Duration::from_millis(50);
+
+/// Wait for a spawned operation, leaving it running if Python interrupts the wait.
+pub fn wait_detached<F, T>(py: Python<'_>, fut: F) -> PyResult<T>
+where
+    F: Future<Output = PyResult<T>> + Send + 'static,
+    T: Send + 'static,
+{
+    let completion = spawn_detached(py, fut)?;
+    wait_cancel_safe(py, completion)?
+}
+
+/// Wait with the GIL released through completion, without dispatching Python signals.
+pub fn wait<F, T>(py: Python<'_>, fut: F) -> PyResult<T>
+where
+    F: Future<Output = PyResult<T>> + Send,
+    T: Send,
+{
+    // A blocked caller cannot yield to replenish its Tokio task budget.
+    blocking(py, || pollster::block_on(unconstrained(fut)))?
+}
+
+/// Wait for a future, dropping it if Python interrupts the wait.
+pub fn wait_cancel_safe<F, T>(py: Python<'_>, fut: F) -> PyResult<T>
+where
+    F: Future<Output = PyResult<T>> + Send,
+    T: Send,
+{
+    if !is_main_thread(py) {
+        return wait(py, fut);
+    }
+
+    wait(py, wait_main_thread(fut))
+}
+
+async fn wait_main_thread<F, T>(future: F) -> PyResult<T>
+where
+    F: Future<Output = PyResult<T>>,
+{
+    let mut interval = interval_at(Instant::now() + INTERRUPT_INTERVAL, INTERRUPT_INTERVAL);
+    interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
+
+    tokio::pin!(future);
+
+    loop {
+        tokio::select! {
+            biased;
+            result = &mut future => return result,
+            _ = interval.tick() => Python::attach(|py| py.check_signals())?,
+        }
     }
 }
 
-pub(crate) fn receive<T: Send>(py: Python<'_>, mut receiver: mpsc::Receiver<T>) -> PyResult<T> {
-    loop {
-        py.check_signals()?;
+pub(crate) fn blocking<F, T>(py: Python<'_>, operation: F) -> PyResult<T>
+where
+    F: FnOnce() -> T + Send,
+    T: Send,
+{
+    let handle = Handle::try_current().ok();
+    let runtime = get_runtime(py)?;
+    let _enter = runtime.enter();
 
-        let (next_receiver, result) = py.detach(move || {
-            let receive = || receiver.recv_timeout(Duration::from_millis(50));
-            let result = blocking(receive);
+    let result = if let Some(handle) = handle
+        && handle.runtime_flavor() == RuntimeFlavor::CurrentThread
+    {
+        if handle.id() == runtime.handle().id() {
+            return Err(PyRuntimeError::new_err(
+                "avoiding deadlock: cannot nest blocking operations on the same current thread \
+                 runtime",
+            ));
+        }
 
-            (receiver, result)
+        py.detach(operation)
+    } else {
+        tokio::task::block_in_place(|| py.detach(operation))
+    };
+
+    Ok(result)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod wait_tests {
+    use super::*;
+
+    fn result_after_yield(py: Python<'_>) -> PyResult<u32> {
+        wait_cancel_safe(py, async {
+            tokio::task::yield_now().await;
+            Ok(41)
+        })
+    }
+
+    #[test]
+    fn synchronous_bridge_crosses_foreign_runtime_contexts() -> PyResult<()> {
+        Python::initialize();
+        assert_eq!(Python::attach(result_after_yield)?, 41);
+
+        let current_thread = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("foreign current-thread runtime");
+
+        let result = current_thread.block_on(async { Python::attach(result_after_yield) });
+        assert_eq!(result?, 41);
+
+        let multi_thread = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(1)
+            .enable_all()
+            .build()
+            .expect("foreign multithread runtime");
+
+        let result = multi_thread.block_on(async {
+            tokio::spawn(async { Python::attach(result_after_yield) })
+                .await
+                .expect("foreign task completes")
         });
 
-        receiver = next_receiver;
+        assert_eq!(result?, 41);
+        Ok(())
+    }
 
-        match result {
-            Err(mpsc::RecvTimeoutError::Timeout) => (),
+    #[test]
+    #[allow(clippy::panic)]
+    fn owned_task_panic_is_a_python_runtime_error() {
+        Python::initialize();
+        Python::attach(|py| {
+            let result: PyResult<()> = wait_detached(py, async { panic!("service task panic") });
+            let error = result.expect_err("panic must be observed by the waiting caller");
+            assert!(error.is_instance_of::<PyRuntimeError>(py));
+        });
+    }
 
-            Ok(value) => {
-                py.check_signals()?;
-                return Ok(value);
-            }
+    #[test]
+    fn synchronous_bridge_can_wait_from_its_own_runtime_worker() -> PyResult<()> {
+        Python::initialize();
+        let runtime = Python::attach(get_runtime)?;
+        let task = runtime.spawn(async { Python::attach(result_after_yield) });
+        let result = Python::attach(|py| py.detach(|| pollster::block_on(task)));
+        assert_eq!(result.expect("shared runtime task finishes")?, 41);
+        Ok(())
+    }
 
-            Err(mpsc::RecvTimeoutError::Disconnected) => {
-                return Err(PyRuntimeError::new_err(
-                    "native setup task ended unexpectedly",
-                ));
-            }
-        }
+    #[test]
+    fn foreign_task_budget_does_not_block_observation_or_cleanup() -> PyResult<()> {
+        Python::initialize();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("foreign current-thread runtime");
+
+        runtime.block_on(async {
+            tokio::spawn(async {
+                while tokio::task::coop::has_budget_remaining() {
+                    tokio::task::consume_budget().await;
+                }
+
+                let value = Python::attach(|py| {
+                    wait_cancel_safe(py, async {
+                        tokio::time::sleep(Duration::from_millis(125)).await;
+                        Ok(41_u32)
+                    })
+                })?;
+
+                assert_eq!(value, 41);
+                assert!(!tokio::task::coop::has_budget_remaining());
+
+                let cleaned = Python::attach(|py| wait_cancel_safe(py, async { Ok(42_u32) }))?;
+                assert_eq!(cleaned, 42);
+                assert!(!tokio::task::coop::has_budget_remaining());
+                Ok(())
+            })
+            .await
+            .expect("foreign task completes")
+        })
     }
 }

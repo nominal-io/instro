@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::mpsc;
 
 use futures_util::StreamExt;
 use opcua::client::ClientBuilder;
@@ -15,15 +14,14 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use tokio::sync::RwLock;
-use tokio::sync::oneshot;
 use tokio::sync::watch;
 
+use crate::config;
 use crate::config::DurationInput;
 use crate::config::IdentityToken;
 use crate::config::NativeInteger;
 use crate::config::SecurityModeInput;
 use crate::config::SecurityPolicyInput;
-use crate::config::{self};
 use crate::error;
 use crate::util;
 use crate::values::EndpointDescription;
@@ -33,15 +31,14 @@ use crate::values::UaType;
 pub(crate) enum ClientState {
     Recovering,
     Connected,
-    Finished(Result<ua::StatusCode, Arc<tokio::task::JoinError>>),
+    Finished(Option<(ua::StatusCode, String)>),
 }
 
 impl ClientState {
     pub(crate) fn finished_result(&self) -> Option<PyResult<()>> {
         match self {
-            Self::Finished(Ok(code)) if code.is_good() => Some(Ok(())),
-            Self::Finished(Ok(code)) => Some(Err(error::status(*code, "native session ended"))),
-            Self::Finished(Err(error)) => Some(Err(PyRuntimeError::new_err(error.to_string()))),
+            Self::Finished(None) => Some(Ok(())),
+            Self::Finished(Some((code, message))) => Some(Err(error::status(*code, message))),
             _ => None,
         }
     }
@@ -71,15 +68,16 @@ impl OpcUaClient {
         let (state_tx, state) = watch::channel(ClientState::Recovering);
         let progress = state_tx.clone();
 
-        let task = tokio::spawn(async move {
+        let event_loop_driver = tokio::spawn(async move {
             let events = driver.enter();
             tokio::pin!(events);
 
             while let Some(event) = events.next().await {
                 match event {
-                    Err(code) => return code,
+                    Err(code) => return Err(code),
 
-                    Ok(SessionPollResult::Reconnected(_)) => {
+                    Ok(SessionPollResult::Reconnected(_mode)) => {
+                        // TODO: maybe differentiate if the connection was new or reactivated?
                         progress.send_replace(ClientState::Connected);
                     }
 
@@ -95,11 +93,21 @@ impl OpcUaClient {
                 }
             }
 
-            ua::StatusCode::Good
+            Ok(())
         });
 
         tokio::spawn(async move {
-            state_tx.send_replace(ClientState::Finished(task.await.map_err(Arc::new)));
+            let result = match event_loop_driver.await {
+                Ok(result) => result.err().map(|s| {
+                    (
+                        s,
+                        "native event loop ended with a failure status".to_string(),
+                    )
+                }),
+                Err(e) => Some((ua::StatusCode::BadDisconnect, e.to_string())),
+            };
+
+            state_tx.send_replace(ClientState::Finished(result));
         });
 
         Self {
@@ -108,39 +116,21 @@ impl OpcUaClient {
         }
     }
 
-    async fn activate(self, cancelled: &mut oneshot::Receiver<()>) -> PyResult<Option<Self>> {
-        let activation = self.with_session(async |session| {
-            if session.wait_for_connection().await {
-                Ok(())
-            } else {
-                Err(disconnected())
-            }
-        });
+    async fn activate(self) -> PyResult<Self> {
+        let mut state = self.state.clone();
+        let state = state
+            .wait_for(|state| matches!(state, ClientState::Connected | ClientState::Finished(_)))
+            .await
+            .map_err(|e| {
+                PyRuntimeError::new_err(format!("native session supervisor ended: {}", e))
+            })?;
 
-        let mut completion = self.state.clone();
-
-        let activated = tokio::select! {
-            biased;
-            _ = cancelled => None,
-
-            result = wait_for_completion(&mut completion) =>
-                Some(result.and_then(|()| Err(disconnected()))),
-
-            result = activation => Some(result),
-        };
-
-        match activated {
-            Some(Ok(())) => Ok(Some(self)),
-
-            Some(Err(error)) => {
-                let _ = self.disconnect_async().await;
-                Err(error)
-            }
-
-            None => {
-                let _ = self.disconnect_async().await;
-                Ok(None)
-            }
+        match state.clone() {
+            ClientState::Connected => Ok(self),
+            ClientState::Finished(Some((code, message))) => Err(error::status(code, message)),
+            _ => Err(PyRuntimeError::new_err(
+                "native session supervisor ended without a result",
+            )),
         }
     }
 
@@ -177,35 +167,49 @@ impl OpcUaClient {
         };
 
         let mut state = self.state.clone();
-        let healthy = matches!(*state.borrow_and_update(), ClientState::Connected);
 
-        let result = if healthy {
-            let disconnect = session.disconnect();
-            tokio::pin!(disconnect);
+        let connected = matches!(*state.borrow(), ClientState::Connected);
+        let finished = async {
+            let state = state
+                .wait_for(|state| matches!(state, ClientState::Finished(_)))
+                .await
+                .map_err(|error| PyRuntimeError::new_err(error.to_string()))?;
 
-            loop {
-                tokio::select! {
-                    biased;
-                    result = &mut disconnect => break result.map_err(error::native),
+            match state.clone() {
+                ClientState::Finished(Some((code, message))) => Err(error::status(code, message)),
+                _ => Ok(()),
+            }
+        };
+        tokio::pin!(finished);
 
-                    changed = state.changed() => {
-                        changed
-                            .map_err(|_| PyRuntimeError::new_err("native session supervisor ended"))?;
-
-                        if !matches!(*state.borrow_and_update(), ClientState::Connected) {
-                            break Ok(());
-                        }
-                    }
+        // The driver establishes shutdown; CloseSession can add an error if it
+        // completes, but may stay pending after the driver exits.
+        let (shutdown, close) = if connected {
+            tokio::select! {
+                biased;
+                close = session.disconnect() => {
+                    drop(session);
+                    (finished.await, close.map_err(error::native))
+                }
+                shutdown = &mut finished => {
+                    drop(session);
+                    (shutdown, Ok(()))
                 }
             }
         } else {
-            Ok(())
+            drop(session);
+            (finished.await, Ok(()))
         };
 
-        drop(session);
-        let completion = wait_for_completion(&mut state).await;
-
-        result.and(completion)
+        match shutdown {
+            Err(shutdown) => {
+                if let Err(close) = close {
+                    Python::attach(|py| shutdown.set_context(py, Some(close)));
+                }
+                Err(shutdown)
+            }
+            Ok(()) => close,
+        }
     }
 }
 
@@ -249,18 +253,6 @@ fn disconnected() -> PyErr {
         ua::StatusCode::BadServerNotConnected,
         "client is disconnected",
     )
-}
-
-async fn wait_for_completion(state: &mut watch::Receiver<ClientState>) -> PyResult<()> {
-    loop {
-        if let Some(result) = state.borrow_and_update().finished_result() {
-            return result;
-        }
-
-        state.changed().await.map_err(|_| {
-            PyRuntimeError::new_err("native session supervisor ended without a result")
-        })?;
-    }
 }
 
 #[pymethods]
@@ -528,40 +520,18 @@ impl OpcUaClient {
             .map(|value| value.as_ua_ref().clone())
             .unwrap_or(opcua::client::IdentityToken::Anonymous);
 
-        let runtime = util::get_runtime(py)?;
-        let (cancel, mut cancelled) = oneshot::channel::<()>();
-        let (result_tx, result_rx) = mpsc::sync_channel(1);
+        // Endpoint negotiation supplies the session and driver; only the driver's
+        // Connected state establishes that the client is ready to return.
+        let (session, driver) = util::wait_cancel_safe(py, async {
+            factory
+                .connect_to_matching_endpoint(endpoint, identity)
+                .await
+                .map_err(error::native)
+        })?;
 
-        runtime.spawn(async move {
-            let resource = tokio::select! {
-                biased;
-                _ = &mut cancelled => return,
-                result = factory.connect_to_matching_endpoint(endpoint, identity) => result,
-            };
-
-            let result = match resource {
-                Err(error) => Err(error::native(error)),
-
-                Ok((session, driver)) => {
-                    let activated = Self::from_native(session, driver)
-                        .activate(&mut cancelled)
-                        .await;
-
-                    match activated {
-                        Ok(Some(client)) => Ok(client),
-                        Ok(None) => return,
-                        Err(error) => Err(error),
-                    }
-                }
-            };
-
-            let _ = result_tx.send(result);
-        });
-
-        let result = util::receive(py, result_rx);
-        drop(cancel);
-
-        result?
+        util::wait_cancel_safe(py, async {
+            Self::from_native(session, driver).activate().await
+        })
     }
 
     /// Disconnect the shared session and wait for owned cleanup with the GIL released.
@@ -575,7 +545,10 @@ impl OpcUaClient {
     ///     OpcUaError: Native shutdown reports a failure.
     fn disconnect(&self, py: Python<'_>) -> PyResult<()> {
         let client = self.clone();
-        util::wait(py, async move { client.disconnect_async().await })
+
+        let disconnect = async move { client.disconnect_async().await };
+
+        util::wait(py, util::spawn_detached(py, disconnect)?)?
     }
 
     /// Enable native reconnect attempts for the existing session.
@@ -583,27 +556,33 @@ impl OpcUaClient {
     /// This does not restart a native event loop that has already finished.
     fn enable_reconnects(&self, py: Python<'_>) -> PyResult<()> {
         let client = self.clone();
-        util::wait(py, async move {
+
+        let enable = async move {
             client
                 .with_session(async |session| {
                     session.enable_reconnects();
                     Ok(())
                 })
                 .await
-        })
+        };
+
+        util::wait_cancel_safe(py, util::spawn_detached(py, enable)?)?
     }
 
     /// Disable native reconnect attempts for the existing session.
     fn disable_reconnects(&self, py: Python<'_>) -> PyResult<()> {
         let client = self.clone();
-        util::wait(py, async move {
+
+        let disable = async move {
             client
                 .with_session(async |session| {
                     session.disable_reconnects();
                     Ok(())
                 })
                 .await
-        })
+        };
+
+        util::wait_cancel_safe(py, util::spawn_detached(py, disable)?)?
     }
 
     fn __enter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -642,34 +621,17 @@ impl OpcUaClient {
 ///     OpcUaError: Native endpoint discovery fails.
 #[pyfunction]
 fn get_endpoints(py: Python<'_>, endpoint_url: String) -> PyResult<Vec<EndpointDescription>> {
-    let factory = ClientBuilder::new()
-        .application_name(config::APPLICATION_NAME)
-        .application_uri(config::APPLICATION_URI)
-        .client()
-        .map_err(|errors| PyValueError::new_err(errors.join("; ")))?;
-
-    let runtime = util::get_runtime(py)?;
-    let (cancel, mut cancelled) = oneshot::channel::<()>();
-    let (tx, rx) = mpsc::sync_channel(1);
-
-    runtime.spawn(async move {
-        let result = tokio::select! {
-            biased;
-            _ = &mut cancelled => return,
-            result = factory.get_server_endpoints_from_url(endpoint_url) => result,
-        };
-
-        let endpoints = result
+    util::wait_cancel_safe(py, async {
+        ClientBuilder::new()
+            .application_name(config::APPLICATION_NAME)
+            .application_uri(config::APPLICATION_URI)
+            .client()
+            .map_err(|errors| PyValueError::new_err(errors.join("; ")))?
+            .get_server_endpoints_from_url(endpoint_url)
+            .await
             .map(|values| values.into_iter().map(EndpointDescription::new).collect())
-            .map_err(error::native);
-
-        let _ = tx.send(endpoints);
-    });
-
-    let result = util::receive(py, rx);
-    drop(cancel);
-
-    result?
+            .map_err(error::native)
+    })
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -685,6 +647,7 @@ pub(crate) mod lifecycle_tests {
 
     use futures_util::poll;
     use instro_opcua_test::TestServer;
+    use tokio::sync::oneshot;
 
     use super::*;
 
@@ -771,10 +734,18 @@ pub(crate) mod lifecycle_tests {
         );
 
         client.disconnect_async().await?;
-        wait_for_completion(&mut native_completion).await?;
+
+        native_completion
+            .wait_for(|state| matches!(state, ClientState::Finished(..)))
+            .await
+            .expect("native session supervisor ended");
+
         assert!(poll!(disconnect.as_mut()).is_pending());
 
-        completion.send_replace(ClientState::Finished(Ok(ua::StatusCode::BadTimeout)));
+        completion.send_replace(ClientState::Finished(Some((
+            ua::StatusCode::BadTimeout,
+            "test".to_string(),
+        ))));
         assert_eq!(failure_status(disconnect.await), ua::StatusCode::BadTimeout);
         Ok(())
     }
@@ -804,16 +775,14 @@ pub(crate) mod lifecycle_tests {
     }
 
     #[tokio::test]
-    async fn ready_activation_cancellation_returns_none_after_native_cleanup() -> PyResult<()> {
+    async fn successful_activation_reports_connected() -> PyResult<()> {
         let server = TestServer::builder().start().expect("server starts");
         let pki = tempfile::tempdir().expect("temporary PKI");
         let client = native_client(&server, pki.path()).await;
         let state = client.native_state();
-        let (cancel, mut cancelled) = oneshot::channel();
-        cancel.send(()).expect("activation receiver exists");
 
-        assert!(client.activate(&mut cancelled).await?.is_none());
-        assert!(matches!(*state.borrow(), ClientState::Finished(_)));
+        let _client = client.activate().await?;
+        assert!(matches!(*state.borrow(), ClientState::Connected));
 
         Ok(())
     }
@@ -824,12 +793,19 @@ pub(crate) mod lifecycle_tests {
         let pki = tempfile::tempdir().expect("temporary PKI");
         let client = native_client(&server, pki.path()).await;
         let mut state = client.native_state();
+
         while !matches!(*state.borrow_and_update(), ClientState::Connected) {
             state.changed().await.expect("native connection progress");
         }
 
         drop(client);
-        wait_for_completion(&mut state).await
+
+        state
+            .wait_for(|state| matches!(state, ClientState::Finished(..)))
+            .await
+            .expect("native session supervisor ended");
+
+        Ok(())
     }
 
     #[test]
