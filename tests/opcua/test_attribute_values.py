@@ -19,6 +19,7 @@ from instro.unstable.opcua.types import (
     RolePermissionType,
     StructureDefinition,
     StructureField,
+    XmlElement,
 )
 from tests.opcua.conftest import ServerNode
 
@@ -65,7 +66,12 @@ def sample(
         (ua.VariantType.Float, 1.25, float, 1.25),
         (ua.VariantType.Double, -2.125, float, -2.125),
         (ua.VariantType.String, "café", str, "café"),
-        (ua.VariantType.XmlElement, ua.XmlElement(cast(ua.String, "<mode>on</mode>")), str, "<mode>on</mode>"),
+        (
+            ua.VariantType.XmlElement,
+            ua.XmlElement(ua.String("<mode>on</mode>")),
+            XmlElement,
+            XmlElement("<mode>on</mode>"),
+        ),
         (ua.VariantType.ByteString, b"\x00\xff\x80", bytes, b"\x00\xff\x80"),
         (
             ua.VariantType.Guid,
