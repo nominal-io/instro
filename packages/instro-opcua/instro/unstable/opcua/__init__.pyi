@@ -2,7 +2,8 @@ from collections.abc import Iterable
 from datetime import timedelta
 from os import PathLike
 from types import TracebackType
-from typing import Never, Self, final
+from typing import Any, Never, Self, TypeAlias, final
+from uuid import UUID
 
 from .types import (
     AccessLevelExType,
@@ -13,10 +14,12 @@ from .types import (
     AttributeValue,
     AttributeWriteMask,
     BrowsePath,
+    DataType,
     Duration,
     EndpointDescription,
     EnumDefinition,
     EventNotifierType,
+    ExpandedNodeId,
     LocalizedText,
     MessageSecurityMode,
     NodeClass,
@@ -28,6 +31,34 @@ from .types import (
     StatusCode,
     StructureDefinition,
     Value,
+    XmlElement,
+)
+
+_WriteableValue: TypeAlias = (
+    bool
+    | int
+    | float
+    | str
+    | bytes
+    | UUID
+    | NodeId
+    | ExpandedNodeId
+    | StatusCode
+    | QualifiedName
+    | LocalizedText
+    | XmlElement
+    | list[bool]
+    | list[int]
+    | list[float]
+    | list[str]
+    | list[bytes]
+    | list[UUID]
+    | list[NodeId]
+    | list[ExpandedNodeId]
+    | list[StatusCode]
+    | list[QualifiedName]
+    | list[LocalizedText]
+    | list[XmlElement]
 )
 
 class OpcUaError(Exception):
@@ -137,12 +168,15 @@ class Node:
     @property
     def children(self) -> list[Node]: ...
     def get_attribute(self, attr: AttributeId | int | str) -> AttributeValue[AttributePayload]: ...
+    def set_attribute(self, attr: AttributeId | str | int, value: Any, *, dtype: DataType | None = None) -> None: ...
     @property
     def node_class(self) -> AttributeValue[NodeClass]: ...
     @property
     def browse_name(self) -> AttributeValue[QualifiedName]: ...
     @property
     def display_name(self) -> AttributeValue[LocalizedText]: ...
+    @display_name.setter
+    def display_name(self, value: LocalizedText) -> None: ...
     @property
     def description(self) -> AttributeValue[LocalizedText]: ...
     @property
@@ -161,6 +195,8 @@ class Node:
     def event_notifier(self) -> AttributeValue[EventNotifierType]: ...
     @property
     def value(self) -> AttributeValue[Value]: ...
+    @value.setter
+    def value(self, value: _WriteableValue) -> None: ...
     @property
     def data_type(self) -> AttributeValue[NodeId]: ...
     @property

@@ -1,6 +1,7 @@
 """Bounded OPC UA primitives and read-only attribute results."""
 
 from datetime import timedelta
+from enum import IntEnum
 from typing import TypeAlias
 from uuid import UUID
 
@@ -51,6 +52,7 @@ __all__ = [
     "AttributeValue",
     "AttributeWriteMask",
     "BrowsePath",
+    "DataType",
     "DateTime",
     "Duration",
     "EndpointDescription",
@@ -78,6 +80,33 @@ __all__ = [
     "ValueScalar",
     "XmlElement",
 ]
+
+
+class DataType(IntEnum):
+    """Namespace-zero OPC UA DataType identifiers supported for writes."""
+
+    BOOLEAN = 1
+    SBYTE = 2
+    BYTE = 3
+    INT16 = 4
+    UINT16 = 5
+    INT32 = 6
+    UINT32 = 7
+    INT64 = 8
+    UINT64 = 9
+    FLOAT = 10
+    DOUBLE = 11
+    STRING = 12
+    DATE_TIME = 13
+    GUID = 14
+    BYTE_STRING = 15
+    XML_ELEMENT = 16
+    NODE_ID = 17
+    EXPANDED_NODE_ID = 18
+    STATUS_CODE = 19
+    QUALIFIED_NAME = 20
+    LOCALIZED_TEXT = 21
+
 
 ValueScalar: TypeAlias = (
     bool
