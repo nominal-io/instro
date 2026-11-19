@@ -26,3 +26,4 @@ Use protocol clients for industrial devices that do not use SCPI or VISA transpo
 - **[Modbus](/library/protocols/modbus.md)**: Modbus TCP and RTU client with config-driven register access, automatic polling, and publisher support.
 - **[EtherNet/IP](/library/protocols/ethernetip.md)**: Allen-Bradley PLC tag access with config-driven scalar reads, writes, and batched background collection.
 - **[OPC UA](/library/protocols/opcua.md)**: Direct synchronous client with browsing from RootFolder, typed attributes, and iterable subscriptions, provided by `instro-opcua`.
+  Use [`OpcUaDevice`](/ref/protocols/opcua-device.md) to configure the connection and check browse paths on open.
