@@ -118,12 +118,15 @@ represented as Python `list[T]`:
 | Boolean | `bool` |
 | SByte, Byte, Int16, UInt16, Int32, UInt32, Int64, UInt64 | `int` |
 | Float, Double | `float` |
-| String, XmlElement | `str` |
+| String | `str` |
+| XmlElement | `XmlElement` |
 | ByteString | `bytes` |
 | DateTime | `int` Unix nanoseconds |
 | Guid | `uuid.UUID` |
 | NodeId, ExpandedNodeId, StatusCode, QualifiedName, LocalizedText | Corresponding wrapper |
 | Decoded RolePermissionType, StructureDefinition, StructureField, EnumDefinition, EnumField | Corresponding wrapper |
+
+Use `str(element)` to retrieve the text of an `XmlElement`.
 
 The structured list is exhaustive. Reading a datatype definition does not add
 support for arbitrary values described by that definition. Arbitrary structured
@@ -148,6 +151,7 @@ source timestamp is not replaced with the server timestamp or vice versa.
    ~instro.unstable.opcua.types.AttributeValue
    ~instro.unstable.opcua.types.DateTime
    ~instro.unstable.opcua.types.Duration
+   ~instro.unstable.opcua.types.XmlElement
 ```
 
 ## Identifiers and paths
