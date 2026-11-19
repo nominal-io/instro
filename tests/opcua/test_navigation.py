@@ -1,4 +1,5 @@
 import warnings
+from unittest.mock import Mock
 
 import pytest
 from asyncua import ua
@@ -42,19 +43,48 @@ def test_children_are_usable_nodes(client: OpcUaClient):
     }
 
 
-def test_batch_read_preserves_mixed_input_order(client: OpcUaClient):
+def test_batch_read_translates_paths_together_and_preserves_order(
+    client: OpcUaClient, server: Server, monkeypatch: pytest.MonkeyPatch
+):
     boolean = client.objects.get_child("/2:Rig/2:Boolean")
+    view = server.iserver.view_service
+    translate = Mock(wraps=view.translate_browsepaths_to_nodeids)
+    monkeypatch.setattr(view, "translate_browsepaths_to_nodeids", translate)
+
     inputs: list[Node | RelativePath | str] = [
-        boolean,
         RelativePath("/Objects/2:Rig/2:Float"),
+        boolean,
         "/Objects/2:Rig/2:Temperature",
     ]
     results = client.read_nodes(inputs)
-    assert [result.value for result in results] == [True, 1.25, 23.5]
+
+    assert [len(call.args[0]) for call in translate.call_args_list] == [2]
+    assert [result.value for result in results] == [1.25, True, 23.5]
 
 
 def test_empty_batch_read_returns_no_results(client: OpcUaClient):
     assert client.read_nodes([]) == []
+
+
+def test_translate_returns_rooted_nodes_in_input_order(client: OpcUaClient):
+    paths = (path for path in [RelativePath("/Objects/2:Rig/2:Float"), "/Objects/2:Rig/2:Temperature"])
+    nodes = client.translate(paths)
+
+    assert [node.node_id for node in nodes] == [NodeId("ns=2;s=Float"), NodeId("ns=2;s=Temperature")]
+    assert [node.browse_path.starting_node for node in nodes] == [NodeId("i=84"), NodeId("i=84")]
+
+
+def test_batch_read_rejects_missing_translation_result(
+    client: OpcUaClient, server: Server, monkeypatch: pytest.MonkeyPatch
+):
+    view = server.iserver.view_service
+    translate = view.translate_browsepaths_to_nodeids
+    monkeypatch.setattr(view, "translate_browsepaths_to_nodeids", lambda paths: translate(paths)[:1])
+
+    with pytest.raises(OpcUaError) as failure:
+        client.read_nodes(["/Objects/2:Rig/2:Float", "/Objects/2:Rig/2:Temperature"])
+
+    assert failure.value.status_code.code == StatusCodes.BadUnexpectedError
 
 
 @pytest.mark.parametrize(

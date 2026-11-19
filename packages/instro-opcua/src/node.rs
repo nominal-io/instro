@@ -1,8 +1,6 @@
 use std::ffi::CString;
 
-use futures_util::future::BoxFuture;
 use opcua::types as ua;
-use pyo3::IntoPyObjectExt;
 use pyo3::exceptions::PyRuntimeWarning;
 use pyo3::exceptions::PyTypeError;
 use pyo3::exceptions::PyValueError;
@@ -12,12 +10,15 @@ use crate::client::OpcUaClient;
 use crate::config::NativeInteger;
 use crate::error;
 use crate::util;
+use crate::values::AttributeId;
 use crate::values::BrowsePath;
 use crate::values::NodeId;
 use crate::values::PyAttributeValue;
 use crate::values::RelativePath;
 use crate::values::UaType;
 use crate::values::attributes::{self};
+
+pyo3::import_exception!(builtins, ExceptionGroup);
 
 pub(crate) enum NodeInput {
     Node(Node),
@@ -42,7 +43,7 @@ impl NodeInput {
 
                 nodes.push(Self::Node(node));
             } else {
-                nodes.push(Self::Path(relative_path(&item)?));
+                nodes.push(Self::Path(extract_relative_path(item)?));
             }
         }
 
@@ -88,52 +89,16 @@ impl Node {
         &self.client
     }
 
-    async fn resolve(&self, path: ua::RelativePath) -> PyResult<Self> {
-        let node = self.clone();
-        self.client
-            .with_session(async move |session| node.resolve_in(session, path).await)
-            .await
+    pub(crate) fn node_id(&self) -> &ua::NodeId {
+        &self.node_id
     }
 
-    pub(crate) async fn resolve_in(
-        &self,
-        session: &opcua::client::Session,
-        path: ua::RelativePath,
-    ) -> PyResult<Self> {
-        if path.elements.as_ref().is_none_or(Vec::is_empty) {
-            return Err(PyValueError::new_err(
-                "relative path must contain a path element",
-            ));
-        }
-
-        let request = ua::BrowsePath {
-            starting_node: self.node_id.clone(),
-            relative_path: path.clone(),
-        };
-
-        let results = session
-            .translate_browse_paths_to_node_ids(&[request])
-            .await
-            .map_err(error::native)?;
-
-        let node_id = translated_node(results)?;
-
-        let mut browse_path = self.browse_path.clone();
-        browse_path
-            .relative_path
-            .elements
-            .get_or_insert_default()
-            .extend(path.elements.into_iter().flatten());
-
-        Ok(Self {
-            client: self.client.clone(),
-            node_id,
-            browse_path,
-        })
+    pub fn browse_path(&self) -> &ua::BrowsePath {
+        &self.browse_path
     }
 
     async fn read_native(&self, attribute: ua::AttributeId) -> PyResult<ua::DataValue> {
-        let node_id = self.node_id.clone();
+        let node_id = self.node_id().clone();
 
         self.client
             .with_session(async move |session| {
@@ -164,60 +129,92 @@ impl Node {
         py: Python<'_>,
         attribute: ua::AttributeId,
     ) -> PyResult<PyAttributeValue> {
-        let node = self.clone();
-        let value = util::wait(py, async move { node.read_native(attribute).await })?;
+        let value = util::wait_cancel_safe(py, self.read_native(attribute))?;
 
         PyAttributeValue::from_native(py, attribute, value)
     }
 
-    async fn enumerate_children(&self, max_references: u32) -> PyResult<ChildReferences> {
+    async fn collect_children(
+        &self,
+        max_references: u32,
+        remote: &mut Vec<ua::ExpandedNodeId>,
+    ) -> PyResult<Vec<Node>> {
         let description = ua::BrowseDescription {
             node_id: self.node_id.clone(),
-            browse_direction: ua::BrowseDirection::Forward,
             reference_type_id: ua::ReferenceTypeId::HierarchicalReferences.into(),
             include_subtypes: true,
+            browse_direction: ua::BrowseDirection::Forward,
             node_class_mask: 0,
-            result_mask: ua::BrowseResultMask::All as u32,
+            result_mask: ua::BrowseResultMaskFlags::all().bits(),
         };
 
-        self.client
-            .with_session(async move |session| {
-                let initial = session
-                    .browse(&[description], max_references, None)
-                    .await
-                    .map_err(error::native);
+        let references = self
+            .client
+            .with_session(async |session| {
+                let mut page = session.browse(&[description], max_references, None).await;
+                let mut points = Vec::new();
+                let mut references = Vec::new();
 
-                let references = collect_children(initial, |release, points| {
-                    Box::pin(async move {
-                        session
-                            .browse_next(release, &points)
-                            .await
-                            .map_err(error::native)
-                    })
-                })
-                .await;
+                let result = loop {
+                    let results = match page {
+                        Ok(results) => results,
+                        Err(error) => break Err(error::native(error)),
+                    };
 
-                Ok(references)
+                    let count = results.len();
+                    let status = results.first().map(|result| result.status_code);
+                    if count == 1 && status.is_some_and(|status| status.is_good()) {
+                        points.clear();
+                    }
+
+                    for result in results {
+                        if !result.continuation_point.is_null_or_empty() {
+                            points.push(result.continuation_point);
+                        }
+
+                        for reference in result.references.into_iter().flatten() {
+                            if reference.node_id.server_index == 0 {
+                                references.push(reference);
+                            } else {
+                                remote.push(reference.node_id);
+                            }
+                        }
+                    }
+
+                    if count != 1 {
+                        break Err(error::status(
+                            ua::StatusCode::BadUnexpectedError,
+                            format!("expected exactly one browse result; found {count}"),
+                        ));
+                    }
+
+                    if let Some(status) = status.filter(|status| !status.is_good()) {
+                        break Err(error::status(status, "browse failed"));
+                    }
+
+                    if points.is_empty() {
+                        break Ok(references);
+                    }
+
+                    page = session.browse_next(false, &points).await;
+                };
+
+                if result.is_err() && !points.is_empty() {
+                    let _ = session.browse_next(true, &points).await;
+                }
+
+                result
             })
-            .await
-    }
+            .await?;
 
-    fn browse_children(&self, py: Python<'_>, max_references: u32) -> PyResult<Vec<Self>> {
-        let node = self.clone();
-        let references = util::wait(
-            py,
-            async move { node.enumerate_children(max_references).await },
-        )?
-        .finish(py)?;
-
-        let children = references
+        Ok(references
             .into_iter()
             .map(|reference| {
                 let mut browse_path = self.browse_path.clone();
                 let element = ua::RelativePathElement {
                     reference_type_id: ua::ReferenceTypeId::HierarchicalReferences.into(),
-                    is_inverse: false,
                     include_subtypes: true,
+                    is_inverse: false,
                     target_name: reference.browse_name,
                 };
 
@@ -227,15 +224,142 @@ impl Node {
                     .get_or_insert_default()
                     .push(element);
 
-                Self {
+                Node {
                     client: self.client.clone(),
-                    node_id: reference.node_id.node_id,
                     browse_path,
+                    node_id: reference.node_id.node_id,
                 }
             })
-            .collect();
+            .collect())
+    }
+}
 
-        Ok(children)
+#[pymethods]
+impl Node {
+    /// NodeId: The locally retained identifier; this does not query the server.
+    #[getter]
+    #[pyo3(name = "node_id")]
+    fn node_id_py(&self) -> NodeId {
+        NodeId::new(self.node_id.clone())
+    }
+
+    /// BrowsePath: The accumulated route starting at RootFolder, without a server read.
+    #[getter]
+    #[pyo3(name = "browse_path")]
+    fn browse_path_py(&self) -> BrowsePath {
+        BrowsePath::new(self.browse_path.clone())
+    }
+
+    /// Resolve one child path and retain its accumulated route from RootFolder.
+    ///
+    /// Args:
+    ///     path (RelativePath | str): Nonempty path relative to this Node.
+    ///
+    /// Returns:
+    ///     Node: The single fully resolved local target.
+    #[pyo3(name = "get_child")]
+    pub fn get_child_py(&self, py: Python<'_>, path: Bound<'_, PyAny>) -> PyResult<Self> {
+        let path = extract_relative_path(path)?;
+        util::wait_cancel_safe(py, self.get_child(path))
+    }
+
+    /// list[Node]: All immediate local hierarchical children, across every page.
+    ///
+    /// Out-of-server references are omitted with one aggregated ``RuntimeWarning``.
+    /// Enumeration failure returns no partial list and retains the original error.
+    /// If Python interrupts the wait, browsing continues in the background.
+    #[getter]
+    fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
+        let node = self.clone();
+
+        let (result, remote) = util::wait_detached(py, async move {
+            let mut remote = Vec::new();
+            let result = node.collect_children(0, &mut remote).await;
+            Ok((result, remote))
+        })?;
+
+        if !remote.is_empty() {
+            let message = CString::new(format!(
+                "omitted out-of-server child references: {remote:?}"
+            ))
+            .map_err(|error| PyValueError::new_err(error.to_string()))?;
+
+            if let Err(warning) = PyErr::warn(py, &py.get_type::<PyRuntimeWarning>(), &message, 1) {
+                if let Err(error) = result {
+                    error.set_context(py, Some(warning));
+                    return Err(error);
+                }
+
+                return Err(warning);
+            }
+        }
+
+        result
+    }
+
+    /// Read an attribute with its semantic payload and original quality metadata.
+    ///
+    /// Args:
+    ///     attr (AttributeId | int | str): Attribute ID, or case-insensitive
+    ///         canonical or snake-case attribute name.
+    ///
+    /// Returns:
+    ///     AttributeValue: Result whose payload is already converted. Access
+    ///         ``.value`` to retrieve it. A failed conversion raises then.
+    ///         Bad or Uncertain sample quality alone does not raise.
+    fn get_attribute(&self, py: Python<'_>, attr: &Bound<'_, PyAny>) -> PyResult<PyAttributeValue> {
+        let attribute = attribute_id(attr)?;
+        self.read_attribute(py, attribute)
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Node('{}')",
+            String::from(&self.browse_path().relative_path)
+        )
+    }
+}
+
+impl Node {
+    async fn get_child(&self, relative_path: ua::RelativePath) -> PyResult<Node> {
+        let browse_path = translation_request(self.node_id.clone(), relative_path.clone())?;
+        let results = self
+            .client
+            .with_session(async |session| {
+                session
+                    .translate_browse_paths_to_node_ids(&[browse_path])
+                    .await
+                    .map_err(error::native)
+            })
+            .await?;
+
+        let [result] = <[ua::BrowsePathResult; 1]>::try_from(results)
+            .map_err(|results| translation_count_error(results.len(), 1))?;
+        let node_id = translated_node_id(result)?;
+
+        let elements = self
+            .browse_path
+            .relative_path
+            .elements
+            .as_deref()
+            .unwrap_or(&[])
+            .iter()
+            .cloned()
+            .chain(relative_path.elements.unwrap_or_default())
+            .collect::<Vec<_>>();
+
+        let browse_path = ua::BrowsePath {
+            starting_node: ua::ObjectId::RootFolder.into(),
+            relative_path: ua::RelativePath {
+                elements: Some(elements),
+            },
+        };
+
+        Ok(Node {
+            client: self.client.clone(),
+            node_id,
+            browse_path,
+        })
     }
 }
 
@@ -252,8 +376,11 @@ impl OpcUaClient {
     /// Raises:
     ///     OpcUaError: Translation fails, is ambiguous, or leaves unresolved or
     ///         out-of-server targets.
-    fn get_node(&self, py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Node> {
-        Node::root(self.clone()).get_child(py, path)
+    fn get_node(&self, py: Python<'_>, path: Bound<'_, PyAny>) -> PyResult<Node> {
+        util::wait_cancel_safe(
+            py,
+            Node::root(self.clone()).get_child(extract_relative_path(path)?),
+        )
     }
 
     /// Node: The standard ObjectsFolder, without a server read.
@@ -290,36 +417,43 @@ impl OpcUaClient {
             .transpose()?
             .unwrap_or(ua::AttributeId::Value);
 
-        let nodes = NodeInput::materialize(self, nodes)?
-            .into_iter()
-            .map(|node| {
-                let node = match node {
-                    NodeInput::Node(node) => node,
-                    NodeInput::Path(path) => {
-                        self.get_node(py, &RelativePath::new(path).into_bound_py_any(py)?)?
-                    }
-                };
-
-                Ok(ua::ReadValueId::new(node.node_id, ua_attr))
-            })
-            .collect::<PyResult<Vec<_>>>()?;
-
-        if nodes.is_empty() {
+        let inputs = NodeInput::materialize(self, nodes)?;
+        if inputs.is_empty() {
             return Ok(Vec::new());
         }
 
-        let n_nodes = nodes.len();
-        let client = self.clone();
+        let n_nodes = inputs.len();
+        let paths = inputs
+            .iter()
+            .filter_map(|input| match input {
+                NodeInput::Node(_) => None,
+                NodeInput::Path(path) => Some(path.clone()),
+            })
+            .collect();
 
-        let results = util::wait(py, async move {
-            client
-                .with_session(async |session| {
-                    session
-                        .read(nodes.as_slice(), ua::TimestampsToReturn::Both, 0.)
-                        .await
-                        .map_err(error::native)
-                })
-                .await
+        let results = util::wait_cancel_safe(py, async {
+            let mut translated = self.translate(paths).await?.into_iter();
+            let mut requests = Vec::with_capacity(n_nodes);
+            for input in inputs {
+                let node = match input {
+                    NodeInput::Node(node) => node,
+                    NodeInput::Path(_) => translated.next().ok_or_else(|| {
+                        error::status(
+                            ua::StatusCode::BadUnexpectedError,
+                            "missing translated Node",
+                        )
+                    })?,
+                };
+                requests.push(ua::ReadValueId::new(node.node_id, ua_attr));
+            }
+
+            self.with_session(async move |session| {
+                session
+                    .read(&requests, ua::TimestampsToReturn::Both, 0.)
+                    .await
+                    .map_err(error::native)
+            })
+            .await
         })?;
 
         if results.len() != n_nodes {
@@ -340,65 +474,53 @@ impl OpcUaClient {
 
         Ok(values)
     }
+
+    /// Resolve paths from RootFolder in one request and return Nodes in input order.
+    #[pyo3(name = "translate")]
+    pub fn translate_py(&self, py: Python<'_>, paths: &Bound<'_, PyAny>) -> PyResult<Vec<Node>> {
+        let paths = paths
+            .try_iter()?
+            .map(|item| extract_relative_path(item?))
+            .collect::<PyResult<Vec<_>>>()?;
+        util::wait_cancel_safe(py, self.translate(paths))
+    }
 }
 
-#[pymethods]
-impl Node {
-    /// NodeId: The locally retained identifier; this does not query the server.
-    #[getter]
-    fn node_id(&self) -> NodeId {
-        NodeId::new(self.node_id.clone())
-    }
+impl OpcUaClient {
+    pub(crate) async fn translate(&self, paths: Vec<ua::RelativePath>) -> PyResult<Vec<Node>> {
+        if paths.is_empty() {
+            return Ok(Vec::new());
+        }
 
-    /// BrowsePath: The accumulated route starting at RootFolder, without a server read.
-    #[getter]
-    fn browse_path(&self) -> BrowsePath {
-        BrowsePath::new(self.browse_path.clone())
-    }
+        let paths = paths
+            .into_iter()
+            .map(|path| translation_request(ua::ObjectId::RootFolder.into(), path))
+            .collect::<PyResult<Vec<_>>>()?;
 
-    /// Resolve one child path and retain its accumulated route from RootFolder.
-    ///
-    /// Args:
-    ///     path (RelativePath | str): Nonempty path relative to this Node.
-    ///
-    /// Returns:
-    ///     Node: The single fully resolved local target.
-    fn get_child(&self, py: Python<'_>, path: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let path = relative_path(path)?;
+        let results = self
+            .with_session(async |session| {
+                session
+                    .translate_browse_paths_to_node_ids(&paths)
+                    .await
+                    .map_err(error::native)
+            })
+            .await?;
 
-        let node = self.clone();
-        util::wait(py, async move { node.resolve(path).await })
-    }
+        if results.len() != paths.len() {
+            return Err(translation_count_error(results.len(), paths.len()));
+        }
 
-    /// list[Node]: All immediate local hierarchical children, across every page.
-    ///
-    /// Out-of-server references are omitted with one aggregated ``RuntimeWarning``.
-    /// Enumeration failure returns no partial list and retains the original error.
-    #[getter]
-    fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
-        self.browse_children(py, 0)
-    }
-
-    /// Read an attribute with its semantic payload and original quality metadata.
-    ///
-    /// Args:
-    ///     attr (AttributeId | int | str): Attribute ID, or case-insensitive
-    ///         canonical or snake-case attribute name.
-    ///
-    /// Returns:
-    ///     AttributeValue: Result whose payload is already converted. Access
-    ///         ``.value`` to retrieve it. A failed conversion raises then.
-    ///         Bad or Uncertain sample quality alone does not raise.
-    fn get_attribute(&self, py: Python<'_>, attr: &Bound<'_, PyAny>) -> PyResult<PyAttributeValue> {
-        let attribute = attribute_id(attr)?;
-        self.read_attribute(py, attribute)
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "Node('{}')",
-            String::from(&self.browse_path().as_ua_ref().relative_path)
-        )
+        results
+            .into_iter()
+            .zip(paths)
+            .map(|(result, browse_path)| {
+                Ok(Node {
+                    client: self.clone(),
+                    node_id: translated_node_id(result)?,
+                    browse_path,
+                })
+            })
+            .collect()
     }
 }
 
@@ -447,22 +569,28 @@ attribute_getters! {
     AccessLevelEx,
 }
 
-pub(crate) fn relative_path(path: &Bound<'_, PyAny>) -> PyResult<ua::RelativePath> {
-    if let Ok(path) = path.extract::<RelativePath>() {
-        return Ok(path.as_ua_ref().clone());
+pub(crate) fn extract_relative_path(path: Bound<'_, PyAny>) -> PyResult<ua::RelativePath> {
+    let path = if let Ok(path) = path.cast_exact::<RelativePath>() {
+        path.get().as_ua_ref().clone()
+    } else if let Ok(path) = path.extract::<&str>() {
+        ua::RelativePath::try_from(path)
+            .map_err(|error| PyValueError::new_err(error.to_string()))?
+    } else {
+        return Err(PyTypeError::new_err("path must be RelativePath or str"));
+    };
+
+    if path.elements.as_ref().is_none_or(Vec::is_empty) {
+        return Err(PyValueError::new_err(
+            "relative path must contain a path element",
+        ));
     }
 
-    if let Ok(path) = path.extract::<String>() {
-        return ua::RelativePath::try_from(path)
-            .map_err(|error| PyValueError::new_err(error.to_string()));
-    }
-
-    Err(PyTypeError::new_err("path must be RelativePath or str"))
+    Ok(path)
 }
 
 pub(crate) fn attribute_id(value: &Bound<'_, PyAny>) -> PyResult<ua::AttributeId> {
-    if let Ok(value) = value.extract::<crate::values::AttributeId>() {
-        return Ok(*value.as_ua_ref());
+    if let Ok(value) = value.cast_exact::<AttributeId>() {
+        return Ok(*value.borrow().as_ua_ref());
     }
 
     if let Ok(name) = value.extract::<String>() {
@@ -474,17 +602,30 @@ pub(crate) fn attribute_id(value: &Bound<'_, PyAny>) -> PyResult<ua::AttributeId
     ua::AttributeId::from_u32(id).map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
-fn translated_node(results: Vec<ua::BrowsePathResult>) -> PyResult<ua::NodeId> {
-    let [result] = <[ua::BrowsePathResult; 1]>::try_from(results).map_err(|results| {
-        error::status(
-            ua::StatusCode::BadUnexpectedError,
-            format!(
-                "path translation returned {} results; expected one",
-                results.len()
-            ),
-        )
-    })?;
+fn translation_request(
+    starting_node: ua::NodeId,
+    relative_path: ua::RelativePath,
+) -> PyResult<ua::BrowsePath> {
+    if relative_path.elements.as_ref().is_none_or(Vec::is_empty) {
+        return Err(PyValueError::new_err(
+            "relative path must contain a path element",
+        ));
+    }
 
+    Ok(ua::BrowsePath {
+        starting_node,
+        relative_path,
+    })
+}
+
+fn translation_count_error(received: usize, expected: usize) -> PyErr {
+    error::status(
+        ua::StatusCode::BadUnexpectedError,
+        format!("path translation returned {received} results; expected {expected}"),
+    )
+}
+
+fn translated_node_id(result: ua::BrowsePathResult) -> PyResult<ua::NodeId> {
     if !result.status_code.is_good() {
         return Err(error::status(
             result.status_code,
@@ -493,11 +634,11 @@ fn translated_node(results: Vec<ua::BrowsePathResult>) -> PyResult<ua::NodeId> {
     }
 
     let mut targets = result.targets.unwrap_or_default();
-    let has_unresolved_or_remote_target = targets.iter().any(|target| {
+    let incomplete_or_remote = targets.iter().any(|target| {
         target.remaining_path_index != u32::MAX || target.target_id.server_index != 0
     });
 
-    if has_unresolved_or_remote_target {
+    if incomplete_or_remote {
         return Err(error::status(
             ua::StatusCode::UncertainReferenceOutOfServer,
             "browse path has unresolved or out-of-server targets",
@@ -515,106 +656,6 @@ fn translated_node(results: Vec<ua::BrowsePathResult>) -> PyResult<ua::NodeId> {
         .pop()
         .map(|target| target.target_id.node_id)
         .ok_or_else(|| error::status(ua::StatusCode::BadNoMatch, "browse path has no targets"))
-}
-
-struct ChildReferences {
-    result: PyResult<Vec<ua::ReferenceDescription>>,
-    invalid: Vec<ua::ReferenceDescription>,
-}
-
-impl ChildReferences {
-    fn finish(self, py: Python<'_>) -> PyResult<Vec<ua::ReferenceDescription>> {
-        let warning = if self.invalid.is_empty() {
-            Ok(())
-        } else {
-            let message = format!("omitted out-of-server child references: {:?}", self.invalid);
-            let message =
-                CString::new(message).map_err(|error| PyValueError::new_err(error.to_string()))?;
-
-            PyErr::warn(py, &py.get_type::<PyRuntimeWarning>(), &message, 1)
-        };
-
-        match (self.result, warning) {
-            (Ok(_), Err(warning)) => Err(warning),
-            (Ok(references), Ok(())) => Ok(references),
-
-            (Err(operation), Err(warning)) => {
-                operation.set_context(py, Some(warning));
-                Err(operation)
-            }
-
-            (Err(operation), _) => Err(operation),
-        }
-    }
-}
-
-async fn collect_children<'a>(
-    initial: PyResult<Vec<ua::BrowseResult>>,
-    mut next: impl FnMut(bool, Vec<ua::ByteString>) -> BoxFuture<'a, PyResult<Vec<ua::BrowseResult>>>,
-) -> ChildReferences {
-    let mut results = initial;
-    let mut outstanding = Vec::new();
-
-    let mut references = Vec::new();
-    let mut invalid = Vec::new();
-
-    let result = loop {
-        let page = match results {
-            Ok(page) => page,
-            Err(error) => break Err(error),
-        };
-
-        let count = page.len();
-        let mut failure = None;
-        let mut points = Vec::new();
-
-        for result in page {
-            if !result.continuation_point.is_null_or_empty() {
-                points.push(result.continuation_point);
-            }
-
-            if !result.status_code.is_good() && failure.is_none() {
-                failure = Some(error::status(
-                    result.status_code,
-                    "child enumeration failed",
-                ));
-            }
-
-            for reference in result.references.into_iter().flatten() {
-                if reference.node_id.server_index != 0 {
-                    invalid.push(reference);
-                } else {
-                    references.push(reference);
-                }
-            }
-        }
-
-        if count != 1 {
-            outstanding.extend(points);
-            break Err(error::status(
-                ua::StatusCode::BadUnexpectedError,
-                format!("child enumeration returned {count} results; expected one"),
-            ));
-        }
-
-        if let Some(error) = failure {
-            outstanding.extend(points);
-            break Err(error);
-        }
-
-        outstanding = points;
-        if outstanding.is_empty() {
-            break Ok(references);
-        }
-
-        results = next(false, outstanding.clone()).await;
-    };
-
-    if result.is_err() && !outstanding.is_empty() {
-        let _ = next(true, outstanding).await;
-    }
-
-    ChildReferences { result, invalid }
 }
 
 #[cfg(test)]
@@ -637,12 +678,8 @@ mod browsing_tests {
     }
 
     #[test]
-    fn translation_checks_count_status_ambiguity_and_remote_resolution() {
+    fn translation_checks_status_ambiguity_and_remote_resolution() {
         Python::initialize();
-        assert_eq!(
-            failure_status(translated_node(vec![])),
-            Code::BadUnexpectedError
-        );
 
         let mut remote = target(41);
         remote.target_id.server_index = 1;
@@ -674,114 +711,7 @@ mod browsing_tests {
                 targets,
             };
 
-            assert_eq!(failure_status(translated_node(vec![result])), expected);
-        }
-    }
-
-    fn reference(id: u32, server_index: u32) -> ua::ReferenceDescription {
-        ua::ReferenceDescription {
-            node_id: ua::ExpandedNodeId {
-                node_id: ua::NodeId::new(2, id),
-                server_index,
-                ..Default::default()
-            },
-            browse_name: ua::QualifiedName::new(2, format!("Child{id}")),
-            ..Default::default()
-        }
-    }
-
-    fn page(point: &[u8], references: Vec<ua::ReferenceDescription>) -> ua::BrowseResult {
-        ua::BrowseResult {
-            status_code: ua::StatusCode::Good,
-            continuation_point: ua::ByteString::from(point),
-            references: Some(references),
-        }
-    }
-
-    #[tokio::test]
-    async fn continuation_pages_collect_local_children_and_retain_remote_diagnostics()
-    -> PyResult<()> {
-        let mut script = [
-            (b"first".as_slice(), page(b"second", vec![reference(42, 3)])),
-            (b"second".as_slice(), page(b"", vec![reference(43, 0)])),
-        ]
-        .into_iter();
-
-        let initial = Ok(vec![page(b"first", vec![reference(41, 0)])]);
-        let children = collect_children(initial, |release, points| {
-            let (point, response) = script.next().expect("unexpected continuation call");
-            assert_eq!(
-                (release, points),
-                (false, vec![ua::ByteString::from(point)])
-            );
-
-            Box::pin(async move { Ok(vec![response]) })
-        })
-        .await;
-
-        assert!(script.next().is_none());
-        let ids = children
-            .result?
-            .into_iter()
-            .map(|item| item.node_id.node_id)
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            ids,
-            vec![ua::NodeId::new(2, 41_u32), ua::NodeId::new(2, 43_u32)]
-        );
-
-        assert_eq!(children.invalid, vec![reference(42, 3)]);
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn failed_and_malformed_pages_release_all_points_without_masking_status() {
-        Python::initialize();
-        let one = ua::ByteString::from(&b"one"[..]);
-        let two = ua::ByteString::from(&b"two"[..]);
-        let bad_page = ua::BrowseResult {
-            status_code: Code::BadTimeout,
-            ..Default::default()
-        };
-
-        let cases = [
-            (
-                vec![page(b"one", vec![])],
-                None,
-                vec![(false, vec![one.clone()]), (true, vec![one.clone()])],
-                Code::BadTimeout,
-            ),
-            (
-                vec![page(b"one", vec![])],
-                Some(vec![bad_page]),
-                vec![(false, vec![one.clone()]), (true, vec![one.clone()])],
-                Code::BadTimeout,
-            ),
-            (
-                vec![page(b"one", vec![]), page(b"two", vec![])],
-                None,
-                vec![(true, vec![one, two])],
-                Code::BadUnexpectedError,
-            ),
-        ];
-
-        for (initial, next_page, expected_calls, expected_status) in cases {
-            let mut calls = Vec::new();
-            let children = collect_children(Ok(initial), |release, points| {
-                calls.push((release, points));
-                let response = match (release, next_page.clone()) {
-                    (false, Some(page)) => Ok(page),
-                    (false, None) => Err(error::status(Code::BadTimeout, "next request failed")),
-                    (true, _) => Err(error::status(Code::BadNotSupported, "release failed")),
-                };
-
-                Box::pin(async move { response })
-            })
-            .await;
-
-            assert_eq!(calls, expected_calls);
-            assert_eq!(failure_status(children.result), expected_status);
+            assert_eq!(failure_status(translated_node_id(result)), expected);
         }
     }
 
@@ -806,14 +736,18 @@ mod browsing_tests {
         assert!(connected);
 
         let namespace = server.namespace_index();
-        let path =
-            ua::RelativePath::try_from(format!("/Objects/{namespace}:Panel")).expect("panel path");
 
-        let panel = Node::root(client.clone()).resolve(path).await?;
-        let children =
-            tokio::task::spawn_blocking(move || Python::attach(|py| panel.browse_children(py, 1)))
-                .await
-                .expect("browse task")?;
+        let path_str = format!("/Objects/{namespace}:Panel");
+        let path = ua::RelativePath::try_from(&path_str).expect("panel path");
+
+        let node = Node::root(client.clone())
+            .get_child(path)
+            .await
+            .expect("panel");
+        let children = node
+            .collect_children(1, &mut Vec::new())
+            .await
+            .expect("browse task");
 
         let mut actual = children
             .into_iter()
