@@ -73,8 +73,38 @@ readable after disconnection. Reading an attribute still requires a connection.
 
 `node.children` returns all immediate local children, following browse pagination.
 It omits out-of-server references with one aggregated `RuntimeWarning`. A failed
-enumeration raises without returning a partial list. Singular path lookup rejects
+enumeration raises without returning a partial list. Path lookup rejects
 ambiguous, unresolved, or out-of-server targets with `OpcUaError`.
+
+`client.translate(paths)` resolves an iterable of strings or `RelativePath`
+objects from RootFolder in one request. It returns one `Node` per path in input
+order. Use it to resolve several paths once and reuse the resulting Nodes.
+
+## Read several Nodes at once
+
+`client.read_nodes(nodes)` accepts a mix of Nodes, strings, and `RelativePath`
+objects. It resolves all paths from RootFolder in one translation request, then
+reads the selected attribute for every Node in one read request. Existing Nodes
+must belong to the client. Results follow input order. An empty input returns
+`[]` without contacting the server.
+
+```python
+from instro.unstable.opcua import OpcUaClient
+
+with OpcUaClient.connect("opc.tcp://localhost:4840") as client:
+    clock, = client.translate(["/Objects/Server/ServerStatus/CurrentTime"])
+    clock_sample, state_sample = client.read_nodes([
+        clock,
+        "/Objects/Server/ServerStatus/State",
+    ])
+```
+
+On the Python main thread, Ctrl-C interrupts the wait for an attribute read,
+batch read, or path translation. Ctrl-C also interrupts the wait for
+`node.children`. In that case, browsing continues in the background to finish
+pagination or release outstanding continuation points if browsing fails.
+
+## Construct paths with multi-digit namespace indexes
 
 String paths use the native `async-opcua` parser, which has a known limitation
 with multi-digit namespace indexes. Construct a path from qualified names when

@@ -22,6 +22,18 @@ subscription, and cleanup examples.
 .. autoexception:: instro.unstable.opcua.OpcUaError
 ```
 
+### Path translation and batch reads
+
+`OpcUaClient.translate(paths)` resolves RootFolder-relative paths in one
+request and returns `list[Node]` in input order. `OpcUaClient.read_nodes(nodes,
+attr=None)` translates the path inputs together, then reads one attribute for
+all inputs and returns the results in input order. It defaults to the `Value`
+attribute. Both methods return an empty list for empty input.
+
+On the Python main thread, Ctrl-C interrupts reads and path translation.
+Interrupting `Node.children` leaves the browse operation running so it can
+complete pagination or release continuation points after an error.
+
 ### Connection settings
 
 Every setting is a named keyword of `OpcUaClient.connect()`. Duration settings
