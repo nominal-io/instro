@@ -7,9 +7,9 @@ use pyo3::exceptions::PyRuntimeWarning;
 use pyo3::exceptions::PyTypeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::PyInt;
 
 use crate::client::OpcUaClient;
+use crate::config::NativeInteger;
 use crate::error;
 use crate::util;
 use crate::values::BrowsePath;
@@ -44,12 +44,6 @@ impl NodeInput {
             } else {
                 nodes.push(Self::Path(relative_path(&item)?));
             }
-        }
-
-        if nodes.is_empty() {
-            return Err(PyValueError::new_err(
-                "subscription requires at least one Node",
-            ));
         }
 
         Ok(nodes)
@@ -310,8 +304,11 @@ impl OpcUaClient {
             })
             .collect::<PyResult<Vec<_>>>()?;
 
-        let n_nodes = nodes.len();
+        if nodes.is_empty() {
+            return Ok(Vec::new());
+        }
 
+        let n_nodes = nodes.len();
         let client = self.clone();
 
         let results = util::wait(py, async move {
@@ -473,14 +470,8 @@ pub(crate) fn attribute_id(value: &Bound<'_, PyAny>) -> PyResult<ua::AttributeId
             .ok_or_else(|| PyValueError::new_err(format!("invalid attribute id: {name:?}")));
     }
 
-    if value.is_instance_of::<PyInt>() {
-        return ua::AttributeId::from_u32(value.extract()?)
-            .map_err(|error| PyValueError::new_err(error.to_string()));
-    }
-
-    Err(PyTypeError::new_err(
-        "attribute must be AttributeId, int, or str",
-    ))
+    let NativeInteger(id) = value.extract::<NativeInteger<u32>>()?;
+    ua::AttributeId::from_u32(id).map_err(|error| PyValueError::new_err(error.to_string()))
 }
 
 fn translated_node(results: Vec<ua::BrowsePathResult>) -> PyResult<ua::NodeId> {
