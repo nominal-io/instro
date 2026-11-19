@@ -1,7 +1,7 @@
 from datetime import timedelta
 from typing import assert_type
 
-from instro.unstable.opcua import Node, OpcUaClient, Subscription
+from instro.unstable.opcua import Node, OpcUaClient, OpcUaConnectionConfig, OpcUaDevice, OpcUaDeviceConfig, Subscription
 from instro.unstable.opcua.types import (
     AccessLevelExType,
     AttributePayload,
@@ -21,6 +21,12 @@ from instro.unstable.opcua.types import (
     Value,
     XmlElement,
 )
+
+
+def configured_device() -> None:
+    config = OpcUaDeviceConfig(connection=OpcUaConnectionConfig(endpoint_url="opc.tcp://localhost"))
+    with OpcUaDevice("line_1", config) as device:
+        assert_type(device.client, OpcUaClient)
 
 
 def semantic_results(node: Node, client: OpcUaClient) -> None:

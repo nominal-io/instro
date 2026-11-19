@@ -5,6 +5,21 @@ from types import TracebackType
 from typing import Any, Never, Self, TypeAlias, final
 from uuid import UUID
 
+from .device import (
+    OpcUaAnonymousAuth as OpcUaAnonymousAuth,
+)
+from .device import (
+    OpcUaConnectionConfig as OpcUaConnectionConfig,
+)
+from .device import (
+    OpcUaDevice as OpcUaDevice,
+)
+from .device import (
+    OpcUaDeviceConfig as OpcUaDeviceConfig,
+)
+from .device import (
+    OpcUaUsernameAuth as OpcUaUsernameAuth,
+)
 from .types import (
     AccessLevelExType,
     AccessLevelType,
@@ -242,4 +257,16 @@ class Subscription:
 
 def get_endpoints(endpoint_url: str) -> list[EndpointDescription]: ...
 
-__all__ = ["IdentityToken", "Node", "OpcUaClient", "OpcUaError", "Subscription", "get_endpoints"]
+__all__ = [
+    "IdentityToken",
+    "Node",
+    "OpcUaAnonymousAuth",
+    "OpcUaClient",
+    "OpcUaConnectionConfig",
+    "OpcUaDevice",
+    "OpcUaDeviceConfig",
+    "OpcUaError",
+    "OpcUaUsernameAuth",
+    "Subscription",
+    "get_endpoints",
+]
