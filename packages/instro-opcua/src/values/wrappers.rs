@@ -651,6 +651,30 @@ impl LocalizedText {
 }
 
 ua_struct! {
+    /// XML text carried as an OPC UA XmlElement.
+    ///
+    /// Args:
+    ///     text (str): XML text to retain.
+    ///
+    /// Examples:
+    ///     >>> str(XmlElement("<mode>on</mode>"))
+    ///     '<mode>on</mode>'
+    pub struct XmlElement {}
+}
+
+#[pymethods]
+impl XmlElement {
+    #[new]
+    fn new(text: String) -> Self {
+        Self(text.into())
+    }
+
+    fn __str__(&self) -> String {
+        self.0.to_string()
+    }
+}
+
+ua_struct! {
     #[derive(Eq)]
     /// A NodeId with optional namespace URI and server index.
     pub struct ExpandedNodeId ord(super::ordering::expanded_node_id) {
@@ -832,6 +856,7 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<NodeId>()?;
     module.add_class::<QualifiedName>()?;
     module.add_class::<LocalizedText>()?;
+    module.add_class::<XmlElement>()?;
     module.add_class::<ExpandedNodeId>()?;
     module.add_class::<RelativePath>()?;
     module.add_class::<RelativePathElement>()?;
