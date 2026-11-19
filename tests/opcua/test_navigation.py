@@ -53,6 +53,19 @@ def test_batch_read_preserves_mixed_input_order(client: OpcUaClient):
     assert [result.value for result in results] == [True, 1.25, 23.5]
 
 
+def test_empty_batch_read_returns_no_results(client: OpcUaClient):
+    assert client.read_nodes([]) == []
+
+
+@pytest.mark.parametrize(
+    ("attr", "error_type"),
+    [(True, TypeError), (-1, ValueError), (1 << 32, ValueError)],
+)
+def test_attribute_rejects_invalid_integers(client_node: Node, attr: int, error_type: type[Exception]):
+    with pytest.raises(error_type):
+        client_node.get_attribute(attr)
+
+
 @pytest.mark.parametrize("path", ["", "ns=2;s=Temperature"])
 def test_child_requires_valid_browse_path(client_node: Node, path: str):
     with pytest.raises(ValueError):
