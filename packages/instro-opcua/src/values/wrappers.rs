@@ -184,9 +184,9 @@ ua_enum!(StructureType(ua::StructureType, i32) {
     UnionWithSubtypedValues,
 });
 
-ua_enum!(AttributeWriteMask flags(ua::AttributeWriteMask, i32) {
-    from(value) => Ok(ua::AttributeWriteMask::from_bits_retain(value));
-    value(inner) => inner.bits();
+ua_enum!(AttributeWriteMask flags(ua::AttributeWriteMask, u32) {
+    from(value) => Ok(ua::AttributeWriteMask::from_bits_retain(value as i32));
+    value(inner) => inner.bits() as u32;
 
     AccessLevel,
     ArrayDimensions,
@@ -229,9 +229,9 @@ ua_enum!(AccessLevelType flags(ua::AccessLevelType, u8) {
     TimestampWrite,
 });
 
-ua_enum!(AccessLevelExType flags(ua::AccessLevelExType, i32) {
-    from(value) => Ok(ua::AccessLevelExType::from_bits_retain(value));
-    value(inner) => inner.bits();
+ua_enum!(AccessLevelExType flags(ua::AccessLevelExType, u32) {
+    from(value) => Ok(ua::AccessLevelExType::from_bits_retain(value as i32));
+    value(inner) => inner.bits() as u32;
 
     CurrentRead,
     CurrentWrite,
@@ -248,9 +248,9 @@ ua_enum!(AccessLevelExType flags(ua::AccessLevelExType, i32) {
     Constant,
 });
 
-ua_enum!(AccessRestrictionType flags(ua::AccessRestrictionType, i16) {
-    from(value) => Ok(ua::AccessRestrictionType::from_bits_retain(value));
-    value(inner) => inner.bits();
+ua_enum!(AccessRestrictionType flags(ua::AccessRestrictionType, u16) {
+    from(value) => Ok(ua::AccessRestrictionType::from_bits_retain(value as i16));
+    value(inner) => inner.bits() as u16;
 
     SigningRequired,
     EncryptionRequired,
@@ -657,11 +657,8 @@ ua_struct! {
         node_id: NodeId = |value| NodeId(value.node_id.clone()),
         server_index: u32 = |value| value.server_index,
 
-        namespace_uri: Option<String> = |value| value.namespace_uri
-            .value()
-            .as_ref()
-            .filter(|uri| !uri.is_empty())
-            .cloned(),
+        /// str | None: The namespace URI. An absent URI is ``None`` and a present empty URI is ``""``.
+        namespace_uri: Option<String> = |value| value.namespace_uri.value().clone(),
     }
 }
 
@@ -1021,8 +1018,21 @@ impl LocalizedText {
 }
 
 #[cfg(test)]
-mod relative_path_identity_tests {
+mod identity_tests {
     use super::*;
+
+    #[test]
+    fn expanded_node_id_exposes_present_empty_namespace_uri() {
+        let absent = ExpandedNodeId(ua::ExpandedNodeId::default());
+        let empty = ExpandedNodeId(ua::ExpandedNodeId {
+            namespace_uri: ua::UAString::from(""),
+            ..absent.0.clone()
+        });
+
+        assert_eq!(absent.namespace_uri(), None);
+        assert_eq!(empty.namespace_uri().as_deref(), Some(""));
+        assert!(absent < empty);
+    }
 
     #[test]
     fn null_and_present_empty_paths_have_equal_comparison_and_hash() {
