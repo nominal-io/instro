@@ -161,6 +161,7 @@ native_scalar!(ExpandedNodeId, |value| (**value).clone());
 native_scalar!(QualifiedName, |value| (**value).clone());
 native_scalar!(LocalizedText, |value| (**value).clone());
 native_scalar!(StatusCode, |value| *value);
+native_scalar!(XmlElement, |value| value.clone());
 
 macro_rules! flag_scalar {
     ($($wrapper:ident => $variant:ident as $repr:ty),* $(,)?) => {
@@ -252,14 +253,6 @@ repr!(
     ByteString,
     |value| value.clone(),
     |self, py| Ok(PyBytes::new(py, self.0.as_ref()).into_any().unbind())
-);
-
-repr!(
-    Xml,
-    ua::XmlElement,
-    XmlElement,
-    |value| value.clone(),
-    |self, py| self.0.to_string().into_py_any(py)
 );
 
 repr!(
@@ -540,7 +533,7 @@ bounded_values!(
     DateTime => Timestamp,
     Guid => Uuid,
     ByteString => Bytes,
-    XmlElement => Xml,
+    XmlElement => XmlElement,
 
     NodeId => NodeId,
     ExpandedNodeId => ExpandedNodeId,

@@ -37,6 +37,7 @@ from instro.unstable._opcua import (
     StructureType,
     UserTokenPolicy,
     UserTokenType,
+    XmlElement,
 )
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
     "UserTokenType",
     "Value",
     "ValueScalar",
+    "XmlElement",
 ]
 
 ValueScalar: TypeAlias = (
@@ -89,6 +91,7 @@ ValueScalar: TypeAlias = (
     | StatusCode
     | QualifiedName
     | LocalizedText
+    | XmlElement
     | RolePermissionType
     | StructureDefinition
     | StructureField
@@ -108,6 +111,7 @@ Value: TypeAlias = (
     | list[StatusCode]
     | list[QualifiedName]
     | list[LocalizedText]
+    | list[XmlElement]
     | list[RolePermissionType]
     | list[StructureDefinition]
     | list[StructureField]

@@ -570,6 +570,12 @@ class LocalizedText:
     def locale(self) -> str | None: ...
 
 @final
+class XmlElement:
+    def __new__(cls, text: str) -> XmlElement: ...
+    def __eq__(self, other: object) -> bool: ...
+    def __str__(self) -> str: ...
+
+@final
 class ExpandedNodeId:
     def __new__(cls, _unavailable: Never) -> Self: ...
     def __eq__(self, other: object) -> bool: ...
@@ -758,6 +764,7 @@ ValueScalar: TypeAlias = (
     | StatusCode
     | QualifiedName
     | LocalizedText
+    | XmlElement
     | RolePermissionType
     | StructureDefinition
     | StructureField
@@ -777,6 +784,7 @@ Value: TypeAlias = (
     | list[StatusCode]
     | list[QualifiedName]
     | list[LocalizedText]
+    | list[XmlElement]
     | list[RolePermissionType]
     | list[StructureDefinition]
     | list[StructureField]
@@ -856,4 +864,5 @@ __all__ = [
     "UserTokenType",
     "Value",
     "ValueScalar",
+    "XmlElement",
 ]
