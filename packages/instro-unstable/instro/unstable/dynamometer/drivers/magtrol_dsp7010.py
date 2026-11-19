@@ -15,7 +15,7 @@ from instro.lib.types import Command, Measurement
 
 _COMMAND_ERROR = "COMAND ERROR"  # sic, as the firmware spells it
 # Speed is space-padded ("S 1725T22.60R") and the torque decimal point moves with the dyno range.
-_OD_PATTERN = re.compile(r"S\s*(\d+(?:\.\d*)?)\s*T\s*(-?\s*\d*\.\d*)\s*([LRA])")
+_OD_PATTERN = re.compile(r"S\s*(\d+(?:\.\d*)?)\s*T\s*(-?\s*(?:\d+\.?\d*|\.\d+))\s*([LRA])")
 _MAX_RPM = 999_999.0
 
 # STAT bit positions, manual section 7.5.2. DPA/DPB and the IO bits aren't documented.
@@ -114,10 +114,14 @@ class MagtrolDSP7010(Instrument):
 
     def open(self) -> None:
         self._visa.open()
+        # Units may not survive a power cycle; missing power beats silently wrong power.
+        self._torque_units.clear()
 
     def close(self) -> None:
-        self._visa.close()
-        super().close()
+        try:
+            super().close()
+        finally:
+            self._visa.close()
 
     def _query(self, command: str) -> str:
         reply = self._visa.query(command).strip()
@@ -157,7 +161,9 @@ class MagtrolDSP7010(Instrument):
         An alarm replaces the direction letter in the reply, so ``direction`` is omitted while ``alarm`` is 1.
         """
         ch = self._channel(channel)
-        reply = self._query(f"OD{ch}")
+        with self._visa.lock():
+            reply = self._query(f"OD{ch}")
+            units = self._torque_units.get(ch)
         timestamp = time.time_ns()
         match = _OD_PATTERN.search(reply)
         if match is None:
@@ -174,7 +180,6 @@ class MagtrolDSP7010(Instrument):
         }
         if direction != "A":
             data[f"{prefix}.direction"] = [1.0 if direction == "R" else -1.0]
-        units = self._torque_units.get(ch)
         if units is not None:
             data[f"{prefix}.power"] = [torque * _NEWTON_METRES[units] * speed * 2 * math.pi / 60]
         return Measurement(channel_data=data, timestamps=[timestamp], tags=dict(self.default_tags))
@@ -196,8 +201,9 @@ class MagtrolDSP7010(Instrument):
     @publish_command
     def set_torque_units(self, channel: int, units: TorqueUnit) -> Command:
         ch = self._channel(channel)
-        self._write(f"UR{ch},{units.value}")
-        self._torque_units[ch] = units
+        with self._visa.lock():
+            self._write(f"UR{ch},{units.value}")
+            self._torque_units[ch] = units
         return self._package_command(f"ch{ch}.torque_units.cmd", float(units.value), time.time_ns())
 
     @publish_command
@@ -216,7 +222,7 @@ class MagtrolDSP7010(Instrument):
     @publish_command
     def set_torque(self, channel: int, torque: float) -> Command:
         ch = self._channel(channel)
-        self._write(f"Q{ch},{torque:.3f}")
+        self._write(f"Q{ch},{self._in_range('torque', torque, 0.0, 10_000.0):.3f}")
         return self._package_commands({f"ch{ch}.torque_setpoint.cmd": torque, f"ch{ch}.brake.cmd": 1.0})
 
     @publish_command
@@ -230,7 +236,7 @@ class MagtrolDSP7010(Instrument):
     def brake_off(self, channel: int) -> Command:
         """Reset every set point. ``Q#`` also clears the output limit and freeze speed."""
         ch = self._channel(channel)
-        # There's no standalone brake-off command; N# and Q# each drop the brake as a side effect.
+        # There's no standalone brake-off command; bare N# and Q# each drop the brake (manual p.72-73).
         for command in (f"I{ch}", f"N{ch}", f"Q{ch}"):
             self._write(command)
         return self._package_command(f"ch{ch}.brake.cmd", 0.0, time.time_ns())

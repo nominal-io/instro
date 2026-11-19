@@ -47,6 +47,21 @@ def test_open_close_delegate(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
     visa.close.assert_called_once_with()
 
 
+def test_close_stops_daemon_before_transport_and_always_closes_it(visa_cls: MagicMock) -> None:
+    publisher = MagicMock(spec=Publisher)
+    publisher.close.side_effect = RuntimeError("publisher failed")
+    dyno = MagtrolDSP7010("ASRL3::INSTR", publishers=[publisher])
+    visa = visa_cls.return_value
+    order: list[str] = []
+    visa.close.side_effect = lambda: order.append("transport")
+
+    with patch.object(dyno, "stop", side_effect=lambda: order.append("daemon")):
+        with pytest.raises(RuntimeError, match="publisher failed"):
+            dyno.close()
+
+    assert order == ["daemon", "transport"]
+
+
 def test_identify(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
     visa.query.return_value = "DSP7012 D0 05\r"
     assert dyno.identify() == "DSP7012 D0 05"
@@ -101,10 +116,20 @@ def test_read_data_power_needs_units(dyno: MagtrolDSP7010, visa: MagicMock) -> N
     assert dyno.read_data(1).channel_data["dyno.ch1.power"] == [pytest.approx(2.0 * 3000 * 2 * 3.141592653589793 / 60)]
 
 
-def test_read_data_bad_reply(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
-    visa.query.return_value = "garbage"
+@pytest.mark.parametrize("reply", ["garbage", "S 100T.R"])
+def test_read_data_bad_reply(dyno: MagtrolDSP7010, visa: MagicMock, reply: str) -> None:
+    visa.query.return_value = reply
     with pytest.raises(InstroError, match="unparseable"):
         dyno.read_data(1)
+
+
+def test_reopen_forgets_torque_units(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
+    dyno.set_torque_units(1, TorqueUnit.N_M)
+    dyno.close()
+    dyno.open()
+    visa.query.return_value = "S 3000T2.000R"
+
+    assert "dyno.ch1.power" not in dyno.read_data(1).channel_data
 
 
 @pytest.mark.parametrize("reply", [f"{_STATUS_WORD:032b}", str(_STATUS_WORD)])
@@ -191,6 +216,8 @@ def test_bad_args_rejected_before_write(dyno: MagtrolDSP7010, visa: MagicMock) -
         dyno.set_speed(3, 100)
     with pytest.raises(ValueError, match="percent"):
         dyno.set_open_loop_output(1, 100.0)
+    with pytest.raises(ValueError, match="torque"):
+        dyno.set_torque(1, float("nan"))
     with pytest.raises(ValueError, match="max_power_kw"):
         dyno.set_alarm_limits(1, 4000, 5, -1)
     visa.write.assert_not_called()
