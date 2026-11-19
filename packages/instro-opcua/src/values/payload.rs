@@ -1,5 +1,7 @@
 use opcua::types as ua;
 use pyo3::IntoPyObjectExt as _;
+use pyo3::exceptions::PyOverflowError;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::types::PyDict;
@@ -283,7 +285,19 @@ repr!(SamplingInterval, f64, Double, |value| *value, |self, py| {
     Ok(py
         .import("datetime")?
         .getattr("timedelta")?
-        .call((), Some(&kwargs))?
+        .call((), Some(&kwargs))
+        .map_err(|error| {
+            if error.is_instance_of::<PyValueError>(py)
+                || error.is_instance_of::<PyOverflowError>(py)
+            {
+                crate::error::status(
+                    ua::StatusCode::BadOutOfRange,
+                    "sampling interval is outside the datetime.timedelta range",
+                )
+            } else {
+                error
+            }
+        })?
         .unbind())
 });
 
@@ -553,6 +567,20 @@ mod decoding_boundary_tests {
             values,
             dimensions,
         }))
+    }
+
+    #[test]
+    fn sampling_interval_reports_unrepresentable_values() {
+        Python::initialize();
+        Python::attach(|py| {
+            for milliseconds in [f64::NAN, f64::INFINITY, 1e20] {
+                let interval = SamplingInterval::new(milliseconds);
+                assert_eq!(
+                    failure_status(Scalar::to_python(&interval, py)),
+                    Code::BadOutOfRange
+                );
+            }
+        });
     }
 
     #[test]

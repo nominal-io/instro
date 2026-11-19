@@ -139,7 +139,8 @@ impl PyAttributeValue {
     ///
     /// Raises:
     ///     OpcUaError: ``BadTypeMismatch`` for an incompatible fixed attribute
-    ///         payload, or ``BadNotSupported`` for unsupported types or dimensions.
+    ///         payload, ``BadNotSupported`` for unsupported types or dimensions,
+    ///         or ``BadOutOfRange`` for an unrepresentable sampling interval.
     #[getter]
     fn value(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.value {
