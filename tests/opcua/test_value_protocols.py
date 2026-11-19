@@ -34,9 +34,9 @@ T = TypeVar(
     ("wrapper", "left", "right"),
     [
         (AccessLevelType, 1, 5),
-        (AccessLevelExType, 1, 513),
-        (AccessRestrictionType, 1, 3),
-        (AttributeWriteMask, 1, 33),
+        (AccessLevelExType, 1, 0x8000_0201),
+        (AccessRestrictionType, 1, 0x8003),
+        (AttributeWriteMask, 1, 0x8000_0021),
         (EventNotifierType, 1, 5),
         (PermissionType, 1, 33),
     ],
