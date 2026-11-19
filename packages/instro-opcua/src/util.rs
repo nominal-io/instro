@@ -13,8 +13,16 @@ use tokio::time::Instant;
 use tokio::time::MissedTickBehavior;
 use tokio::time::interval_at;
 
+// PyO3 doesn't expose this symbol, so Windows needs an explicit stable-ABI DLL import.
+#[cfg_attr(
+    all(windows, target_arch = "x86"),
+    link(name = "python3", kind = "raw-dylib", import_name_type = "undecorated")
+)]
+#[cfg_attr(
+    all(windows, not(target_arch = "x86")),
+    link(name = "python3", kind = "raw-dylib")
+)]
 unsafe extern "C" {
-    // `pyo3::ffi` doesn't expose this function, so need a raw ffi call
     fn PyThread_get_thread_ident() -> c_ulong;
 }
 
