@@ -6,9 +6,16 @@ from instro.unstable.opcua.types import (
     AccessLevelType,
     AccessRestrictionType,
     AttributeWriteMask,
+    DateTime,
+    Duration,
     EventNotifierType,
+    LocalizedText,
     NodeId,
     PermissionType,
+    QualifiedName,
+    RelativePath,
+    SecurityPolicy,
+    StatusCode,
 )
 
 
@@ -17,6 +24,34 @@ def test_node_id_python_ordering_and_equal_key_lookup():
     last = NodeId("ns=2;i=19")
     assert first < last
     assert {first: "retained"}[NodeId("ns=2;i=7")] == "retained"
+
+
+@pytest.mark.parametrize(
+    ("first", "second"),
+    [
+        (DateTime(116_444_736_000_000_000), DateTime.parse("1970-01-01T00:00:00Z")),
+        (Duration(1, 500_000_000), Duration.from_millis(1500)),
+        (SecurityPolicy("basic256sha256"), SecurityPolicy.BASIC256_SHA256),
+        (StatusCode(0), StatusCode(0)),
+        (QualifiedName(2, "Temperature"), QualifiedName(2, "Temperature")),
+        (
+            RelativePath("/Objects/2:Temperature"),
+            RelativePath.from_qualified_names([QualifiedName(0, "Objects"), QualifiedName(2, "Temperature")]),
+        ),
+        (LocalizedText("Temperature", "en-US"), LocalizedText("Temperature", "en-US")),
+        (AccessLevelExType(0x8000_0201), AccessLevelExType(0x8000_0201)),
+    ],
+)
+def test_equal_native_values_can_retrieve_dictionary_entries(first, second):
+    assert first == second
+    assert {first: "retained"}[second] == "retained"
+
+
+def test_localized_text_keys_distinguish_native_null_and_empty_fields():
+    absent = LocalizedText()
+    values = {absent, LocalizedText(""), LocalizedText(locale="")}
+
+    assert len(values) == 3
 
 
 T = TypeVar(

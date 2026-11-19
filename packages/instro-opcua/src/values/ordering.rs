@@ -2,6 +2,7 @@
 //!
 //! Native async-opcua structures have equality but no comparison traits. Strings
 //! and arrays compare length first; structured values follow schema member order.
+//! Hashable wrappers preserve native equality when null and empty arrays would tie.
 
 use std::cmp::Ordering;
 
@@ -41,6 +42,14 @@ fn array<T>(
             .find(|order| !order.is_eq())
             .unwrap_or(Ordering::Equal)
     })
+}
+
+fn native_array<T>(
+    left: Option<&[T]>,
+    right: Option<&[T]>,
+    compare: impl Fn(&T, &T) -> Ordering,
+) -> Ordering {
+    array(left, right, compare).then_with(|| left.is_some().cmp(&right.is_some()))
 }
 
 fn identifier(left: &ua::Identifier, right: &ua::Identifier) -> Ordering {
@@ -111,7 +120,7 @@ pub(super) fn relative_path_element(
 }
 
 pub(super) fn relative_path(left: &ua::RelativePath, right: &ua::RelativePath) -> Ordering {
-    array(
+    native_array(
         left.elements.as_deref(),
         right.elements.as_deref(),
         relative_path_element,
@@ -178,7 +187,7 @@ fn application_description(
         .then_with(|| string(&left.gateway_server_uri, &right.gateway_server_uri))
         .then_with(|| string(&left.discovery_profile_uri, &right.discovery_profile_uri))
         .then_with(|| {
-            array(
+            native_array(
                 left.discovery_urls.as_deref(),
                 right.discovery_urls.as_deref(),
                 string,
@@ -204,7 +213,7 @@ pub(super) fn endpoint_description(
         .then_with(|| (left.security_mode as u32).cmp(&(right.security_mode as u32)))
         .then_with(|| string(&left.security_policy_uri, &right.security_policy_uri))
         .then_with(|| {
-            array(
+            native_array(
                 left.user_identity_tokens.as_deref(),
                 right.user_identity_tokens.as_deref(),
                 user_token_policy,

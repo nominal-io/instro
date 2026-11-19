@@ -1,3 +1,6 @@
+use std::hash::Hash;
+use std::hash::Hasher;
+
 use opcua::types as ua;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -21,9 +24,10 @@ use pyo3::prelude::*;
     skip_from_py_object,
     eq,
     ord,
+    hash,
     module = "instro.unstable.opcua.types"
 )]
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Duration(std::time::Duration);
 
 impl<'a, 'py> FromPyObject<'a, 'py> for Duration {
@@ -103,10 +107,17 @@ impl Duration {
     skip_from_py_object,
     eq,
     ord,
+    hash,
     module = "instro.unstable.opcua.types"
 )]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct DateTime(ua::DateTime);
+
+impl Hash for DateTime {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.as_chrono().hash(state);
+    }
+}
 
 impl<'a, 'py> FromPyObject<'a, 'py> for DateTime {
     type Error = pyo3::pyclass::PyClassGuardError<'a, 'py>;

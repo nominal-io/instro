@@ -1,6 +1,5 @@
-use std::hash::DefaultHasher;
-use std::hash::Hash as _;
-use std::hash::Hasher as _;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::str::FromStr;
 
 use opcua::types as ua;
@@ -32,7 +31,7 @@ macro_rules! ua_enum {
         ///     >>> from instro.unstable.opcua.types import AttributeId
         ///     >>> AttributeId(13) == AttributeId.VALUE
         ///     True
-        #[pyclass(frozen, from_py_object, eq, module = "instro.unstable.opcua.types")]
+        #[pyclass(frozen, from_py_object, eq, hash, module = "instro.unstable.opcua.types")]
         #[derive(Clone, Copy, PartialEq)]
         pub(crate) struct $name($native);
 
@@ -45,6 +44,12 @@ macro_rules! ua_enum {
 
             fn as_ua_ref(&self) -> &Self::Inner {
                 &self.0
+            }
+        }
+
+        impl Hash for $name {
+            fn hash<H: Hasher>(&self, state: &mut H) {
+                self.value().hash(state);
             }
         }
 
@@ -65,10 +70,6 @@ macro_rules! ua_enum {
 
                 fn __int__(&self) -> $repr {
                     self.value()
-                }
-
-                fn __hash__(&self) -> i64 {
-                    i64::from(self.value())
                 }
 
                 fn __str__(&self) -> String {
@@ -292,8 +293,8 @@ ua_enum!(PermissionType flags(ua::PermissionType, i32) {
 
 macro_rules! ua_struct {
     ($(#[$attrs:meta])* pub struct $this_t:ident ord($compare:path) { $($fields:tt)* }) => {
-        $(#[$attrs])*
         #[pyclass(frozen, from_py_object, eq, ord, module = "instro.unstable.opcua.types")]
+        $(#[$attrs])*
         #[derive(Clone)]
         pub(crate) struct $this_t(ua::$this_t);
 
@@ -435,6 +436,7 @@ ua_struct! {
     /// Examples:
     ///     >>> StatusCode(0).is_good
     ///     True
+    #[pyo3(hash)]
     pub struct StatusCode ord(super::ordering::status_code) {
         code: u32 = |value| value.bits(),
         is_good: bool = |value| value.is_good(),
@@ -443,18 +445,9 @@ ua_struct! {
     }
 }
 
-impl std::hash::Hash for StatusCode {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for StatusCode {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
-    }
-}
-
-#[pymethods]
-impl StatusCode {
-    pub fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        h.write_u32(self.0.bits());
-        h.finish()
     }
 }
 
@@ -498,13 +491,14 @@ ua_struct! {
     /// Examples:
     ///     >>> NodeId("ns=2;s=Temperature").identifier
     ///     'Temperature'
+    #[pyo3(hash)]
     pub struct NodeId ord(super::ordering::node_id) {
         namespace_index: u16 = |value| value.namespace,
     }
 }
 
-impl std::hash::Hash for NodeId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for NodeId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
@@ -528,12 +522,6 @@ impl NodeId {
     #[staticmethod]
     fn from_string(id_str: &str) -> PyResult<Self> {
         Self::new(id_str)
-    }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.hash(&mut h);
-        h.finish()
     }
 
     /// int | str | uuid.UUID | bytes: The identifier in its corresponding Python type.
@@ -575,14 +563,15 @@ ua_struct! {
     /// Examples:
     ///     >>> QualifiedName(12, "Temperature").namespace_index
     ///     12
+    #[pyo3(hash)]
     pub struct QualifiedName ord(super::ordering::qualified_name) {
         namespace_index: u16 = |value| value.namespace_index,
         name: String = |value| value.name.as_ref().to_owned(),
     }
 }
 
-impl std::hash::Hash for QualifiedName {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for QualifiedName {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
@@ -592,12 +581,6 @@ impl QualifiedName {
     #[new]
     fn new(namespace_index: u16, name: String) -> Self {
         Self(ua::QualifiedName::new(namespace_index, name))
-    }
-
-    pub fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.hash(&mut h);
-        h.finish()
     }
 
     pub fn __str__(&self) -> String {
@@ -624,10 +607,12 @@ ua_struct! {
     ///
     /// Returns:
     ///     LocalizedText: Text whose absent content reads as an empty string.
+    ///     Equality and ordering distinguish absent fields from empty strings.
     ///
     /// Examples:
     ///     >>> LocalizedText("Temperature", "en-US").text
     ///     'Temperature'
+    #[pyo3(hash)]
     pub struct LocalizedText ord(super::ordering::localized_text) {
         text: String = |value| value.text.as_ref().to_owned(),
         locale: Option<String> = |value| value.locale
@@ -677,6 +662,7 @@ impl XmlElement {
 ua_struct! {
     #[derive(Eq)]
     /// A NodeId with optional namespace URI and server index.
+    #[pyo3(hash)]
     pub struct ExpandedNodeId ord(super::ordering::expanded_node_id) {
         node_id: NodeId = |value| NodeId(value.node_id.clone()),
         server_index: u32 = |value| value.server_index,
@@ -704,6 +690,7 @@ ua_struct! {
     ///     >>> step = RelativePathElement(QualifiedName(0, "Objects"), NodeId("i=33"), False, True)
     ///     >>> step.include_subtypes
     ///     True
+    #[pyo3(hash)]
     pub struct RelativePathElement ord(super::ordering::relative_path_element) {
         is_inverse: bool = |value| value.is_inverse,
         include_subtypes: bool = |value| value.include_subtypes,
@@ -759,6 +746,7 @@ ua_struct! {
     ///     >>> path = RelativePath("/Objects/Server")
     ///     >>> len(path.elements)
     ///     2
+    #[pyo3(hash)]
     pub struct RelativePath ord(super::ordering::relative_path) {
         elements: Vec<RelativePathElement> = |value| {
             value
@@ -792,19 +780,6 @@ impl RelativePath {
     #[staticmethod]
     fn parse(path_str: &str) -> PyResult<Self> {
         Self::new(path_str)
-    }
-
-    fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-
-        for element in self.0.elements.iter().flatten() {
-            element.reference_type_id.hash(&mut h);
-            element.target_name.hash(&mut h);
-            element.is_inverse.hash(&mut h);
-            element.include_subtypes.hash(&mut h);
-        }
-
-        h.finish()
     }
 
     /// Construct forward hierarchical steps from qualified browse names.
@@ -864,34 +839,39 @@ pub(super) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-impl std::hash::Hash for ExpandedNodeId {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for ExpandedNodeId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.0.hash(state);
     }
 }
 
 #[pymethods]
 impl ExpandedNodeId {
-    fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.hash(&mut h);
-        h.finish()
-    }
-
     fn __str__(&self) -> String {
         self.0.to_string()
     }
 }
 
-#[pymethods]
-impl RelativePathElement {
-    fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.0.reference_type_id.hash(&mut h);
-        self.0.target_name.hash(&mut h);
-        self.0.is_inverse.hash(&mut h);
-        self.0.include_subtypes.hash(&mut h);
-        h.finish()
+fn hash_path_element<H: Hasher>(element: &ua::RelativePathElement, state: &mut H) {
+    element.reference_type_id.hash(state);
+    element.is_inverse.hash(state);
+    element.include_subtypes.hash(state);
+    element.target_name.hash(state);
+}
+
+impl Hash for RelativePathElement {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        hash_path_element(&self.0, state);
+    }
+}
+
+impl Hash for RelativePath {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.elements.as_ref().map(Vec::len).hash(state);
+
+        for element in self.0.elements.iter().flatten() {
+            hash_path_element(element, state);
+        }
     }
 }
 
@@ -954,6 +934,7 @@ ua_struct! {
 
 ua_struct! {
     /// Endpoint security, user-token policies, and flattened application metadata.
+    #[pyo3(hash)]
     pub struct EndpointDescription ord(super::ordering::endpoint_description) {
         endpoint_url: String = |value| value.endpoint_url.as_ref().to_owned(),
         server: ApplicationDescription = |value| ApplicationDescription(value.server.clone()),
@@ -993,52 +974,49 @@ impl EndpointDescription {
     fn server_certificate<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
         PyBytes::new(py, self.0.server_certificate.as_ref())
     }
+}
 
-    fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
+impl Hash for EndpointDescription {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.endpoint_url.hash(state);
+        self.0.security_policy_uri.hash(state);
+        self.0.transport_profile_uri.hash(state);
 
-        self.0.endpoint_url.hash(&mut h);
-        self.0.security_policy_uri.hash(&mut h);
-        self.0.transport_profile_uri.hash(&mut h);
-
-        self.0.server_certificate.hash(&mut h);
-        (self.0.security_mode as i32).hash(&mut h);
-        self.0.security_level.hash(&mut h);
+        self.0.server_certificate.hash(state);
+        (self.0.security_mode as i32).hash(state);
+        self.0.security_level.hash(state);
 
         let server = &self.0.server;
-        server.application_uri.hash(&mut h);
-        server.product_uri.hash(&mut h);
-        server.application_name.locale.hash(&mut h);
-        server.application_name.text.hash(&mut h);
-        (server.application_type as i32).hash(&mut h);
+        server.application_uri.hash(state);
+        server.product_uri.hash(state);
+        server.application_name.locale.hash(state);
+        server.application_name.text.hash(state);
+        (server.application_type as i32).hash(state);
 
-        server.gateway_server_uri.hash(&mut h);
-        server.discovery_profile_uri.hash(&mut h);
-        server
-            .discovery_urls
-            .as_deref()
-            .unwrap_or_default()
-            .hash(&mut h);
+        server.gateway_server_uri.hash(state);
+        server.discovery_profile_uri.hash(state);
+        server.discovery_urls.hash(state);
+
+        self.0
+            .user_identity_tokens
+            .as_ref()
+            .map(Vec::len)
+            .hash(state);
 
         for token in self.0.user_identity_tokens.iter().flatten() {
-            token.policy_id.hash(&mut h);
-            (token.token_type as i32).hash(&mut h);
-            token.issued_token_type.hash(&mut h);
-            token.issuer_endpoint_url.hash(&mut h);
-            token.security_policy_uri.hash(&mut h);
+            token.policy_id.hash(state);
+            (token.token_type as i32).hash(state);
+            token.issued_token_type.hash(state);
+            token.issuer_endpoint_url.hash(state);
+            token.security_policy_uri.hash(state);
         }
-
-        h.finish()
     }
 }
 
-#[pymethods]
-impl LocalizedText {
-    fn __hash__(&self) -> u64 {
-        let mut h = DefaultHasher::new();
-        self.0.locale.hash(&mut h);
-        self.0.text.hash(&mut h);
-        h.finish()
+impl Hash for LocalizedText {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.locale.hash(state);
+        self.0.text.hash(state);
     }
 }
 
@@ -1060,14 +1038,34 @@ mod identity_tests {
     }
 
     #[test]
-    fn null_and_present_empty_paths_have_equal_comparison_and_hash() {
+    fn path_comparison_preserves_native_null_and_empty_arrays() {
         let absent = RelativePath(ua::RelativePath { elements: None });
         let empty = RelativePath(ua::RelativePath {
             elements: Some(Vec::new()),
         });
 
-        assert!(absent == empty);
-        assert_eq!(absent.partial_cmp(&empty), Some(std::cmp::Ordering::Equal));
-        assert_eq!(absent.__hash__(), empty.__hash__());
+        assert!(absent < empty);
+        assert!(absent != empty);
+    }
+
+    #[test]
+    fn endpoint_comparison_preserves_native_null_and_empty_arrays() {
+        let absent = EndpointDescription(ua::EndpointDescription::default());
+        let empty_tokens = EndpointDescription(ua::EndpointDescription {
+            user_identity_tokens: Some(Vec::new()),
+            ..absent.0.clone()
+        });
+        let empty_urls = EndpointDescription(ua::EndpointDescription {
+            server: ua::ApplicationDescription {
+                discovery_urls: Some(Vec::new()),
+                ..absent.0.server.clone()
+            },
+            ..absent.0.clone()
+        });
+
+        assert!(absent < empty_tokens);
+        assert!(absent != empty_tokens);
+        assert!(absent < empty_urls);
+        assert!(absent != empty_urls);
     }
 }

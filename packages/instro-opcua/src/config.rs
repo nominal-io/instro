@@ -1,3 +1,7 @@
+use std::hash::Hash;
+use std::hash::Hasher;
+use std::mem::discriminant;
+
 use opcua::crypto::SecurityPolicy as UaSecurityPolicy;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -19,10 +23,17 @@ use crate::values::UaType;
     frozen,
     skip_from_py_object,
     eq,
+    hash,
     module = "instro.unstable.opcua.types"
 )]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct SecurityPolicy(UaSecurityPolicy);
+
+impl Hash for SecurityPolicy {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        discriminant(&self.0).hash(state);
+    }
+}
 
 impl<'a, 'py> FromPyObject<'a, 'py> for SecurityPolicy {
     type Error = pyo3::pyclass::PyClassGuardError<'a, 'py>;
