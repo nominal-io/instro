@@ -22,6 +22,8 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 | `<category>.md` | One guide per category (`psu`, `dmm`, `scope`, `daq`, `awg`, `eload`, `flowcontroller`, `sdr`). |
 | `<category>/<Driver>.md` + `<Driver>.png` | One page per vendor driver, with its card in front matter. Protocol drivers live in `library/protocols/<protocol>/`. |
 | `library/` | Concepts and reference: publishers, config files, custom instruments (all "Driver Development" sections), contrib, protocols, transports. |
+| `instruments/` | The **Instruments** tab: a searchable, browsable database of every supported instrument. Generated at build time by `_ext/instrument_db/` (gitignored, never edit), except `instruments/images/`. |
+| `_data/instrument_snapshot.json` | Committed snapshot of the instrument list, read when `instrument_db_refresh` is `"release"`. |
 | `images/` | Shared images. |
 | `examples/` | Generated at build time by `_ext/examples.py` (gitignored), from `examples/` at the repo root. Never edit. |
 | `ref/` | API reference: category pages, library modules, protocols, changelog. |
@@ -56,6 +58,17 @@ Scope: `docs/`, one Sphinx site holding the guides (this folder) and the API ref
 1. Add `examples/notebooks/<name>.md`, a Jupytext MyST notebook: front matter with `jupytext: text_representation: format_name: myst` and a `kernelspec`, then a `#` title and a lead paragraph, which become its page title, card and meta description. Edit it in JupyterLab with `just notebook`.
 2. `_ext/examples.py` copies it to `docs/examples/notebooks/`, adds a card to the Examples page, and the **Notebooks** toctree in `index.md` lists it. myst-nb runs it on every build (`nb_execution_mode = "cache"` in `conf.py`), and a cell that raises fails the build.
 3. It must run in docs CI, which has no hardware and no Nominal credentials. A notebook may use the `default` profile when one exists, but needs an offline path without it (`notebook_display.md` falls back to a stand-in dataset). A local build with a `default` profile streams to that profile's workspace. Tag setup cells a reader doesn't need with `:tags: [hide-input]`.
+
+### Instrument database (Instruments tab)
+
+`_ext/instrument_db/` finds drivers and writes `instruments/`: a home page with search (`_static/instrument-db.js`, over JSON embedded in the page) and type/manufacturer grouping, a stub per instrument (`instruments/<driver_type>/<id>/`), and `type/` and `manufacturer/` pages that work without JavaScript.
+
+- **instro drivers are found in the package, not the docs.** `InstroSource` walks `instro`, `instro.unstable`, and `instro.contrib` for every `<category>/drivers/` module and lists each concrete `*DriverBase` subclass; a new driver appears with no docs change. Manufacturer and channel count come from the `*IDN?` patterns in the category's `<CAT>_VENDOR_REGISTRY`, and the model from the class name, so register the driver there.
+- **Refresh.** `instrument_db_refresh` in `conf.py` is `"build"` (discover on every build) or `"release"` (read `_data/instrument_snapshot.json`), or a dict per source (`{"instro": "build", "pymeasure": "release", "default": "build"}`). `INSTRO_DOCS_INSTRUMENT_DB` overrides it. Run `just update-instrument-db` at release time (or after bumping a library) and commit the snapshot.
+- **pymeasure** has no instrument categories, so `pymeasure_category` guesses one from the class name and docstring. Fix a wrong or `other` guess in `instrument_db_sources["pymeasure"]["category_overrides"]` in `conf.py`.
+- **Add a library** (QCoDeS, ...): write a source class in `sources.py` with a `name` and a `discover()` that yields `InstrumentRecord`s, add it to `SOURCES` and `instrument_db_sources`, and add a code-example template for its `driver_type` to `EXAMPLES` and `DRIVER_TYPES` in `render.py`. Search, filters, and browsing pick up the new type.
+- **Pictures** are optional and found by name: put `instruments/images/<driver_type>/<id>.png` (also `.jpg`, `.webp`, `.svg`) next to the page's id, which is the slug in its URL. instro drivers also reuse `<category>/<Driver>.png`.
+- Use `-D nb_execution_mode=off` to build without running the example notebooks.
 
 ### Add an instrument category
 

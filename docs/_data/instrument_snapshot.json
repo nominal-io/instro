@@ -1,0 +1,5082 @@
+{
+ "sources": {
+  "instro": [
+   {
+    "category": "awg",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroAWG",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.awg.drivers.keysight_33521b.Keysight33521B",
+    "manufacturer": "Keysight",
+    "model": "33521B",
+    "name": "Keysight33521B",
+    "simulated": false,
+    "summary": "SCPI driver for the Keysight 33521B arbitrary waveform generator",
+    "tier": "stable"
+   },
+   {
+    "category": "awg",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroAWG",
+     "instrument_module": "instro",
+     "num_channels": 2,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.awg.drivers.rigol_dg1022z.RigolDG1022Z",
+    "manufacturer": "Rigol",
+    "model": "DG1022Z",
+    "name": "RigolDG1022Z",
+    "simulated": false,
+    "summary": "SCPI driver for the Rigol DG1022Z two-channel arbitrary waveform generator",
+    "tier": "stable"
+   },
+   {
+    "category": "daq",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDAQ",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource",
+      "sync_system_clock"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.daq.drivers.keysight_34980a.Keysight34980A",
+    "manufacturer": "Keysight",
+    "model": "34980A",
+    "name": "Keysight34980A",
+    "simulated": false,
+    "summary": "Keysight 34980A Multifunction Switch/Measure Unit",
+    "tier": "stable"
+   },
+   {
+    "category": "daq",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.daq.drivers",
+     "instrument_class": "InstroDAQ",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "dxd_name"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.unstable.daq.drivers.dewesoftx.DewesoftX",
+    "manufacturer": "Dewesoft",
+    "model": "X",
+    "name": "DewesoftX",
+    "simulated": false,
+    "summary": "Streams live sync and async channels from a running DewesoftX instance over DCOM",
+    "tier": "unstable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.dmm.drivers.agilent_a34401a.Agilent34401A",
+    "manufacturer": "Agilent",
+    "model": "34401A",
+    "name": "Agilent34401A",
+    "simulated": false,
+    "summary": "Agilent/HP/Keysight 34401A DMM",
+    "tier": "stable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.dmm.drivers.keithley_2400.Keithley2400",
+    "manufacturer": "Keithley",
+    "model": "2400",
+    "name": "Keithley2400",
+    "simulated": false,
+    "summary": "Keithley 2400 SMU as a sense-only DMM",
+    "tier": "stable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.dmm.drivers.keysight_34461a.Keysight34461A",
+    "manufacturer": "Keysight",
+    "model": "34461A",
+    "name": "Keysight34461A",
+    "simulated": false,
+    "summary": "Keysight 34461A Truevolt DMM",
+    "tier": "stable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.dmm.drivers.simulated.SimulatedDMM",
+    "manufacturer": "instro",
+    "model": "Simulated DMM",
+    "name": "SimulatedDMM",
+    "simulated": true,
+    "summary": "Client for the in-process simulated DMM SCPI server",
+    "tier": "stable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "stimulus"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.dmm.drivers.virtual.VirtualDMM",
+    "manufacturer": "instro",
+    "model": "Virtual DMM",
+    "name": "VirtualDMM",
+    "simulated": true,
+    "summary": "DMM simulated in-process: no transport, server, or hardware",
+    "tier": "stable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.dmm.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.dmm.drivers.fluke_8845a.Fluke8845A",
+    "manufacturer": "Fluke",
+    "model": "8845A",
+    "name": "Fluke8845A",
+    "simulated": false,
+    "summary": "Fluke 8845A 6.5-digit DMM, driven through its Agilent 34401A-compatible ``8845`` command set",
+    "tier": "unstable"
+   },
+   {
+    "category": "dmm",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.dmm.drivers",
+     "instrument_class": "InstroDMM",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.dmm.drivers.keithley_2750.Keithley2750",
+    "manufacturer": "Keithley",
+    "model": "2750",
+    "name": "Keithley2750",
+    "simulated": false,
+    "summary": "Keithley 2750 as a front-panel DMM. Integration time is set via NPLC (0.01–60)",
+    "tier": "unstable"
+   },
+   {
+    "category": "eload",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroELoad",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.eload.drivers.bk_85xxb.BK85XXB",
+    "manufacturer": "B&K Precision",
+    "model": "85XXB",
+    "name": "BK85XXB",
+    "simulated": false,
+    "summary": "B&K Precision 8500B-series E-Load (8500B/8502B/8510B/8514B/8542B)",
+    "tier": "stable"
+   },
+   {
+    "category": "eload",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroELoad",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.eload.drivers.rigol_dl30xx.RigolDL30xx",
+    "manufacturer": "Rigol",
+    "model": "DL30xx",
+    "name": "RigolDL30xx",
+    "simulated": false,
+    "summary": "Rigol DL3000-series DC E-Load (DL3021/DL3021A/DL3031/DL3031A/DL3041)",
+    "tier": "stable"
+   },
+   {
+    "category": "eload",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroELoad",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "source_voltage",
+      "source_resistance"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.eload.drivers.virtual.VirtualELoad",
+    "manufacturer": "instro",
+    "model": "Virtual ELoad",
+    "name": "VirtualELoad",
+    "simulated": true,
+    "summary": "Single-channel E-Load simulated in-process: no transport, server, or hardware",
+    "tier": "stable"
+   },
+   {
+    "category": "flowcontroller",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.flowcontroller.drivers",
+     "instrument_class": "InstroFlowController",
+     "instrument_module": "instro.unstable.flowcontroller",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource",
+      "device_id"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.flowcontroller.drivers.alicat_liquid.AlicatLiquidFlowController",
+    "manufacturer": "Alicat",
+    "model": "LiquidFlowController",
+    "name": "AlicatLiquidFlowController",
+    "simulated": false,
+    "summary": "Alicat liquid-flow controller (L-series, etc)",
+    "tier": "unstable"
+   },
+   {
+    "category": "flowcontroller",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.flowcontroller.drivers",
+     "instrument_class": "InstroFlowController",
+     "instrument_module": "instro.unstable.flowcontroller",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource",
+      "device_id"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.flowcontroller.drivers.alicat_mc.AlicatMC",
+    "manufacturer": "Alicat",
+    "model": "MC",
+    "name": "AlicatMC",
+    "simulated": false,
+    "summary": "Alicat MC-series mass-flow controller (MC-100SCCM and related MC models)",
+    "tier": "unstable"
+   },
+   {
+    "category": "flowcontroller",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.flowcontroller.drivers",
+     "instrument_class": "InstroFlowController",
+     "instrument_module": "instro.unstable.flowcontroller",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource",
+      "device_id"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.flowcontroller.drivers.alicat_pressure.AlicatPressureController",
+    "manufacturer": "Alicat",
+    "model": "PressureController",
+    "name": "AlicatPressureController",
+    "simulated": false,
+    "summary": "Alicat gauge-pressure controller (P-series, etc)",
+    "tier": "unstable"
+   },
+   {
+    "category": "motorcontroller",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.motorcontroller.drivers",
+     "instrument_class": null,
+     "instrument_module": null,
+     "num_channels": null,
+     "param_names": [
+      "channel",
+      "pole_pairs",
+      "controller_id",
+      "interface",
+      "bitrate",
+      "bus_kwargs"
+     ],
+     "required_params": [
+      "channel",
+      "pole_pairs"
+     ]
+    },
+    "import_path": "instro.unstable.motorcontroller.drivers.vesc_6.VESC6",
+    "manufacturer": "VESC",
+    "model": "6",
+    "name": "VESC6",
+    "simulated": false,
+    "summary": "VESC 6 motor controller over CAN. Firmware stops the motor ~0.5 s after the last command (re-send setpoints to keep it running); poll telemetry at >=10 Hz…",
+    "tier": "unstable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.contrib.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource",
+      "command_interval"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.contrib.psu.drivers.matrix_wps300s.MatrixWPS300S",
+    "manufacturer": "Matrix",
+    "model": "WPS300S",
+    "name": "MatrixWPS300S",
+    "simulated": false,
+    "summary": "Matrix WPS300S-series single-channel programmable DC PSU",
+    "tier": "contrib"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.bk_9115.BK9115",
+    "manufacturer": "B&K Precision",
+    "model": "9115",
+    "name": "BK9115",
+    "simulated": false,
+    "summary": "B&K Precision 9115-series single-channel PSU",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 3,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.bk_914x.BK914X",
+    "manufacturer": "B&K Precision",
+    "model": "914X",
+    "name": "BK914X",
+    "simulated": false,
+    "summary": "B&K Precision 914X-series multi-channel PSU",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "device"
+     ],
+     "required_params": [
+      "device"
+     ]
+    },
+    "import_path": "instro.psu.drivers.ea_psb10000.EAPSB10000VisaSink",
+    "manufacturer": "Elektro-Automatik",
+    "model": "PSB10000VisaSink",
+    "name": "EAPSB10000VisaSink",
+    "simulated": false,
+    "summary": "Sink quadrant of a ``EAPSB10000Visa``. Only CV is supported",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "device"
+     ],
+     "required_params": [
+      "device"
+     ]
+    },
+    "import_path": "instro.psu.drivers.ea_psb10000.EAPSB10000VisaSource",
+    "manufacturer": "Elektro-Automatik",
+    "model": "PSB10000VisaSource",
+    "name": "EAPSB10000VisaSource",
+    "simulated": false,
+    "summary": "Source quadrant of a ``EAPSB10000Visa``. Construct via ``EAPSB10000Visa(...).source``",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 2,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.gw_instek_gpd3303.GWInstekGPD3303",
+    "manufacturer": "GW Instek",
+    "model": "GPD3303",
+    "name": "GWInstekGPD3303",
+    "simulated": false,
+    "summary": "GW Instek GPD-3303D 2-channel PSU over its USB virtual COM port",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.keysight_e36100.KeysightE36100",
+    "manufacturer": "Keysight",
+    "model": "E36100",
+    "name": "KeysightE36100",
+    "simulated": false,
+    "summary": "Keysight E36100-series single-channel PSU",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.keysight_n5700.KeysightN5700",
+    "manufacturer": "Keysight",
+    "model": "N5700",
+    "name": "KeysightN5700",
+    "simulated": false,
+    "summary": "Keysight N5700-series PSU via the TDK Lambda Genesys SCPI interface",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.rigol_dp800.RigolDP800",
+    "manufacturer": "Rigol",
+    "model": "DP800",
+    "name": "RigolDP800",
+    "simulated": false,
+    "summary": "Rigol DP800-series multi-channel PSU (DP811/DP821/DP831/DP832)",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 2,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.siglent_spd3303.SiglentSPD3303",
+    "manufacturer": "Siglent",
+    "model": "SPD3303",
+    "name": "SiglentSPD3303",
+    "simulated": false,
+    "summary": "Siglent SPD3303-series PSU",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.simulated.SimulatedPSU",
+    "manufacturer": "instro",
+    "model": "Simulated PSU",
+    "name": "SimulatedPSU",
+    "simulated": true,
+    "summary": "Client for the in-process simulated PSU SCPI server",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": 1,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.psu.drivers.tdk_lambda_genesys.TDKLambdaGenesys",
+    "manufacturer": "TDK-Lambda",
+    "model": "Genesys",
+    "name": "TDKLambdaGenesys",
+    "simulated": false,
+    "summary": "TDK Lambda Genesys-family single-channel PSU",
+    "tier": "stable"
+   },
+   {
+    "category": "psu",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroPSU",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "num_channels",
+      "load_resistance"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.psu.drivers.virtual.VirtualPSU",
+    "manufacturer": "instro",
+    "model": "Virtual PSU",
+    "name": "VirtualPSU",
+    "simulated": true,
+    "summary": "PSU simulated in-process: no transport, server, or hardware",
+    "tier": "stable"
+   },
+   {
+    "category": "scope",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroScope",
+     "instrument_module": "instro",
+     "num_channels": 2,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.scope.drivers.keysight_1200x.Keysight1200X",
+    "manufacturer": "Keysight",
+    "model": "1200X",
+    "name": "Keysight1200X",
+    "simulated": false,
+    "summary": "SCPI driver for Keysight InfiniiVision 1200 X-Series oscilloscopes",
+    "tier": "stable"
+   },
+   {
+    "category": "scope",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroScope",
+     "instrument_module": "instro",
+     "num_channels": 4,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.scope.drivers.siglent_sds1000x_e.SiglentSDS1000XE",
+    "manufacturer": "Siglent",
+    "model": "SDS1000XE",
+    "name": "SiglentSDS1000XE",
+    "simulated": false,
+    "summary": "SCPI driver for Siglent SDS1000X-E series oscilloscopes (SDS1104X-E and family)",
+    "tier": "stable"
+   },
+   {
+    "category": "scope",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroScope",
+     "instrument_module": "instro",
+     "num_channels": 4,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO",
+    "manufacturer": "Tektronix",
+    "model": "2SeriesMSO",
+    "name": "Tektronix2SeriesMSO",
+    "simulated": false,
+    "summary": "SCPI driver for Tektronix 2 Series MSO oscilloscopes (MSO22, MSO24)",
+    "tier": "stable"
+   },
+   {
+    "category": "scope",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.drivers",
+     "instrument_class": "InstroScope",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "num_channels",
+      "signals"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.scope.drivers.virtual.VirtualScope",
+    "manufacturer": "instro",
+    "model": "Virtual Scope",
+    "name": "VirtualScope",
+    "simulated": true,
+    "summary": "Oscilloscope simulated in-process: no transport, server, or hardware",
+    "tier": "stable"
+   },
+   {
+    "category": "scope",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.scope.drivers",
+     "instrument_class": "InstroScope",
+     "instrument_module": "instro",
+     "num_channels": null,
+     "param_names": [
+      "visa_resource"
+     ],
+     "required_params": [
+      "visa_resource"
+     ]
+    },
+    "import_path": "instro.unstable.scope.drivers.keysight_3000tx.Keysight3000TX",
+    "manufacturer": "Keysight",
+    "model": "3000TX",
+    "name": "Keysight3000TX",
+    "simulated": false,
+    "summary": "SCPI driver for Keysight InfiniiVision 3000T X-Series oscilloscopes (2- and 4-channel DSO/MSO)",
+    "tier": "unstable"
+   },
+   {
+    "category": "vna",
+    "driver_type": "instro",
+    "extra": {
+     "import_from": "instro.unstable.vna.drivers",
+     "instrument_class": null,
+     "instrument_module": null,
+     "num_channels": null,
+     "param_names": [
+      "port",
+      "baudrate",
+      "timeout"
+     ],
+     "required_params": []
+    },
+    "import_path": "instro.unstable.vna.drivers.nanovna_v2clone.NanoVNAv2Clone",
+    "manufacturer": "NanoVNA",
+    "model": "v2Clone",
+    "name": "NanoVNAv2Clone",
+    "simulated": false,
+    "summary": "Base class for VNA drivers; channels are flat — ``ch`` is a plain argument on all relevant methods",
+    "tier": "unstable"
+   }
+  ],
+  "pymeasure": [
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "wfg = AWG401x_AFG(\"TCPIP::192.168.0.123::INSTR\")\n\nwfg.reset()                     # Reset the instrument at default state\n\nwfg.channels[1].shape = \"SINUSOID\"    # Sets a sine waveform on CH1\nwfg.channels[1].frequency = 4.7e3     # Sets the frequency to 4.7 kHz on CH1\nwfg.channels[1].amplitude = 1         # Set amplitude of 1 V on CH1\nwfg.channels[1].offset = 0            # Set the amplitude to 0 V on CH1\nwfg.channels[1].enabled = True        # Enables the CH1\n\nwfg.channels[2].shape = \"SQUARE\"      # Sets a square waveform on CH2\nwfg.channels[2].frequency = 100e6     # Sets the frequency to 100 MHz on CH2\nwfg.channels[2].amplitude = 0.5         # Set amplitude of 0.5 V on CH2\nwfg.channels[2].offset = 0            # Set the amplitude to 0 V on CH2\nwfg.channels[2].enabled = True        # Enables the CH2\n\nwfg.enabled = True              # Enable output of waveform generator\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
+     "id": "activetechnologies-AWG401x_AFG",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.activetechnologies",
+     "read_example": "ch_1.baseline_offset_max",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "activetechnologies"
+    },
+    "import_path": "pymeasure.instruments.activetechnologies.AWG401x.AWG401x_AFG",
+    "manufacturer": "Active Technologies",
+    "model": "AWG401x_AFG",
+    "name": "AWG401x_AFG",
+    "simulated": false,
+    "summary": "Represents the Active Technologies AWG-401x Arbitrary Waveform Generator in AFG mode",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "wfg = AWG401x_AWG(\"TCPIP::192.168.0.123::INSTR\")\n\nwfg.reset()             # Reset the instrument at default state\n\n# Set a oscillating waveform\nwfg.waveforms[\"MyWaveform\"] = [1, 0] * 8\n\nfor i in range(1, wfg.num_ch + 1):\n    wfg.entries[1].channels[i].voltage_high = 1       # Sets high voltage = 1\n    wfg.entries[1].channels[i].voltage_low = 0        # Sets low voltage = 1\n    wfg.entries[1].channels[i].waveform = \"SQUARE\"    # Sets a square wave\n    wfg.setting_ch[i].enabled = True            # Enable channel\n\nwfg.entries.resize(2)           # Resize the number of entries to 2\n\nwfg.entries[2].channels[1].waveform = \"MyWaveform\"   # Set custom waveform\n\nwfg.enabled = True              # Enable output of waveform generator\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
+     "id": "activetechnologies-AWG401x_AWG",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.activetechnologies",
+     "read_example": "burst_count_max",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "activetechnologies"
+    },
+    "import_path": "pymeasure.instruments.activetechnologies.AWG401x.AWG401x_AWG",
+    "manufacturer": "Active Technologies",
+    "model": "AWG401x_AWG",
+    "name": "AWG401x_AWG",
+    "simulated": false,
+    "summary": "Represents the Active Technologies AWG-401x Arbitrary Waveform Generator in AWG mode",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "# Default channel for the Agilent 33220A\nwfg = Agilent33220A(\"GPIB::10\")\n\nwfg.shape = \"SINUSOID\"          # Sets a sine waveform\nwfg.frequency = 4.7e3           # Sets the frequency to 4.7 kHz\nwfg.amplitude = 1               # Set amplitude of 1 V\nwfg.offset = 0                  # Set the amplitude to 0 V\n\nwfg.burst_state = True          # Enable burst mode\nwfg.burst_ncycles = 10          # A burst will consist of 10 cycles\nwfg.burst_mode = \"TRIGGERED\"    # A burst will be applied on a trigger\nwfg.trigger_source = \"BUS\"      # A burst will be triggered on TRG*\n\nwfg.output = True               # Enable output of waveform generator\nwfg.trigger()                   # Trigger a burst\nwfg.wait_for_trigger()          # Wait until the triggering is finished\nwfg.beep()                      # \"beep\"\n\nprint(wfg.check_errors())       # Get the error queue"
+     ],
+     "id": "agilent-Agilent33220A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent33220A.Agilent33220A",
+    "manufacturer": "Agilent",
+    "model": "33220A",
+    "name": "Agilent33220A",
+    "simulated": false,
+    "summary": "Represents the Agilent 33220A Arbitrary Waveform Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "generator = Agilent33500(\"GPIB::1\")\n\ngenerator.shape = 'SIN'                 # Sets default channel output signal shape to sine\ngenerator.channels[1].shape = 'SIN'           # Sets channel 1 output signal shape to sine\ngenerator.frequency = 1e3               # Sets default channel output frequency to 1 kHz\ngenerator.channels[1].frequency = 1e3         # Sets channel 1 output frequency to 1 kHz\ngenerator.channels[2].amplitude = 5           # Sets channel 2 output amplitude to 5 Vpp\ngenerator.channels[2].output = 'on'           # Enables channel 2 output\n\ngenerator.channels[1].shape = 'ARB'           # Set channel 1 shape to arbitrary\ngenerator.channels[1].arb_srate = 1e6         # Set channel 1 sample rate to 1MSa/s\n\ngenerator.channels[1].data_volatile_clear()   # Clear channel 1 volatile internal memory\ngenerator.channels[1].data_arb(               # Send data of arbitrary waveform to channel 1\n    'test',\n    range(-10000, 10000, +20),          # In this case a simple ramp\n    data_format='DAC'                   # Data format is set to 'DAC'\n )\ngenerator.channels[1].arb_file = 'test'       # Select the transmitted waveform 'test'"
+     ],
+     "id": "agilent-Agilent33500",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent33500.Agilent33500",
+    "manufacturer": "Agilent",
+    "model": "33500",
+    "name": "Agilent33500",
+    "simulated": false,
+    "summary": "Represents the Agilent 33500 Function/Arbitrary Waveform Generator family",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-Agilent33521A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent33521A.Agilent33521A",
+    "manufacturer": "Agilent",
+    "model": "33521A",
+    "name": "Agilent33521A",
+    "simulated": false,
+    "summary": "Represents the Agilent 33521A Function/Arbitrary Waveform Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP33120A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "max_amplitude",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp33120A.HP33120A",
+    "manufacturer": "HP",
+    "model": "33120A",
+    "name": "HP33120A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 33120A Arbitrary Waveform Generator and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP8116A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp8116a.HP8116A",
+    "manufacturer": "HP",
+    "model": "8116A",
+    "name": "HP8116A",
+    "simulated": false,
+    "summary": "Represents the Hewlett-Packard 8116A 50 MHz Pulse/Function Generator and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keysight-Keysight33250A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysight33250A.Keysight33250A",
+    "manufacturer": "Keysight",
+    "model": "33250A",
+    "name": "Keysight33250A",
+    "simulated": false,
+    "summary": "Represents the Keysight 33250A 80 MHz Function/Arbitrary Waveform Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "generator = Keysight81160A(\"GPIB::1\")        # Replace with your device address\ngenerator.reset()                            # Reset the generator to default settings\n\ngenerator.shape = \"SIN\"                      # Set default channel output shape to sine\ngenerator.channels[1].shape = \"SIN\"          # Set channel 1 output signal shape to sine\ngenerator.frequency = 1e3                    # Set default channel output frequency to 1 kHz\ngenerator.channels[1].frequency = 1e3        # Set channel 1 output frequency to 1 kHz\ngenerator.channels[2].amplitude = 5          # Set channel 2 output amplitude to 5 Vpp\ngenerator.channels[2].offset = 0.5           # Set channel 2 output offset to 0.5 V\ngenerator.channels[2].output = True          # Enable channel 2 output\n\n# Output a square wave at 1 kHz with 5 Vpp and 0.5 V offset\ngenerator.channels[2].apply_square(1e3, 5, 0)\n\nch1 = generator.channels[1]                  # Short form for channel 1\nwaveform = [-2.0, -1.5, 0.0, 1.5, 2.0]       # Define a user-defined waveform in Volts\nch1.waveform_volatile = waveform             # Set user-defined waveform to volatile memory\nprint(f\"{ch1.free_memory_slots} slots free\") # Get number of slots in non-volatile memory\nch1.save_waveform(waveform, \"test\")          # Save the waveform to non-volatile memory\nch1.shape = \"USER\"                           # Set channel 1 shape to user-defined\nch1.trigger_mode = \"MAN\"                     # Set trigger mode to manual\nch1.trigger_count = 2                        # Set number of cycles to be generated to 2\nch1.output = True                            # Enable channel 1 output\ngenerator.trigger()                          # Trigger the generator to output the waveform\nch1.delete_waveform(\"test\")                  # Delete the waveform from non-volatile memory"
+     ],
+     "id": "keysight-Keysight81160A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "ch_1.free_memory_slots",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysight81160A.Keysight81160A",
+    "manufacturer": "Keysight",
+    "model": "81160A",
+    "name": "Keysight81160A",
+    "simulated": false,
+    "summary": "Represent the Keysight 81160A and provide a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "rigol-DG800",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.rigol",
+     "read_example": "channel_1.waveform",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "pymeasure.instruments.rigol.rigol_dg800.DG800",
+    "manufacturer": "Rigol",
+    "model": "DG800",
+    "name": "DG800",
+    "simulated": false,
+    "summary": "Represents a Rigol DG800-series waveform generator and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "afg=AFG3152C(\"GPIB::1\")        # AFG on GPIB 1\nafg.reset()                    # Reset to default\nafg.ch1.shape='sinusoidal'     # Sinusoidal shape\nafg.ch1.unit='VPP'             # Sets CH1 unit to VPP\nafg.ch1.amp_vpp=1              # Sets the CH1 level to 1 VPP\nafg.ch1.frequency=1e3          # Sets the CH1 frequency to 1KHz\nafg.ch1.enable()               # Enables the output from CH1"
+     ],
+     "id": "tektronix-AFG3152C",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.tektronix",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "pymeasure.instruments.tektronix.afg3152c.AFG3152C",
+    "manufacturer": "Tektronix",
+    "model": "AFG3152C",
+    "name": "AFG3152C",
+    "simulated": false,
+    "summary": "Represents the Tektronix AFG 3000 series (one or two channels) arbitrary function generator and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "teledyne-TeledyneT3AFG",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.teledyne",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "teledyne"
+    },
+    "import_path": "pymeasure.instruments.teledyne.teledyneT3AFG.TeledyneT3AFG",
+    "manufacturer": "Teledyne",
+    "model": "T3AFG",
+    "name": "TeledyneT3AFG",
+    "simulated": false,
+    "summary": "Represents the Teledyne T3AFG series of arbitrary waveform generator interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.velleman import VellemanK8090, VellemanK8090Switches as Switches\n\ninstrument = VellemanK8090(\"ASRL1::INSTR\")\n\n# Get status update from device\nlast_on, curr_on, time_on = instrument.status\n\n# Toggle a selection of channels on\ninstrument.switch_on = Switches.CH3 | Switches.CH4 | Switches.CH5"
+     ],
+     "id": "velleman-VellemanK8090",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.velleman",
+     "read_example": "version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "velleman"
+    },
+    "import_path": "pymeasure.instruments.velleman.velleman_k8090.VellemanK8090",
+    "manufacturer": "Velleman",
+    "model": "K8090",
+    "name": "VellemanK8090",
+    "simulated": false,
+    "summary": "For usage with the K8090 relay board, by Velleman",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-Agilent34410A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "current_ac",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent34410A.Agilent34410A",
+    "manufacturer": "Agilent",
+    "model": "34410A",
+    "name": "Agilent34410A",
+    "simulated": false,
+    "summary": "Represent the HP/Agilent/Keysight 34410A and related multimeters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "dmm = Agilent34450A(\"USB0::...\")\ndmm.reset()\ndmm.configure_voltage()\nprint(dmm.voltage)\ndmm.shutdown()"
+     ],
+     "id": "agilent-Agilent34450A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "capacitance",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent34450A.Agilent34450A",
+    "manufacturer": "Agilent",
+    "model": "34450A",
+    "name": "Agilent34450A",
+    "simulated": false,
+    "summary": "Represent the HP/Agilent/Keysight 34450A and related multimeters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.agilent import Agilent4156\n\n# explicitly define r/w terminations; set sufficiently large timeout or None.\nsmu = Agilent4156(\"GPIB0::25\", read_termination = '\\n', write_termination = '\\n',\n                  timeout=None)\n\n# reset the instrument\nsmu.reset()\n\n# define configuration file for instrument and load config\nsmu.configure(\"configuration_file.json\")\n\n# save data variables, some or all of which are defined in the json config file.\nsmu.save(['VC', 'IC', 'VB', 'IB'])\n\n# take measurements\nstatus = smu.measure()\n\n# measured data is a pandas dataframe and can be exported to csv.\ndata = smu.get_data(path='./t1.csv')"
+     ],
+     "id": "agilent-Agilent4156",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent4156.Agilent4156",
+    "manufacturer": "Agilent",
+    "model": "4156",
+    "name": "Agilent4156",
+    "simulated": false,
+    "summary": "Represents the Agilent 4155/4156 Semiconductor Parameter Analyzer and provides a high-level interface for taking current-voltage (I-V) measurements",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "agilent = Agilent4284A(\"GPIB::1::INSTR\")\n\nagilent.reset()                         # Return instrument settings to default\n                                          values\nagilent.frequency = 10e3                # Set frequency to 10 kHz\nagilent.voltage = 0.02                  # Set AC voltage to 20 mV\nagilent.mode = 'ZTR'                    # Set impedance mode to measure\n                                          impedance magnitude [Ohm] and phase\n                                          [rad]\nagilent.sweep_measurement(\n    'frequency', [1e4, 1e3, 100]        # Perform frequency sweep measurement\n)                                       # at 10 kHz, 1 kHz, and 100 Hz\nagilent.enable_high_power()             # Enable upper current, voltage, and\n                                          bias limits, if properly configured.\n\nagilent.correction.open_enabled = True     # Enable the OPEN correction\nagilent.correction.spot1.enabled = True    # Enable the correction for SPOT1\nagilent.correction.spot1.frequency = 10e3  # Set SPOT1 frequency to 10 kHz\nagilent.correction.spot1.measure_open()    # Measure the OPEN structure for SPOT1"
+     ],
+     "id": "agilent-Agilent4284A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent4284A.Agilent4284A",
+    "manufacturer": "Agilent",
+    "model": "4284A",
+    "name": "Agilent4284A",
+    "simulated": false,
+    "summary": "Represents the Agilent 4284A precision LCR meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-Agilent4294A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent4294A.Agilent4294A",
+    "manufacturer": "Agilent",
+    "model": "4294A",
+    "name": "Agilent4294A",
+    "simulated": false,
+    "summary": "Represents the Agilent 4294A Precision Impedance Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentB1500",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentB1500.AgilentB1500",
+    "manufacturer": "Agilent",
+    "model": "B1500",
+    "name": "AgilentB1500",
+    "simulated": false,
+    "summary": "Represent the Agilent B1500 Semiconductor Parameter Analyzer and provide a high-level interface for taking different kinds of measurements",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentB2981",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentB298x.AgilentB2981",
+    "manufacturer": "Agilent",
+    "model": "B2981",
+    "name": "AgilentB2981",
+    "simulated": false,
+    "summary": "A class representing the Agilent/Keysight B2981A/B",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentB2983",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "battery_cycles",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentB298x.AgilentB2983",
+    "manufacturer": "Agilent",
+    "model": "B2983",
+    "name": "AgilentB2983",
+    "simulated": false,
+    "summary": "A class representing the Agilent/Keysight B2983A/B",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentB2985",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "charge",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentB298x.AgilentB2985",
+    "manufacturer": "Agilent",
+    "model": "B2985",
+    "name": "AgilentB2985",
+    "simulated": false,
+    "summary": "A class representing the Agilent/Keysight B2985A/B",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentB2987",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "battery_cycles",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentB298x.AgilentB2987",
+    "manufacturer": "Agilent",
+    "model": "B2987",
+    "name": "AgilentB2987",
+    "simulated": false,
+    "summary": "A class representing the Agilent/Keysight B2987A/B",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentE4980",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "impedance",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentE4980.AgilentE4980",
+    "manufacturer": "Agilent",
+    "model": "E4980",
+    "name": "AgilentE4980",
+    "simulated": false,
+    "summary": "Represents LCR meter E4980A/AL",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentE5270B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentE5270B.AgilentE5270B",
+    "manufacturer": "Agilent",
+    "model": "E5270B",
+    "name": "AgilentE5270B",
+    "simulated": false,
+    "summary": "A class representing the Agilent E5270B 8 slot SMU mainframe",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "andeenhagerling-AH2500A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.andeenhagerling",
+     "read_example": "caplossvolt",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "andeenhagerling"
+    },
+    "import_path": "pymeasure.instruments.andeenhagerling.ah2500a.AH2500A",
+    "manufacturer": "Andeen-Hagerling",
+    "model": "AH2500A",
+    "name": "AH2500A",
+    "simulated": false,
+    "summary": "Andeen Hagerling 2500A Precision Capacitance Bridge implementation",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "andeenhagerling-AH2700A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.andeenhagerling",
+     "read_example": "caplossvolt",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "andeenhagerling"
+    },
+    "import_path": "pymeasure.instruments.andeenhagerling.ah2700a.AH2700A",
+    "manufacturer": "Andeen-Hagerling",
+    "model": "AH2700A",
+    "name": "AH2700A",
+    "simulated": false,
+    "summary": "Andeen Hagerling 2700A Precision Capacitance Bridge implementation",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "meter = FWBell5080('/dev/ttyUSB0')  # Connects over serial port /dev/ttyUSB0 (Linux)\n\nmeter.units = 'gauss'               # Sets the measurement units to Gauss\nmeter.range = 1                     # Sets the range to 3 kG\nprint(meter.field)                  # Reads and prints a field measurement in G\n\nfields = meter.fields(100)          # Samples 100 field measurements\nprint(fields.mean(), fields.std())  # Prints the mean and standard deviation of the samples"
+     ],
+     "id": "fwbell-FWBell5080",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.fwbell",
+     "read_example": "field",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "fwbell"
+    },
+    "import_path": "pymeasure.instruments.fwbell.fwbell5080.FWBell5080",
+    "manufacturer": "F.W. Bell",
+    "model": "5080",
+    "name": "FWBell5080",
+    "simulated": false,
+    "summary": "Represents the F.W. Bell 5080 Handheld Gaussmeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP3437A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp3437A.HP3437A",
+    "manufacturer": "HP",
+    "model": "3437A",
+    "name": "HP3437A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 3737A system voltmeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "dmm = HP34401A(\"GPIB::1\")\ndmm.function_ = \"DCV\"\nprint(dmm.reading)  # -> Single float reading\n\ndmm.nplc = 0.02\ndmm.autozero_enabled = False\ndmm.trigger_count = 100\ndmm.trigger_delay = \"MIN\"\nprint(dmm.reading)  # -> Array of 100 very fast readings"
+     ],
+     "id": "hp-HP34401A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "current_ac",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp34401A.HP34401A",
+    "manufacturer": "HP",
+    "model": "34401A",
+    "name": "HP34401A",
+    "simulated": false,
+    "summary": "Represents the HP / Agilent / Keysight 34401A Multimeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP3478A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "error_status",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp3478A.HP3478A",
+    "manufacturer": "HP",
+    "model": "3478A",
+    "name": "HP3478A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 3478A 5 1/2 digit multimeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "meter = Keithley2000(\"GPIB::1\")\nmeter.measure_voltage()\nprint(meter.voltage)"
+     ],
+     "id": "keithley-Keithley2000",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2000.Keithley2000",
+    "manufacturer": "Keithley",
+    "model": "2000",
+    "name": "Keithley2000",
+    "simulated": false,
+    "summary": "Represents the Keithley 2000 Multimeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley2182(\"GPIB::1\")\n\nkeithley.reset()                        # Return instrument settings to default\n                                          values\nkeithley.thermocouple = 'S'             # Sets thermocouple type to S\nkeithley.active_channel = 1             # Sets channel 1 for active measurement\nkeithley.channel_function = 'voltage'   # Configures active channel for voltage\n                                          measurement\nprint(keithley.voltage)                 # Prints the voltage in volts\n\nkeithley.ch_1.setup_voltage()           # Set channel 1 active and prepare\n                                          voltage measurement\nkeithley.ch_2.setup_temperature()       # Set channel 2 active and prepare\n                                          temperature measurement"
+     ],
+     "id": "keithley-Keithley2182",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "internal_temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2182.Keithley2182",
+    "manufacturer": "Keithley",
+    "model": "2182",
+    "name": "Keithley2182",
+    "simulated": false,
+    "summary": "Represents the Keithley 2182 Nanovoltmeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "smu = Keithley2400(\"GPIB::1\")\nsmu.reset()                        # Resets the instrument\n\nsmu.source_mode = \"current\"        # Sets up to source current\nsmu.source_enabled = True          # Enables the source output\n\nsmu.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(smu.voltage)                 # Prints the voltage in Volts\n\nsmu.reset()                        # Resets the instrument"
+     ],
+     "id": "keithley-Keithley2400",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2400.Keithley2400",
+    "manufacturer": "Keithley",
+    "model": "2400",
+    "name": "Keithley2400",
+    "simulated": false,
+    "summary": "Represent the Keithley 2400 SourceMeter and provide a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley2400(\"GPIB::1\")\n\nkeithley.apply_current()                # Sets up to source current\nkeithley.source_current_range = 10e-3   # Sets the source current range to 10 mA\nkeithley.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nkeithley.source_current = 0             # Sets the source current to 0 mA\nkeithley.enable_source()                # Enables the source output\n\nkeithley.measure_voltage()              # Sets up to measure voltage\n\nkeithley.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(keithley.voltage)                 # Prints the voltage in Volts\n\nkeithley.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
+     "id": "keithley-Keithley2400Legacy",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2400_legacy.Keithley2400Legacy",
+    "manufacturer": "Keithley",
+    "model": "2400Legacy",
+    "name": "Keithley2400Legacy",
+    "simulated": false,
+    "summary": "Represent the Keithley 2400 SourceMeter and provide a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley2450(\"GPIB::1\")\n\nkeithley.apply_current()                # Sets up to source current\nkeithley.source_current_range = 10e-3   # Sets the source current range to 10 mA\nkeithley.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nkeithley.source_current = 0             # Sets the source current to 0 mA\nkeithley.enable_source()                # Enables the source output\n\nkeithley.measure_voltage()              # Sets up to measure voltage\n\nkeithley.ramp_to_current(5e-3)          # Ramps the current to 5 mA\nprint(keithley.voltage)                 # Prints the voltage in Volts\n\nkeithley.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
+     "id": "keithley-Keithley2450",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2450.Keithley2450",
+    "manufacturer": "Keithley",
+    "model": "2450",
+    "name": "Keithley2450",
+    "simulated": false,
+    "summary": "Represents the Keithley 2450 SourceMeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2510",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2510.Keithley2510",
+    "manufacturer": "Keithley",
+    "model": "2510",
+    "name": "Keithley2510",
+    "simulated": false,
+    "summary": "Represents the Keithley 2510 TEC Sourcemeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2600",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2600.Keithley2600",
+    "manufacturer": "Keithley",
+    "model": "2600",
+    "name": "Keithley2600",
+    "simulated": false,
+    "summary": "Represents the Keithley 2600 series (channel A and B) SourceMeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley2700(\"GPIB::1\")"
+     ],
+     "id": "keithley-Keithley2700",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2700.Keithley2700",
+    "manufacturer": "Keithley",
+    "model": "2700",
+    "name": "Keithley2700",
+    "simulated": false,
+    "summary": "Represents the Keithley 2700 Multimeter/Switch System and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2750",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "closed_channels",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2750.Keithley2750",
+    "manufacturer": "Keithley",
+    "model": "2750",
+    "name": "Keithley2750",
+    "simulated": false,
+    "summary": "Represents the Keithley2750 multimeter/switch system and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley4200",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley4200.Keithley4200",
+    "manufacturer": "Keithley",
+    "model": "4200",
+    "name": "Keithley4200",
+    "simulated": false,
+    "summary": "A class representing the Keithley 4200A-SCS Parameter Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley6517B(\"GPIB::1\")\n\nkeithley.apply_voltage()              # Sets up to source current\nkeithley.source_voltage_range = 200   # Sets the source voltage\n                                      # range to 200 V\nkeithley.source_voltage = 20          # Sets the source voltage to 20 V\nkeithley.enable_source()              # Enables the source output\n\nkeithley.measure_resistance()         # Sets up to measure resistance\n\nkeithley.ramp_to_voltage(50)          # Ramps the voltage to 50 V\nprint(keithley.resistance)            # Prints the resistance in Ohms\n\nkeithley.shutdown()                   # Ramps the voltage to 0 V\n                                      # and disables output"
+     ],
+     "id": "keithley-Keithley6517B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley6517b.Keithley6517B",
+    "manufacturer": "Keithley",
+    "model": "6517B",
+    "name": "Keithley6517B",
+    "simulated": false,
+    "summary": "Represents the Keithley 6517B ElectroMeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = KeithleyDAQ6510(\"GPIB::1\")\nkeithley = KeithleyDAQ6510(\"TCPIP::192.168.1.1::INSTR\")\n\nprint(keithley.current)                 # Prints the current in Amps\nkeithley.current_range = 10E-6          # Select the 10 uA range\n\nprint(keithley.voltage)                 # Prints the voltage in Volts\nkeithley.voltage_range = 100e-3         # Select the 100 mV range\n\nprint(keithley.resistance)              # Prints the resistance in Ohms\nkeithley.offset_compensated = \"ON\"      # Turns offset-compensated ohms on\n\nkeithley.open_channels([134, 135])      # Open channels 134 and 135 on the MUX card\nkeithley.close_channel(133)             # Close channel 133 on the MUX card"
+     ],
+     "id": "keithley-KeithleyDAQ6510",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithleyDAQ6510.KeithleyDAQ6510",
+    "manufacturer": "Keithley",
+    "model": "DAQ6510",
+    "name": "KeithleyDAQ6510",
+    "simulated": false,
+    "summary": "Represents the Keithley DAQ6510 Data Acquisition Logging Multimeter System and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "# Access via LAN\nip_address = \"xxx.xxx.xxx.xxx\"\ndmm = KeithleyDMM6500(f\"TCPIP::{ip_address}::inst0::INSTR\")",
+      "import pyvisa\nrm = pyvisa.ResourceManager()\nresources = rm.list_resources()\n\n# assume there is only one USB instruments\n# Ex. ('USB0::1510::25856::01234567::0::INSTR')\n\ndmm = KeithleyDMM6500( resources[0] )\n\n# Measure voltage\ndmm.measure_voltage()\nprint(dmm.voltage)\n\n# Measure AC voltage\ndmm.measure_voltage(ac=True)\nprint(dmm.voltage)"
+     ],
+     "id": "keithley-KeithleyDMM6500",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "capacitance",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithleyDMM6500.KeithleyDMM6500",
+    "manufacturer": "Keithley",
+    "model": "DMM6500",
+    "name": "KeithleyDMM6500",
+    "simulated": false,
+    "summary": "Represent the Keithely DMM6500 6½-Digit Multimeter and provide a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "gaussmeter = LakeShore421(\"COM1\")\ngaussmeter.unit = \"T\"               # Set units to Tesla\ngaussmeter.auto_range = True        # Turn on auto-range\ngaussmeter.fast_mode = True         # Turn on fast-mode"
+     ],
+     "id": "lakeshore-LakeShore421",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "alarm_active",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore421.LakeShore421",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "421",
+    "name": "LakeShore421",
+    "simulated": false,
+    "summary": "Represents the Lake Shore 421 Gaussmeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "lakeshore-LakeShore425",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "field",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore425.LakeShore425",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "425",
+    "name": "LakeShore425",
+    "simulated": false,
+    "summary": "Represents the LakeShore 425 Gaussmeter and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "ptw-ptwDIAMENTOR",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ptw",
+     "read_example": "constancy_check_passed",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ptw"
+    },
+    "import_path": "pymeasure.instruments.ptw.ptwDIAMENTOR.ptwDIAMENTOR",
+    "manufacturer": "PTW",
+    "model": "DIAMENTOR",
+    "name": "ptwDIAMENTOR",
+    "simulated": false,
+    "summary": "A class representing the PTW DIAMENTOR DAP dosemeters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "ptw-ptwUNIDOS",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ptw",
+     "read_example": "lan_config",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ptw"
+    },
+    "import_path": "pymeasure.instruments.ptw.ptwUNIDOS.ptwUNIDOS",
+    "manufacturer": "PTW",
+    "model": "UNIDOS",
+    "name": "ptwUNIDOS",
+    "simulated": false,
+    "summary": "A class representing the PTW UNIDOS Tango/Romeo dosemeters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.racal import Racal1992\ncounter = Racal1992(\"GPIB0::10\")"
+     ],
+     "id": "racal-Racal1992",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.racal",
+     "read_example": "device_type",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "racal"
+    },
+    "import_path": "pymeasure.instruments.racal.racal1992.Racal1992",
+    "manufacturer": "Racal",
+    "model": "1992",
+    "name": "Racal1992",
+    "simulated": false,
+    "summary": "Represents the Racal-Dana 1992 Universal counter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thorlabs-ThorlabsPM100USB",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thorlabs",
+     "read_example": "wavelength_max",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thorlabs"
+    },
+    "import_path": "pymeasure.instruments.thorlabs.thorlabspm100usb.ThorlabsPM100USB",
+    "manufacturer": "Thorlabs",
+    "model": "PM100USB",
+    "name": "ThorlabsPM100USB",
+    "simulated": false,
+    "summary": "Represents Thorlabs PM100USB powermeter",
+    "tier": ""
+   },
+   {
+    "category": "eload",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "aimtti-LD400P",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.ld400p.LD400P",
+    "manufacturer": "Aim-TTi",
+    "model": "LD400P",
+    "name": "LD400P",
+    "simulated": false,
+    "summary": "Interface for the LD400P electronic DC load from Aim-TTi",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "aculight-Argos",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aculight",
+     "read_example": "temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aculight"
+    },
+    "import_path": "pymeasure.instruments.aculight.argos.Argos",
+    "manufacturer": "Aculight",
+    "model": "Argos",
+    "name": "Argos",
+    "simulated": false,
+    "summary": "Communication model for the Aculight Argos 2400 OPO system",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "ilxlightwave-LDP3811",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ilxlightwave",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ilxlightwave"
+    },
+    "import_path": "pymeasure.instruments.ilxlightwave.ldp3811.LDP3811",
+    "manufacturer": "ILX Lightwave",
+    "model": "LDP3811",
+    "name": "LDP3811",
+    "simulated": false,
+    "summary": "Represents the ILX Lightwave LDP3811 Pulsed Laser Diode Driver and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "ipgphotonics-YAR",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ipgphotonics",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ipgphotonics"
+    },
+    "import_path": "pymeasure.instruments.ipgphotonics.yar.YAR",
+    "manufacturer": "IPG Photonics",
+    "model": "YAR",
+    "name": "YAR",
+    "simulated": false,
+    "summary": "Communication with the YAR fiber amplifier series by IPG Photonics",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "laser = N7776C(address)\nlaser.sweep_wl_start = 1550\nlaser.sweep_wl_stop = 1560\nlaser.sweep_speed = 1\nlaser.sweep_mode = 'CONT'\nlaser.output_enabled = 1\nwhile laser.sweep_state == 1:\n    log.info('Sweep in progress.')\nlaser.output_enabled = 0"
+     ],
+     "id": "keysight-KeysightN7776C",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "sweep_points",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightN7776C.KeysightN7776C",
+    "manufacturer": "Keysight",
+    "model": "N7776C",
+    "name": "KeysightN7776C",
+    "simulated": false,
+    "summary": "This represents the Keysight N7776C Tunable Laser Source interface",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "santec-TSL500Series",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.santec",
+     "read_example": "power",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "santec"
+    },
+    "import_path": "pymeasure.instruments.santec.tsl500series.TSL500Series",
+    "manufacturer": "Santec",
+    "model": "TSL500Series",
+    "name": "TSL500Series",
+    "simulated": false,
+    "summary": "Represents a Santec TSL-500 Series Tunable Laser and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "santec-TSL550",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.santec",
+     "read_example": "power",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "santec"
+    },
+    "import_path": "pymeasure.instruments.santec.tsl550.TSL550",
+    "manufacturer": "Santec",
+    "model": "TSL550",
+    "name": "TSL550",
+    "simulated": false,
+    "summary": "Represents the Santec TSL-550 Tunable Laser and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "santec-TSL570",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.santec",
+     "read_example": "frequency_max",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "santec"
+    },
+    "import_path": "pymeasure.instruments.santec.tsl570.TSL570",
+    "manufacturer": "Santec",
+    "model": "TSL570",
+    "name": "TSL570",
+    "simulated": false,
+    "summary": "Represents the Santec TSL-570 Tunable Laser and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-LDC500Series",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": "last_command_error",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.ldc500series.LDC500Series",
+    "manufacturer": "Stanford Research Systems",
+    "model": "LDC500Series",
+    "name": "LDC500Series",
+    "simulated": false,
+    "summary": "Represents an SRS LDC500Series laser diode controller and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thorlabs-ThorlabsMBXSeries",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thorlabs",
+     "read_example": "mzm.is_calibrating",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thorlabs"
+    },
+    "import_path": "pymeasure.instruments.thorlabs.thorlabsmbxseries.ThorlabsMBXSeries",
+    "manufacturer": "Thorlabs",
+    "model": "MBXSeries",
+    "name": "ThorlabsMBXSeries",
+    "simulated": false,
+    "summary": "Represents Thorlabs MBX Series Modulator Bias Controllers",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thorlabs-ThorlabsPro8000",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thorlabs",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thorlabs"
+    },
+    "import_path": "pymeasure.instruments.thorlabs.thorlabspro8000.ThorlabsPro8000",
+    "manufacturer": "Thorlabs",
+    "model": "Pro8000",
+    "name": "ThorlabsPro8000",
+    "simulated": false,
+    "summary": "Represents Thorlabs Pro 8000 modular laser driver",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "laser = IBeamSmart(\"SomeResourceString\")\nlaser.emission = True\nlaser.ch_2.power = 1000  # µW\nlaser.ch_2.enabled = True\nlaser.shutdown()"
+     ],
+     "id": "toptica-IBeamSmart",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.toptica",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "toptica"
+    },
+    "import_path": "pymeasure.instruments.toptica.ibeamsmart.IBeamSmart",
+    "manufacturer": "Toptica",
+    "model": "IBeamSmart",
+    "name": "IBeamSmart",
+    "simulated": false,
+    "summary": "IBeam Smart laser diode",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "ametek-Ametek7270",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ametek",
+     "read_example": "adc1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ametek"
+    },
+    "import_path": "pymeasure.instruments.ametek.ametek7270.Ametek7270",
+    "manufacturer": "Ametek",
+    "model": "7270",
+    "name": "Ametek7270",
+    "simulated": false,
+    "summary": "This is the class for the Ametek DSP 7270 lockin amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "lockin7225 = DSP7225(\"GPIB0::12::INSTR\")\nlockin7225.imode = \"voltage mode\"       # Set to measure voltages\nlockin7225.reference = \"internal\"       # Use internal oscillator\nlockin7225.fet = 1                      # Use FET pre-amp\nlockin7225.shield = 0                   # Ground shields\nlockin7225.coupling = 0                 # AC input coupling\nlockin7225.time_constant = 0.10         # Filter time set to 100 ms\nlockin7225.sensitivity = 2E-3           # Sensitivity set to 2 mV\nlockin7225.frequency = 100              # Set oscillator frequency to 100 Hz\nlockin7225.voltage = 1                  # Set oscillator amplitude to 1 V\nlockin7225.gain = 20                    # Set AC gain to 20 dB\nprint(lockin7225.x)                     # Measure X channel voltage\nlockin7225.shutdown()                    # Instrument shutdown"
+     ],
+     "id": "signalrecovery-DSP7225",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.signalrecovery",
+     "read_example": "adc1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "signalrecovery"
+    },
+    "import_path": "pymeasure.instruments.signalrecovery.dsp7225.DSP7225",
+    "manufacturer": "Signal Recovery",
+    "model": "DSP7225",
+    "name": "DSP7225",
+    "simulated": false,
+    "summary": "Represents the Signal Recovery DSP 7225 lock-in amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "lockin7265 = DSP7265(\"GPIB0::12::INSTR\")\nlockin7265.imode = \"voltage mode\"       # Set to measure voltages\nlockin7265.reference = \"internal\"       # Use internal oscillator\nlockin7265.fet = 1                      # Use FET pre-amp\nlockin7265.shield = 0                   # Ground shields\nlockin7265.coupling = 0                 # AC input coupling\nlockin7265.time_constant = 0.10         # Filter time set to 100 ms\nlockin7265.sensitivity = 2E-3           # Sensitivity set to 2 mV\nlockin7265.frequency = 100              # Set oscillator frequency to 100 Hz\nlockin7265.voltage = 1                  # Set oscillator amplitude to 1 V\nlockin7265.gain = 20                    # Set AC gain to 20 dB\nprint(lockin7265.x)                     # Measure X channel voltage\nlockin7265.shutdown()                   # Instrument shutdown"
+     ],
+     "id": "signalrecovery-DSP7265",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.signalrecovery",
+     "read_example": "adc1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "signalrecovery"
+    },
+    "import_path": "pymeasure.instruments.signalrecovery.dsp7265.DSP7265",
+    "manufacturer": "Signal Recovery",
+    "model": "DSP7265",
+    "name": "DSP7265",
+    "simulated": false,
+    "summary": "Represents the Signal Recovery DSP 7265 lock-in amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-SR510",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": "frequency",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.sr510.SR510",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR510",
+    "name": "SR510",
+    "simulated": false,
+    "summary": "The base class for all Instrument definitions",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-SR570",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.sr570.SR570",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR570",
+    "name": "SR570",
+    "simulated": false,
+    "summary": "Mixin which adds SCPI commands to an instrument from which it is not known whether it supports SCPI commands or not",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-SR830",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": "adc1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.sr830.SR830",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR830",
+    "name": "SR830",
+    "simulated": false,
+    "summary": "The base class for all Instrument definitions",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-SR860",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": "adc1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.sr860.SR860",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR860",
+    "name": "SR860",
+    "simulated": false,
+    "summary": "The base class for all Instrument definitions",
+    "tier": ""
+   },
+   {
+    "category": "motion",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anaheimautomation-DPSeriesMotorController",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anaheimautomation",
+     "read_example": "busy",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anaheimautomation"
+    },
+    "import_path": "pymeasure.instruments.anaheimautomation.dpseriesmotorcontroller.DPSeriesMotorController",
+    "manufacturer": "Anaheimautomation",
+    "model": "DPSeriesMotorController",
+    "name": "DPSeriesMotorController",
+    "simulated": false,
+    "summary": "Base class to interface with Anaheim Automation DP series stepper motor controllers",
+    "tier": ""
+   },
+   {
+    "category": "motion",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "attocube-ANC300Controller",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.attocube",
+     "read_example": "controllerBoardVersion",
+     "required_params": [],
+     "vendor_package": "attocube"
+    },
+    "import_path": "pymeasure.instruments.attocube.anc300.ANC300Controller",
+    "manufacturer": "attocube",
+    "model": "ANC300Controller",
+    "name": "ANC300Controller",
+    "simulated": false,
+    "summary": "Attocube ANC300 Piezo stage controller with several axes",
+    "tier": ""
+   },
+   {
+    "category": "motion",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "heidenhain-ND287",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.heidenhain",
+     "read_example": "position",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "heidenhain"
+    },
+    "import_path": "pymeasure.instruments.heidenhain.nd287.ND287",
+    "manufacturer": "Heidenhain",
+    "model": "ND287",
+    "name": "ND287",
+    "simulated": false,
+    "summary": "Represents the Heidenhain ND287 position display unit used to readout and display absolute position measured by Heidenhain encoders",
+    "tier": ""
+   },
+   {
+    "category": "motion",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "newport-ESP300",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.newport",
+     "read_example": "error",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "newport"
+    },
+    "import_path": "pymeasure.instruments.newport.esp300.ESP300",
+    "manufacturer": "Newport",
+    "model": "ESP300",
+    "name": "ESP300",
+    "simulated": false,
+    "summary": "Represents the Newport ESP 300 Motion Controller and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "motion",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "parker-ParkerGV6",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.parker",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "parker"
+    },
+    "import_path": "pymeasure.instruments.parker.parkerGV6.ParkerGV6",
+    "manufacturer": "Parker",
+    "model": "GV6",
+    "name": "ParkerGV6",
+    "simulated": false,
+    "summary": "Represents the Parker Gemini GV6 Servo Motor Controller and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "nfa = AgilentN8975A(\"GPIB0::16::INSTR\")\nnfa.adapter.connection.timeout = 30000  # set a new timeout to 30 sec\nnfa.abort()  # abort all running measurements\nnfa.single()  # perform a single sweep measurement\nnfa.complete\nnoise_figure = nfa.noise_figure_db  # get the noise figure data\ngain = nfa.gain_db  # get the gain data"
+     ],
+     "id": "agilent-AgilentN8975A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "frequency.number_of_entries",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentN8975A.AgilentN8975A",
+    "manufacturer": "Agilent",
+    "model": "N8975A",
+    "name": "AgilentN8975A",
+    "simulated": false,
+    "summary": "A class representing the Agilent N8975A Noise Figure Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.formfactor.velox import Velox\n\nprober = Velox(\"GPIB0::28::INSTR\")  # replace the resource to your needs\ncoordinates = prober.wafermap.step_first_die()  # move to the first die in the wafermap\nwhile not self.wafermap.end_reached:\n    prober.chuck.move_contact()  # move to contact height\n    # ...\n    # code for measurement, processing and storing data\n    # ...\n    prober.chuck.move_separation()  # move to separation height\n    coordinates = prober.wafermap.step_next_die()  # move to the next die in the wafermap"
+     ],
+     "id": "formfactor-Velox",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.formfactor",
+     "read_example": "version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "formfactor"
+    },
+    "import_path": "pymeasure.instruments.formfactor.velox.Velox",
+    "manufacturer": "FormFactor",
+    "model": "Velox",
+    "name": "Velox",
+    "simulated": false,
+    "summary": "A class representing the FormFactor Velox wafer prober",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "philips-PM6669",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.philips",
+     "read_example": "measurement_settings",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "philips"
+    },
+    "import_path": "pymeasure.instruments.philips.PM6669.PM6669",
+    "manufacturer": "Philips",
+    "model": "PM6669",
+    "name": "PM6669",
+    "simulated": false,
+    "summary": "Represents the Philips PM 6669 instrument",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "scontrol = razorbillRP100(\"ASRL/dev/ttyACM0::INSTR\")\n\nscontrol.output_1 = True      # turns output on\nscontrol.slew_rate_1 = 1      # sets slew rate to 1V/s\nscontrol.voltage_1 = 10       # sets voltage on output 1 to 10V"
+     ],
+     "id": "razorbill-razorbillRP100",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.razorbill",
+     "read_example": "contact_current_1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "razorbill"
+    },
+    "import_path": "pymeasure.instruments.razorbill.razorbillRP100.razorbillRP100",
+    "manufacturer": "Razorbill",
+    "model": "RP100",
+    "name": "razorbillRP100",
+    "simulated": false,
+    "summary": "Represents Razorbill RP100 strain cell controller",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "redpitaya-RedPitayaScpi",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.redpitaya",
+     "read_example": "acq_buffer_filled",
+     "required_params": [],
+     "vendor_package": "redpitaya"
+    },
+    "import_path": "pymeasure.instruments.redpitaya.redpitaya_scpi.RedPitayaScpi",
+    "manufacturer": "Red Pitaya",
+    "model": "Scpi",
+    "name": "RedPitayaScpi",
+    "simulated": false,
+    "summary": "This is the class for the Redpitaya reconfigurable board",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "tcpowerconversion-CXN",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.tcpowerconversion",
+     "read_example": "dc_voltage",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "tcpowerconversion"
+    },
+    "import_path": "pymeasure.instruments.tcpowerconversion.tccxn.CXN",
+    "manufacturer": "TC Power Conversion",
+    "model": "CXN",
+    "name": "CXN",
+    "simulated": false,
+    "summary": "T&C Power Conversion AG Series Plasma Generator CXN (also rebranded by AJA International Inc as 0113 GTC or 0313 GTC)",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "temptronic-ATSBase",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.temptronic",
+     "read_example": "air_temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "temptronic"
+    },
+    "import_path": "pymeasure.instruments.temptronic.temptronic_base.ATSBase",
+    "manufacturer": "Temptronic",
+    "model": "ATSBase",
+    "name": "ATSBase",
+    "simulated": false,
+    "summary": "The base class for Temptronic ATSXXX instruments",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "edwards-Nxds",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.edwards",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "edwards"
+    },
+    "import_path": "pymeasure.instruments.edwards.nxds.Nxds",
+    "manufacturer": "Edwards",
+    "model": "Nxds",
+    "name": "Nxds",
+    "simulated": false,
+    "summary": "Represents the Edwards nXDS (10i) Vacuum Pump and provides a low-level interaction with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "inficon-SQM160",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.inficon",
+     "read_example": "all_values",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "inficon"
+    },
+    "import_path": "pymeasure.instruments.inficon.sqm160.SQM160",
+    "manufacturer": "INFICON",
+    "model": "SQM160",
+    "name": "SQM160",
+    "simulated": false,
+    "summary": "Inficon SQM-160 multi-film rate/thickness monitor",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "mksinst-MKS937B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.mksinst",
+     "read_example": "all_pressures",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "mksinst"
+    },
+    "import_path": "pymeasure.instruments.mksinst.mks937b.MKS937B",
+    "manufacturer": "MKS Instruments",
+    "model": "MKS937B",
+    "name": "MKS937B",
+    "simulated": false,
+    "summary": "MKS 937B vacuum gauge controller",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "mksinst-MKS974B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.mksinst",
+     "read_example": "coldcathode_pressure",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "mksinst"
+    },
+    "import_path": "pymeasure.instruments.mksinst.mks974b.MKS974B",
+    "manufacturer": "MKS Instruments",
+    "model": "MKS974B",
+    "name": "MKS974B",
+    "simulated": false,
+    "summary": "MKS 974B vacuum pressure transducer",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "rod4 = ROD4(\"ASRL1::INSTR\")\n\nprint(rod4.version)             # Print version and series number\nrod4.ch_1.mfc_range = 500       # Sets Channel 1 MFC range to 500 sccm\nrod4.ch_2.valve_mode = 'flow'   # Sets Channel 2 MFC to flow control\nrod4.ch_3.setpoint = 50         # Sets Channel 3 MFC to flow at 50% of full range\nprint(rod4.ch_4.actual_flow)    # Prints Channel 4 actual MFC flow in %"
+     ],
+     "id": "proterial-ROD4",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.proterial",
+     "read_example": "version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "proterial"
+    },
+    "import_path": "pymeasure.instruments.proterial.rod4.ROD4",
+    "manufacturer": "Proterial",
+    "model": "ROD4",
+    "name": "ROD4",
+    "simulated": false,
+    "summary": "Represents the Proterial ROD-4(A) operator for mass flow controllers and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-SmartlineV1",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "device_type",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v1.SmartlineV1",
+    "manufacturer": "Thyracont",
+    "model": "SmartlineV1",
+    "name": "SmartlineV1",
+    "simulated": false,
+    "summary": "Thyracont Vacuum Instruments Smartline gauges with Communication Protocol V1",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-SmartlineV2",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "analog_output_setting",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v2.SmartlineV2",
+    "manufacturer": "Thyracont",
+    "model": "SmartlineV2",
+    "name": "SmartlineV2",
+    "simulated": false,
+    "summary": "A Thyracont vacuum sensor transmitter of the Smartline V2 series",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-VSH",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "analog_output_setting",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v2.VSH",
+    "manufacturer": "Thyracont",
+    "model": "VSH",
+    "name": "VSH",
+    "simulated": false,
+    "summary": "Vacuum transmitter of VSH series with both a pirani and a hot cathode sensor",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-VSM",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "analog_output_setting",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v2.VSM",
+    "manufacturer": "Thyracont",
+    "model": "VSM",
+    "name": "VSM",
+    "simulated": false,
+    "summary": "Vacuum transmitter of VSM series with both piece and cold cathode sensor",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-VSP",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "analog_output_setting",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v2.VSP",
+    "manufacturer": "Thyracont",
+    "model": "VSP",
+    "name": "VSP",
+    "simulated": false,
+    "summary": "Vacuum transmitter of VSP/VCP series with a piezo sensor",
+    "tier": ""
+   },
+   {
+    "category": "pressure",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thyracont-VSR",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thyracont",
+     "read_example": "analog_output_setting",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thyracont"
+    },
+    "import_path": "pymeasure.instruments.thyracont.smartline_v2.VSR",
+    "manufacturer": "Thyracont",
+    "model": "VSR",
+    "name": "VSR",
+    "simulated": false,
+    "summary": "Vacuum transmitter of VSR/VCR series with both a piezo and a pirani sensor",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "advantest-AdvantestR6245",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.advantest",
+     "read_example": "device_operation_register",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "advantest"
+    },
+    "import_path": "pymeasure.instruments.advantest.advantestR624X.AdvantestR6245",
+    "manufacturer": "Advantest",
+    "model": "R6245",
+    "name": "AdvantestR6245",
+    "simulated": false,
+    "summary": "Represent the Advantest R6245 DC Voltage/Current Source/Monitor",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "advantest-AdvantestR6246",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.advantest",
+     "read_example": "device_operation_register",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "advantest"
+    },
+    "import_path": "pymeasure.instruments.advantest.advantestR624X.AdvantestR6246",
+    "manufacturer": "Advantest",
+    "model": "R6246",
+    "name": "AdvantestR6246",
+    "simulated": false,
+    "summary": "Represent the Advantest R6246 DC Voltage/Current Source/Monitor",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL068P",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL068P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL068P",
+    "name": "PL068P",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL155P",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL155P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL155P",
+    "name": "PL155P",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL303P",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL303P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303P",
+    "name": "PL303P",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL303QMDP",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL303QMDP",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303QMDP",
+    "name": "PL303QMDP",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL303QMTP",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL303QMTP",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303QMTP",
+    "name": "PL303QMTP",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = PL303QMDP(\"ASRL7::INSTR\")\npsu.reset()\npsu.ch_2.voltage = 1.2\npsu.ch_2.output_enabled = True\n...\npsu.ch_2.output_enabled = False\npsu.local()"
+     ],
+     "id": "aimtti-PL601P",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aimtti",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aimtti"
+    },
+    "import_path": "pymeasure.instruments.aimtti.aimttiPL.PL601P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL601P",
+    "name": "PL601P",
+    "simulated": false,
+    "summary": "Control AimTTI PL series power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "aja-DCXS",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.aja",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "aja"
+    },
+    "import_path": "pymeasure.instruments.aja.dcxs.DCXS",
+    "manufacturer": "AJA International",
+    "model": "DCXS",
+    "name": "DCXS",
+    "simulated": false,
+    "summary": "AJA DCXS-750 or 1500 DC magnetron sputtering power supply with multiple outputs",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "magnet = AMI430(\"TCPIP::web.address.com::7180::SOCKET\")\n\n\nmagnet.coilconst = 1.182                 # kGauss/A\nmagnet.voltage_limit = 2.2               # Sets the voltage limit in V\n\nmagnet.target_current = 10               # Sets the target current to 10 A\nmagnet.target_field = 1                  # Sets target field to 1 kGauss\n\nmagnet.ramp_rate_current = 0.0357       # Sets the ramp rate in A/s\nmagnet.ramp_rate_field = 0.0422         # Sets the ramp rate in kGauss/s\nmagnet.ramp                             # Initiates the ramping\nmagnet.pause                            # Pauses the ramping\nmagnet.status                           # Returns the status of the magnet\n\nmagnet.ramp_to_current(5)             # Ramps the current to 5 A\n\nmagnet.shutdown()                     # Ramps the current to zero and disables output"
+     ],
+     "id": "ami-AMI430",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.ami",
+     "read_example": "field",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "ami"
+    },
+    "import_path": "pymeasure.instruments.ami.ami430.AMI430",
+    "manufacturer": "American Magnetics",
+    "model": "430",
+    "name": "AMI430",
+    "simulated": false,
+    "summary": "Represents the AMI 430 Power supply and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "bkprecision-BKPrecision9130B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.bkprecision",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "bkprecision"
+    },
+    "import_path": "pymeasure.instruments.bkprecision.bkprecision9130b.BKPrecision9130B",
+    "manufacturer": "B&K Precision",
+    "model": "9130B",
+    "name": "BKPrecision9130B",
+    "simulated": false,
+    "summary": "Represents the BK Precision 9130B DC Power Supply interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "danfysik-Danfysik8500",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.danfysik",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "danfysik"
+    },
+    "import_path": "pymeasure.instruments.danfysik.danfysik8500.Danfysik8500",
+    "manufacturer": "Danfysik",
+    "model": "8500",
+    "name": "Danfysik8500",
+    "simulated": false,
+    "summary": "Represents the Danfysik 8500 Electromanget Current Supply and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "source = SM7045D(\"GPIB::8\")\n\nsource.ramp_to_zero(1)               # Set output to 0 before enabling\nsource.enable()                      # Enables the output\nsource.current = 1                   # Sets a current of 1 Amps"
+     ],
+     "id": "deltaelektronika-SM7045D",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.deltaelektronika",
+     "read_example": "measure_current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "deltaelektronika"
+    },
+    "import_path": "pymeasure.instruments.deltaelektronika.sm7045d.SM7045D",
+    "manufacturer": "Delta Elektronika",
+    "model": "SM7045D",
+    "name": "SM7045D",
+    "simulated": false,
+    "summary": "This is the class for the SM 70-45 D power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "hpp120256 = EurotestHPP120256(\"GPIB0::20::INSTR\")\n\nprint(hpp120256.id)\nprint(hpp120256.lam_status)\nprint(hpp120256.status)\n\nhpp120256.ramp_to_zero(100.0)\n\nhpp120256.voltage_ramp = 50.0  # V/s\nhpp120256.current_limit = 2.0  # mA\ninst.kill_enabled = True  # Enable over-current protection\ntime.sleep(1.0)  # Give time to enable kill\ninst.output_enabled = True\ntime.sleep(1.0)  # Give time to output on\n\nabs_output_voltage_error = 0.02 # kV\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 40.0)\n\n# Here voltage HV output should be at 0.0 kV\n\nprint(\"Setting the output voltage to 1.0kV...\")\nhpp120256.voltage_setpoint = 1.0  # kV\n\n# Now HV output should be rising to reach the 1.0kV at 50.0 V/s\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 40.0)\n\n# Here voltage HV output should be at 1.0 kV\n\nhpp120256.shutdown()\n\nhpp120256.wait_for_output_voltage_reached(abs_output_voltage_error, 1.0, 60.0)\n\n# Here voltage HV output should be at 0.0 kV\n\ninst.output_enabled = False\n\n# Now the HV voltage source is in safe state"
+     ],
+     "id": "eurotest-EurotestHPP120256",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.eurotest",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "eurotest"
+    },
+    "import_path": "pymeasure.instruments.eurotest.eurotestHPP120256.EurotestHPP120256",
+    "manufacturer": "Eurotest",
+    "model": "HPP120256",
+    "name": "EurotestHPP120256",
+    "simulated": false,
+    "summary": "Represents the Euro Test High Voltage DC Source model HPP-120-256 and provides a high-level interface for interacting with the instrument using the Euro Test…",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP6632A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "rom_version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hpsystempsu.HP6632A",
+    "manufacturer": "HP",
+    "model": "6632A",
+    "name": "HP6632A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 6632A system power supply and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP6633A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "rom_version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hpsystempsu.HP6633A",
+    "manufacturer": "HP",
+    "model": "6633A",
+    "name": "HP6633A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 6633A system power supply and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP6634A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "rom_version",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hpsystempsu.HP6634A",
+    "manufacturer": "HP",
+    "model": "6634A",
+    "name": "HP6634A",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 6634A system power supply and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2200",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2200.Keithley2200",
+    "manufacturer": "Keithley",
+    "model": "2200",
+    "name": "Keithley2200",
+    "simulated": false,
+    "summary": "Represents the Keithley 2200 Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "source = Keithley2260B(\"GPIB::1\")\nsource.voltage = 1\nprint(source.voltage)\nprint(source.current)\nprint(source.power)\nprint(source.applied)"
+     ],
+     "id": "keithley-Keithley2260B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2260B.Keithley2260B",
+    "manufacturer": "Keithley",
+    "model": "2260B",
+    "name": "Keithley2260B",
+    "simulated": false,
+    "summary": "Represents the Keithley 2260B Power Supply (minimal implementation) and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2281S",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "line_frequency",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2281S.Keithley2281S",
+    "manufacturer": "Keithley",
+    "model": "2281S",
+    "name": "Keithley2281S",
+    "simulated": false,
+    "summary": "Represents the Keithley 2281S-20-6 power supply and battery simulator / characterizer",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keithley-Keithley2306",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley2306.Keithley2306",
+    "manufacturer": "Keithley",
+    "model": "2306",
+    "name": "Keithley2306",
+    "simulated": false,
+    "summary": "Represents the Keithley 2306 Dual Channel Battery/Charger Simulator",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "keithley = Keithley6221(\"GPIB::1\")\nkeithley.clear()\n\n# Use the keithley as an AC source\nkeithley.waveform_function = \"square\"   # Set a square waveform\nkeithley.waveform_amplitude = 0.05      # Set the amplitude in Amps\nkeithley.waveform_offset = 0            # Set zero offset\nkeithley.source_compliance = 10         # Set compliance (limit) in V\nkeithley.waveform_dutycycle = 50        # Set duty cycle of wave in %\nkeithley.waveform_frequency = 347       # Set the frequency in Hz\nkeithley.waveform_ranging = \"best\"      # Set optimal output ranging\nkeithley.waveform_duration_cycles = 100 # Set duration of the waveform\n\n# Link end of waveform to Service Request status bit\nkeithley.operation_event_enabled = 128  # OSB listens to end of wave\nkeithley.srq_event_enabled = 128        # SRQ listens to OSB\n\nkeithley.waveform_arm()                 # Arm (load) the waveform\n\nkeithley.waveform_start()               # Start the waveform\n\nkeithley.adapter.wait_for_srq()         # Wait for the pulse to finish\n\nkeithley.waveform_abort()               # Disarm (unload) the waveform\n\nkeithley.shutdown()                     # Disables output"
+     ],
+     "id": "keithley-Keithley6221",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keithley",
+     "read_example": "delta_connected",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keithley"
+    },
+    "import_path": "pymeasure.instruments.keithley.keithley6221.Keithley6221",
+    "manufacturer": "Keithley",
+    "model": "6221",
+    "name": "Keithley6221",
+    "simulated": false,
+    "summary": "Represents the Keithley 6221 AC and DC current source and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "kepco-KepcoBOP3612",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.kepco",
+     "read_example": "bop_test",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "kepco"
+    },
+    "import_path": "pymeasure.instruments.kepco.kepcobop.KepcoBOP3612",
+    "manufacturer": "Kepco",
+    "model": "BOP3612",
+    "name": "KepcoBOP3612",
+    "simulated": false,
+    "summary": "Represents the Kepco BOP 36-12 (M or D) 400 W bipolar power supply fitted with BIT 4886 digital interface card (minimal implementation) and provides a…",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "supply = KeysightE36312A(resource)\nsupply.ch_1.voltage_setpoint=10\nsupply.ch_1.current_setpoint=0.1\nsupply.ch_1.output_enabled=True\nprint(supply.ch_1.voltage)"
+     ],
+     "id": "keysight-KeysightE36312A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightE36312A.KeysightE36312A",
+    "manufacturer": "Keysight",
+    "model": "E36312A",
+    "name": "KeysightE36312A",
+    "simulated": false,
+    "summary": "Represents the Keysight E36312A Power supply interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "supply = KeysightE3631A(resource)\nsupply.ch_1.voltage_setpoint=10\nsupply.ch_1.current_setpoint=0.1\nsupply.ch_1.output_enabled=True\nprint(supply.ch_1.voltage)"
+     ],
+     "id": "keysight-KeysightE3631A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "ch_1.current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightE3631A.KeysightE3631A",
+    "manufacturer": "Keysight",
+    "model": "E3631A",
+    "name": "KeysightE3631A",
+    "simulated": false,
+    "summary": "Represents the Keysight E3631A Triple Output DC Power Supply interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "keysight-KeysightN5767A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightN5767A.KeysightN5767A",
+    "manufacturer": "Keysight",
+    "model": "N5767A",
+    "name": "KeysightN5767A",
+    "simulated": false,
+    "summary": "Represents the Keysight N5767A Power supply interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "novanta-Fpu60",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.novanta",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "novanta"
+    },
+    "import_path": "pymeasure.instruments.novanta.fpu60.Fpu60",
+    "manufacturer": "Novanta",
+    "model": "Fpu60",
+    "name": "Fpu60",
+    "simulated": false,
+    "summary": "Represents a fpu60 power supply unit for the finesse laser series by Laserquantum, a Novanta company",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "ips = IPS120_10(\"GPIB::25\")  # Default channel for the IPS\n\nips.enable_control()         # Enables the power supply and remote control\n\nips.train_magnet([           # Train the magnet after it has been cooled-down\n    (11.8, 1.0),\n    (13.9, 0.4),\n    (14.9, 0.2),\n    (16.0, 0.1),\n])\n\nips.set_field(12)           # Bring the magnet to 12 T. The switch heater will\n                            # be turned off when the field is reached and the\n                            # current is ramped back to 0 (i.e. persistent mode).\n\nprint(self.field)           # Print the current field (whether in persistent or\n                            # non-persistent mode)\n\nips.set_field(0)            # Bring the magnet to 0 T. The persistent mode will be\n                            # turned off first (i.e. current back to set-point and\n                            # switch-heater on); afterwards the switch-heater will\n                            # again be turned off.\n\nips.disable_control()       # Disables the control of the supply, turns off the\n                            # switch-heater and clamps the output."
+     ],
+     "id": "oxfordinstruments-IPS120_10",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.oxfordinstruments",
+     "read_example": "current_measured",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "oxfordinstruments"
+    },
+    "import_path": "pymeasure.instruments.oxfordinstruments.ips120_10.IPS120_10",
+    "manufacturer": "Oxford Instruments",
+    "model": "IPS120_10",
+    "name": "IPS120_10",
+    "simulated": false,
+    "summary": "Represents the Oxford Superconducting Magnet Power Supply IPS 120-10",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "ps = PS120_10(\"GPIB::25\")   # Default channel for the IPS\n\nps.enable_control()         # Enables the power supply and remote control\n\nps.train_magnet([           # Train the magnet after it has been cooled-down\n    (11.8, 1.0),\n    (13.9, 0.4),\n    (14.9, 0.2),\n    (16.0, 0.1),\n])\n\nps.set_field(12)            # Bring the magnet to 12 T. The switch heater will\n                            # be turned off when the field is reached and the\n                            # current is ramped back to 0 (i.e. persistent mode).\n\nprint(self.field)           # Print the current field (whether in persistent or\n                            # non-persistent mode)\n\nps.set_field(0)             # Bring the magnet to 0 T. The persistent mode will be\n                            # turned off first (i.e. current back to set-point and\n                            # switch-heater on); afterwards the switch-heater will\n                            # again be turned off.\n\nps.disable_control()        # Disables the control of the supply, turns off the\n                            # switch-heater and clamps the output."
+     ],
+     "id": "oxfordinstruments-PS120_10",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.oxfordinstruments",
+     "read_example": "current_measured",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "oxfordinstruments"
+    },
+    "import_path": "pymeasure.instruments.oxfordinstruments.ps120_10.PS120_10",
+    "manufacturer": "Oxford Instruments",
+    "model": "PS120_10",
+    "name": "PS120_10",
+    "simulated": false,
+    "summary": "Represents the Oxford Superconducting Magnet Power Supply PS 120-10",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "rohdeschwarz-HMP4040",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.rohdeschwarz",
+     "read_example": "max_current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "rohdeschwarz"
+    },
+    "import_path": "pymeasure.instruments.rohdeschwarz.hmp.HMP4040",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "HMP4040",
+    "name": "HMP4040",
+    "simulated": false,
+    "summary": "Represents a Rohde&Schwarz HMP4040 power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "siglenttechnologies-SPD1168X",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.siglenttechnologies",
+     "read_example": "error",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "siglenttechnologies"
+    },
+    "import_path": "pymeasure.instruments.siglenttechnologies.siglent_spd1168x.SPD1168X",
+    "manufacturer": "Siglent",
+    "model": "SPD1168X",
+    "name": "SPD1168X",
+    "simulated": false,
+    "summary": "Represent the Siglent SPD1168X Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "siglenttechnologies-SPD1305X",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.siglenttechnologies",
+     "read_example": "error",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "siglenttechnologies"
+    },
+    "import_path": "pymeasure.instruments.siglenttechnologies.siglent_spd1305x.SPD1305X",
+    "manufacturer": "Siglent",
+    "model": "SPD1305X",
+    "name": "SPD1305X",
+    "simulated": false,
+    "summary": "Represent the Siglent SPD1305X Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "spellmanhv-SpellmanXRV",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.spellmanhv",
+     "read_example": "analog_monitor",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "spellmanhv"
+    },
+    "import_path": "pymeasure.instruments.spellmanhv.spellmanXRV.SpellmanXRV",
+    "manufacturer": "Spellman",
+    "model": "XRV",
+    "name": "SpellmanXRV",
+    "simulated": false,
+    "summary": "A class representing the Spellman XRV series high voltage power supplies",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = TDK_Gen40_38(\"COM3\", 6)       # COM port and daisy-chain address\npsu.remote = \"REM\"                  # PSU in remote mode\npsu.output_enabled = True           # Turn on output\npsu.ramp_to_current(2.0)            # Ramp to 2.0 A of current\nprint(psu.current)                  # Measure actual PSU current\nprint(psu.voltage)                  # Measure actual PSU voltage\npsu.shutdown()                      # Run shutdown command"
+     ],
+     "id": "tdk-TDK_Gen40_38",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.tdk",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "tdk"
+    },
+    "import_path": "pymeasure.instruments.tdk.tdk_gen40_38.TDK_Gen40_38",
+    "manufacturer": "TDK",
+    "model": "Gen40_38",
+    "name": "TDK_Gen40_38",
+    "simulated": false,
+    "summary": "Represents the TDK Lambda Genesys 40-38 DC power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "psu = TDK_Gen80_65(\"COM3\", 6)       # COM port and daisy-chain address\npsu.remote = \"REM\"                  # PSU in remote mode\npsu.output_enabled = True           # Turn on output\npsu.ramp_to_current(2.0)            # Ramp to 2.0 A of current\nprint(psu.current)                  # Measure actual PSU current\nprint(psu.voltage)                  # Measure actual PSU voltage\npsu.shutdown()                      # Run shutdown command"
+     ],
+     "id": "tdk-TDK_Gen80_65",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.tdk",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "tdk"
+    },
+    "import_path": "pymeasure.instruments.tdk.tdk_gen80_65.TDK_Gen80_65",
+    "manufacturer": "TDK",
+    "model": "Gen80_65",
+    "name": "TDK_Gen80_65",
+    "simulated": false,
+    "summary": "Represents the TDK Lambda Genesys 80-65 DC power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "source = TexioPSW360L30(\"TCPIP::xxx.xxx.xxx.xxx::2268::SOCKET\")\nsource.voltage = 1\nprint(source.voltage)\nprint(source.current)\nprint(source.power)\nprint(source.applied)"
+     ],
+     "id": "texio-TexioPSW360L30",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.texio",
+     "read_example": "current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "texio"
+    },
+    "import_path": "pymeasure.instruments.texio.texioPSW360L30.TexioPSW360L30",
+    "manufacturer": "Texio",
+    "model": "PSW360L30",
+    "name": "TexioPSW360L30",
+    "simulated": false,
+    "summary": "Represents the TEXIO PSW-360L30 Power Supply (minimal implementation) and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "yoko = Yokogawa7651(\"GPIB::1\")\n\nyoko.apply_current()                # Sets up to source current\nyoko.source_current_range = 10e-3   # Sets the current range to 10 mA\nyoko.compliance_voltage = 10        # Sets the compliance voltage to 10 V\nyoko.source_current = 0             # Sets the source current to 0 mA\n\nyoko.enable_source()                # Enables the current output\nyoko.ramp_to_current(5e-3)          # Ramps the current to 5 mA\n\nyoko.shutdown()                     # Ramps the current to 0 mA and disables output"
+     ],
+     "id": "yokogawa-Yokogawa7651",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.yokogawa7651.Yokogawa7651",
+    "manufacturer": "Yokogawa",
+    "model": "7651",
+    "name": "Yokogawa7651",
+    "simulated": false,
+    "summary": "Represents the Yokogawa 7651 Programmable DC Source and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-YokogawaGS200",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.yokogawags200.YokogawaGS200",
+    "manufacturer": "Yokogawa",
+    "model": "GS200",
+    "name": "YokogawaGS200",
+    "simulated": false,
+    "summary": "Represents the Yokogawa GS200 source and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "generator = Agilent8257D(\"GPIB::1\")\n\ngenerator.power = 0                     # Sets the output power to 0 dBm\ngenerator.frequency = 5                 # Sets the output frequency to 5 GHz\ngenerator.enable()                      # Enables the output"
+     ],
+     "id": "agilent-Agilent8257D",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": "has_amplitude_modulation",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent8257D.Agilent8257D",
+    "manufacturer": "Agilent",
+    "model": "8257D",
+    "name": "Agilent8257D",
+    "simulated": false,
+    "summary": "Represents the Agilent 8257D Signal Generator and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anapico-APSIN12G",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anapico",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anapico"
+    },
+    "import_path": "pymeasure.instruments.anapico.apsin12G.APSIN12G",
+    "manufacturer": "AnaPico",
+    "model": "APSIN12G",
+    "name": "APSIN12G",
+    "simulated": false,
+    "summary": "Represents the Anapico APSIN12G Signal Generator with option 9K, HP and GPIB",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMG3692C",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMG3692C.AnritsuMG3692C",
+    "manufacturer": "Anritsu",
+    "model": "MG3692C",
+    "name": "AnritsuMG3692C",
+    "simulated": false,
+    "summary": "Represents the Anritsu MG3692C Signal Generator",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import HP11713A\nfrom pymeasure.instruments.hp.hp11713a import Attenuator_110dB\n\nsd = HP11713A(\"GPIB::1\")\n\nsd.ATTENUATOR_Y = Attenuator_110dB\nsd.attenuation_y(10)\nsd.ch_0.enabled = True"
+     ],
+     "id": "hp-HP11713A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp11713a.HP11713A",
+    "manufacturer": "HP",
+    "model": "11713A",
+    "name": "HP11713A",
+    "simulated": false,
+    "summary": "Represents the HP 11713A Switch and Attenuator Driver and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP437B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "display_output",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp437b.HP437B",
+    "manufacturer": "HP",
+    "model": "437B",
+    "name": "HP437B",
+    "simulated": false,
+    "summary": "Represents the HP437B Power Meters",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP8657B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp8657b.HP8657B",
+    "manufacturer": "HP",
+    "model": "8657B",
+    "name": "HP8657B",
+    "simulated": false,
+    "summary": "Represents the Hewlett Packard 8657B signal generator and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.kuhneelectronic import Kusg245_250A\n\ngenerator = Kusg245_250A(\"ASRL3::INSTR\", power_limit=100) # limits the output\n                                                          # power set-point to 100 W\n\ngenerator.external_enabled = False      # biasing and RF output controlled by serial comm\ngenerator.power = 20                    # Sets the output power to 20 Watts\ngenerator.bias_enabled = True           # Enables amplifier biasing\ngenerator.rf_enabled = True             # Enables the RF output\n\np_fwd = generator.power_forward         # Reads forward power in Watts\np_rev = generator.power_reverse         # Reads reflected power in Watts"
+     ],
+     "id": "kuhneelectronic-Kusg245_250A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.kuhneelectronic",
+     "read_example": "temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "kuhneelectronic"
+    },
+    "import_path": "pymeasure.instruments.kuhneelectronic.kusg245_250a.Kusg245_250A",
+    "manufacturer": "Kuhne Electronic",
+    "model": "Kusg245_250A",
+    "name": "Kusg245_250A",
+    "simulated": false,
+    "summary": "Represents KU SG 2.45 250 A the 2.45 GHz ISM-Band Microwave Generator and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "pendulum-CNT91",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.pendulum",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "pendulum"
+    },
+    "import_path": "pymeasure.instruments.pendulum.cnt91.CNT91",
+    "manufacturer": "Pendulum",
+    "model": "CNT91",
+    "name": "CNT91",
+    "simulated": false,
+    "summary": "Represents a Pendulum CNT-91 frequency counter",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "rohdeschwarz-SFM",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.rohdeschwarz",
+     "read_example": "basic_info",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "rohdeschwarz"
+    },
+    "import_path": "pymeasure.instruments.rohdeschwarz.sfm.SFM",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "SFM",
+    "name": "SFM",
+    "simulated": false,
+    "summary": "Represents the Rohde&Schwarz SFM TV test transmitter interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "srs-SG380",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.srs",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "srs"
+    },
+    "import_path": "pymeasure.instruments.srs.sg380.SG380",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SG380",
+    "name": "SG380",
+    "simulated": false,
+    "summary": "Mixin which adds SCPI commands to an instrument from which it is not known whether it supports SCPI commands or not",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "scope = KeysightDSOX1102G(resource)\nscope.autoscale()\nch1_data_array, ch1_preamble = scope.download_data(source=\"channel1\", points=2000)\n# ...\nscope.shutdown()"
+     ],
+     "id": "keysight-KeysightDSOX1102G",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightDSOX1102G.KeysightDSOX1102G",
+    "manufacturer": "Keysight",
+    "model": "DSOX1102G",
+    "name": "KeysightDSOX1102G",
+    "simulated": false,
+    "summary": "Represents the Keysight DSOX1102G Oscilloscope interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "scope = LeCroyT3DSO1204(resource)\nscope.autoscale()\nch1_data_array, ch1_preamble = scope.download_waveform(source=\"C1\", points=2000)\n# ...\nscope.shutdown()"
+     ],
+     "id": "lecroy-LeCroyT3DSO1204",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lecroy",
+     "read_example": "acquisition_sample_size_c1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lecroy"
+    },
+    "import_path": "pymeasure.instruments.lecroy.lecroyT3DSO1204.LeCroyT3DSO1204",
+    "manufacturer": "LeCroy",
+    "model": "T3DSO1204",
+    "name": "LeCroyT3DSO1204",
+    "simulated": false,
+    "summary": "Represents the LeCroy T3DSO1204 Oscilloscope interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "siglenttechnologies-SDS1000XHD",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.siglenttechnologies",
+     "read_example": "acquisition.points",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "siglenttechnologies"
+    },
+    "import_path": "pymeasure.instruments.siglenttechnologies.siglent_sds1000xhd.SDS1000XHD",
+    "manufacturer": "Siglent",
+    "model": "SDS1000XHD",
+    "name": "SDS1000XHD",
+    "simulated": false,
+    "summary": "Represents the SIGLENT SDS1000xHD Oscilloscope",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "siglenttechnologies-SDS1072CML",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.siglenttechnologies",
+     "read_example": "internal_state",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "siglenttechnologies"
+    },
+    "import_path": "pymeasure.instruments.siglenttechnologies.siglent_sds1072cml.SDS1072CML",
+    "manufacturer": "Siglent",
+    "model": "SDS1072CML",
+    "name": "SDS1072CML",
+    "simulated": false,
+    "summary": "Represents the SIGLENT SDS1072CML Oscilloscope",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "tektronix-TDS2000",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.tektronix",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "pymeasure.instruments.tektronix.tds2000.TDS2000",
+    "manufacturer": "Tektronix",
+    "model": "TDS2000",
+    "name": "TDS2000",
+    "simulated": false,
+    "summary": "Represents the Tektronix TDS 2000 Oscilloscope and provides a high-level for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "teledyne-TeledyneMAUI",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.teledyne",
+     "read_example": "hardcopy_setup_current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "teledyne"
+    },
+    "import_path": "pymeasure.instruments.teledyne.teledyneMAUI.TeledyneMAUI",
+    "manufacturer": "Teledyne",
+    "model": "MAUI",
+    "name": "TeledyneMAUI",
+    "simulated": false,
+    "summary": "A base class for the MAUI-type of Teledyne oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "teledyne-TeledyneOscilloscope",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.teledyne",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "teledyne"
+    },
+    "import_path": "pymeasure.instruments.teledyne.teledyne_oscilloscope.TeledyneOscilloscope",
+    "manufacturer": "Teledyne",
+    "model": "Oscilloscope",
+    "name": "TeledyneOscilloscope",
+    "simulated": false,
+    "summary": "A base abstract class for any Teledyne Lecroy oscilloscope",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-AgilentE4408B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentE4408B.AgilentE4408B",
+    "manufacturer": "Agilent",
+    "model": "E4408B",
+    "name": "AgilentE4408B",
+    "simulated": false,
+    "summary": "Represents the AgilentE4408B Spectrum Analyzer and provides a high-level interface for taking scans of high-frequency spectrums",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS2090A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "external_current",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS2090A.AnritsuMS2090A",
+    "manufacturer": "Anritsu",
+    "model": "MS2090A",
+    "name": "AnritsuMS2090A",
+    "simulated": false,
+    "summary": "Anritsu MS2090A Handheld Spectrum Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS9710C",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "analysis_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS9710C.AnritsuMS9710C",
+    "manufacturer": "Anritsu",
+    "model": "MS9710C",
+    "name": "AnritsuMS9710C",
+    "simulated": false,
+    "summary": "Anritsu MS9710C Optical Spectrum Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS9740A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "analysis_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS9740A.AnritsuMS9740A",
+    "manufacturer": "Anritsu",
+    "model": "MS9740A",
+    "name": "AnritsuMS9740A",
+    "simulated": false,
+    "summary": "Anritsu MS9740A Optical Spectrum Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import HP8560A\nfrom pymeasure.instruments.hp.hp856Xx import AmplitudeUnits\n\nsa = HP8560A(\"GPIB::1\")\n\nsa.amplitude_unit = AmplitudeUnits.DBUV\nsa.start_frequency = 299.5e6\nsa.stop_frequency = 300.5e6\n\nprint(sa.marker_amplitude)"
+     ],
+     "id": "hp-HP8560A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "display_parameters",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp856Xx.HP8560A",
+    "manufacturer": "HP",
+    "model": "8560A",
+    "name": "HP8560A",
+    "simulated": false,
+    "summary": "Represents the HP 8560A Spectrum Analyzer and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "from pymeasure.instruments.hp import 8561B\nfrom pymeasure.instruments.hp.hp856Xx import AmplitudeUnits\n\nsa = HP8560A(\"GPIB::1\")\n\nsa.amplitude_unit = AmplitudeUnits.DBUV\nsa.start_frequency = 6.4e9\nsa.stop_frequency = 6.5e9\n\nprint(sa.marker_amplitude)"
+     ],
+     "id": "hp-HP8561B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "display_parameters",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp856Xx.HP8561B",
+    "manufacturer": "HP",
+    "model": "8561B",
+    "name": "HP8561B",
+    "simulated": false,
+    "summary": "Represents the HP 8561B Spectrum Analyzer and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "rohdeschwarz-FSL",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.rohdeschwarz",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "rohdeschwarz"
+    },
+    "import_path": "pymeasure.instruments.rohdeschwarz.fsseries.FSL",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "FSL",
+    "name": "FSL",
+    "simulated": false,
+    "summary": "Represents a Rohde&Schwarz FSL spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "rohdeschwarz-FSW",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.rohdeschwarz",
+     "read_example": "available_channels",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "rohdeschwarz"
+    },
+    "import_path": "pymeasure.instruments.rohdeschwarz.fsseries.FSW",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "FSW",
+    "name": "FSW",
+    "simulated": false,
+    "summary": "Represents a Rohde&Schwarz FSW spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6370C",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6370C",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6370C",
+    "name": "AQ6370C",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6370C optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6370D",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6370D",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6370D",
+    "name": "AQ6370D",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6370D optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6370E",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6370E",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6370E",
+    "name": "AQ6370E",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6370E optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6370Series",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6370Series",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6370Series",
+    "name": "AQ6370Series",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6370 Series of optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6373",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6373",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6373",
+    "name": "AQ6373",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6373 optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6373B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6373B",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6373B",
+    "name": "AQ6373B",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6373B variant optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6375",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6375",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6375",
+    "name": "AQ6375",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6375 optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "yokogawa-AQ6375B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.yokogawa",
+     "read_example": "calc_result",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "pymeasure.instruments.yokogawa.aq6370series.AQ6375B",
+    "manufacturer": "Yokogawa",
+    "model": "AQ6375B",
+    "name": "AQ6375B",
+    "simulated": false,
+    "summary": "Represents Yokogawa AQ6375B variant optical spectrum analyzer",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "fluke-Fluke7341",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.fluke",
+     "read_example": "temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "fluke"
+    },
+    "import_path": "pymeasure.instruments.fluke.fluke7341.Fluke7341",
+    "manufacturer": "Fluke",
+    "model": "7341",
+    "name": "Fluke7341",
+    "simulated": false,
+    "summary": "Represents the compact constant temperature bath from Fluke",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hcp-TC038",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hcp",
+     "read_example": "information",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hcp"
+    },
+    "import_path": "pymeasure.instruments.hcp.tc038.TC038",
+    "manufacturer": "HCP",
+    "model": "TC038",
+    "name": "TC038",
+    "simulated": false,
+    "summary": "Communication with the HCP TC038 oven",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hcp-TC038D",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hcp",
+     "read_example": "temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "hcp"
+    },
+    "import_path": "pymeasure.instruments.hcp.tc038d.TC038D",
+    "manufacturer": "HCP",
+    "model": "TC038D",
+    "name": "TC038D",
+    "simulated": false,
+    "summary": "Communication with the HCP TC038D oven",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "controller = LakeShore211(\"GPIB::1\")\n\nprint(controller.temperature_celsius)     # Print the sensor temperature in celsius"
+     ],
+     "id": "lakeshore-LakeShore211",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "analog_out",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore211.LakeShore211",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "211",
+    "name": "LakeShore211",
+    "simulated": false,
+    "summary": "Represents the Lake Shore 211 Temperature Monitor and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "monitor = LakeShore224('GPIB::1')\n\nprint(monitor.input_A.kelvin)           # Print the temperature in kelvin on sensor A\nmonitor.input_A.wait_for_temperature()  # Wait for the temperature on sensor A to stabilize."
+     ],
+     "id": "lakeshore-LakeShore224",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "input_0.celsius",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore224.LakeShore224",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "224",
+    "name": "LakeShore224",
+    "simulated": false,
+    "summary": "Represents the Lakeshore 224 Temperature monitor and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "controller = LakeShore331(\"GPIB::1\")\n\nprint(controller.output_1.setpoint)         # Print the current setpoint for loop 1\ncontroller.output_1.setpoint = 50           # Change the loop 1 setpoint to 50 K\ncontroller.output_1.heater_range = 'low'    # Change the heater range to low.\ncontroller.input_A.wait_for_temperature()   # Wait for the temperature to stabilize.\nprint(controller.input_A.kelvin             # Print the temperature at sensor A."
+     ],
+     "id": "lakeshore-LakeShore331",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "input_A.celsius",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore331.LakeShore331",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "331",
+    "name": "LakeShore331",
+    "simulated": false,
+    "summary": "Represents the Lake Shore 331 Temperature Controller and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "controller = LakeShore3xx(\"GPIB::1\")\n\nprint(controller.output_1.setpoint)         # Print the current setpoint for loop 1\ncontroller.output_1.setpoint = 50           # Change the loop 1 setpoint to 50 K\ncontroller.output_1.heater_range = 'low'    # Change the heater range to low.\ncontroller.input_A.wait_for_temperature()   # Wait for the temperature to stabilize.\nprint(controller.input_A.kelvin)            # Print the temperature at sensor A."
+     ],
+     "id": "lakeshore-LakeShore3xx",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.lakeshore",
+     "read_example": "input_A.celsius",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "lakeshore"
+    },
+    "import_path": "pymeasure.instruments.lakeshore.lakeshore3xx.LakeShore3xx",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "3xx",
+    "name": "LakeShore3xx",
+    "simulated": false,
+    "summary": "Represents a Lake Shore Temperature Controller of the 3xx-Series and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "itc = ITC503(\"GPIB::24\")        # Default channel for the ITC503\n\nitc.control_mode = \"RU\"         # Set the control mode to remote\nitc.heater_gas_mode = \"AUTO\"    # Turn on auto heater and flow\nitc.auto_pid = True             # Turn on auto-pid\n\nprint(itc.temperature_setpoint) # Print the current set-point\nitc.temperature_setpoint = 300  # Change the set-point to 300 K\nitc.wait_for_temperature()      # Wait for the temperature to stabilize\nprint(itc.temperature_1)        # Print the temperature at sensor 1"
+     ],
+     "id": "oxfordinstruments-ITC503",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.oxfordinstruments",
+     "read_example": "gasflow_control_status",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "oxfordinstruments"
+    },
+    "import_path": "pymeasure.instruments.oxfordinstruments.itc503.ITC503",
+    "manufacturer": "Oxford Instruments",
+    "model": "ITC503",
+    "name": "ITC503",
+    "simulated": false,
+    "summary": "Represents the Oxford Intelligent Temperature Controller 503",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "controller = MercuryiTC(\"GPIB::1\")\n\n# Print the current measured temperature of the motherboard temperature sensor aka 'MB1.T1'\nprint(controller.TS_MB.temperature)\n\n# Print the motherboard temperature sensor control-loop setpoint\nprint(controller.TS['MB1.T1'].loop_T_setpoint)\n\n# Add new temperature sensor with UID 'DB6.T1'\ncontroller.add_temperature_sensor('DB6.T1')\n\n# Print the new sensor's temperature\nprint(controller.TS['DBS.T1'].temperature)"
+     ],
+     "id": "oxfordinstruments-MercuryiTC",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.oxfordinstruments",
+     "read_example": "identity",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "oxfordinstruments"
+    },
+    "import_path": "pymeasure.instruments.oxfordinstruments.mercuryitc.MercuryiTC",
+    "manufacturer": "Oxford Instruments",
+    "model": "MercuryiTC",
+    "name": "MercuryiTC",
+    "simulated": false,
+    "summary": "Represents the Oxford Instruments Mercury iTC (Intelligent Temperature Controller) and provides a high-level interface for interacting with the instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "temptronic-ATS525",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.temptronic",
+     "read_example": "air_temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "temptronic"
+    },
+    "import_path": "pymeasure.instruments.temptronic.temptronic_ats525.ATS525",
+    "manufacturer": "Temptronic",
+    "model": "ATS525",
+    "name": "ATS525",
+    "simulated": false,
+    "summary": "Represent the TemptronicATS525 instruments",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "ts = ATS545('ASRL3::INSTR')  # replace adapter address\nts.configure()  # basic configuration (defaults to T-DUT)\nts.start()  # starts flow (head position not changed)\nts.set_temperature(25)  # sets temperature to 25 degC\nts.wait_for_settling()  # blocks script execution and polls for settling\nts.shutdown(head=False)  # disables thermostream, keeps head down"
+     ],
+     "id": "temptronic-ATS545",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.temptronic",
+     "read_example": "air_temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "temptronic"
+    },
+    "import_path": "pymeasure.instruments.temptronic.temptronic_ats545.ATS545",
+    "manufacturer": "Temptronic",
+    "model": "ATS545",
+    "name": "ATS545",
+    "simulated": false,
+    "summary": "Represents the TemptronicATS545 instrument",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "temptronic-ECO560",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.temptronic",
+     "read_example": "air_temperature",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "temptronic"
+    },
+    "import_path": "pymeasure.instruments.temptronic.temptronic_eco560.ECO560",
+    "manufacturer": "Temptronic",
+    "model": "ECO560",
+    "name": "ECO560",
+    "simulated": false,
+    "summary": "Represent the TemptronicECO560 instruments",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "thermotron-Thermotron3800",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.thermotron",
+     "read_example": "mode",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "thermotron"
+    },
+    "import_path": "pymeasure.instruments.thermotron.thermotron3800.Thermotron3800",
+    "manufacturer": "Thermotron",
+    "model": "3800",
+    "name": "Thermotron3800",
+    "simulated": false,
+    "summary": "Represents the Thermotron 3800 Oven",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "advantest-AdvantestR3767CG",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.advantest",
+     "read_example": "trace_1",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "advantest"
+    },
+    "import_path": "pymeasure.instruments.advantest.advantestR3767CG.AdvantestR3767CG",
+    "manufacturer": "Advantest",
+    "model": "R3767CG",
+    "name": "AdvantestR3767CG",
+    "simulated": false,
+    "summary": "Represents the Advantest R3767CG VNA. Implements controls to change the analysis range and to retrieve the data for the trace",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "agilent-Agilent8722ES",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilent8722ES.Agilent8722ES",
+    "manufacturer": "Agilent",
+    "model": "8722ES",
+    "name": "Agilent8722ES",
+    "simulated": false,
+    "summary": "Represents the Agilent8722ES Vector Network Analyzer and provides a high-level interface for taking scans of the scattering parameters",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "# connect to the VNA and make a measurement consisting of 10 averages\nvna = AgilentE5062A(\"TCPIP::192.168.2.233::INSTR\")\nch = vna.channels[1]            # use channel 1\nch.visible_traces = 4            # use all 4 traces\nfor i, (tr, parameter) in enumerate(zip(\n        ch.traces.values(),\n        ['S11', 'S12', 'S21', 'S22'])):\n    tr.parameter = parameter\n\nch.averages = 10                # use 10x averaging\nch.averaging_enabled = True     # turn averaging on\nch.trigger_continuous = False   # turn off continuous triggering\nvna.trigger_source = 'BUS'      # require remote trigger\nvna.abort()                     # stop the current sweep\nch.restart_averaging()          # clear current averaging\nfor _ in range(ch.averages):\n    ch.trigger_initiate()       # arm channel 1 for single sweep\n    vna.trigger_single()        # send a trigger\n    vna.wait_for_complete()     # wait until the sweep is complete\n\n# see `agilentE5062A.data` for an example of saving the measurement"
+     ],
+     "id": "agilent-AgilentE5062A",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.agilent",
+     "read_example": null,
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "pymeasure.instruments.agilent.agilentE5062A.AgilentE5062A",
+    "manufacturer": "Agilent",
+    "model": "E5062A",
+    "name": "AgilentE5062A",
+    "simulated": false,
+    "summary": "Represents the Agilent E5062A Vector Network Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS4642B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "number_of_ports",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS464xB.AnritsuMS4642B",
+    "manufacturer": "Anritsu",
+    "model": "MS4642B",
+    "name": "AnritsuMS4642B",
+    "simulated": false,
+    "summary": "A class representing the Anritsu MS4642B Vector Network Analyzer (VNA)",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS4644B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "number_of_ports",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS464xB.AnritsuMS4644B",
+    "manufacturer": "Anritsu",
+    "model": "MS4644B",
+    "name": "AnritsuMS4644B",
+    "simulated": false,
+    "summary": "A class representing the Anritsu MS4644B Vector Network Analyzer (VNA)",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS4645B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "number_of_ports",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS464xB.AnritsuMS4645B",
+    "manufacturer": "Anritsu",
+    "model": "MS4645B",
+    "name": "AnritsuMS4645B",
+    "simulated": false,
+    "summary": "A class representing the Anritsu MS4645B Vector Network Analyzer (VNA)",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS4647B",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "number_of_ports",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS464xB.AnritsuMS4647B",
+    "manufacturer": "Anritsu",
+    "model": "MS4647B",
+    "name": "AnritsuMS4647B",
+    "simulated": false,
+    "summary": "A class representing the Anritsu MS4647B Vector Network Analyzer (VNA)",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "anritsu-AnritsuMS464xB",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.anritsu",
+     "read_example": "number_of_ports",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "anritsu"
+    },
+    "import_path": "pymeasure.instruments.anritsu.anritsuMS464xB.AnritsuMS464xB",
+    "manufacturer": "Anritsu",
+    "model": "MS464xB",
+    "name": "AnritsuMS464xB",
+    "simulated": false,
+    "summary": "A class representing the Anritsu MS464xB Vector Network Analyzer (VNA) series",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [],
+     "id": "hp-HP8753E",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.hp",
+     "read_example": "sn",
+     "required_params": [],
+     "vendor_package": "hp"
+    },
+    "import_path": "pymeasure.instruments.hp.hp8753e.HP8753E",
+    "manufacturer": "HP",
+    "model": "8753E",
+    "name": "HP8753E",
+    "simulated": false,
+    "summary": "Represents the HP8753E Vector Network Analyzer and provides a high-level interface for taking sweeps of the scattering or measurement parameters",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "pymeasure",
+    "extra": {
+     "examples": [
+      "pna = KeysightPNA(\"GPIB0::16::INSTR\",\n                  timeout=5000,\n                  )\n\npna.load_state(\"D:/States/MyState.csa\")\npna.adapter.connection.timeout = 20000  # set a new timeout to 20 sec\npna.ch_1.single()  # execute a single trigger of channel 1\npna.complete  # wait till the sweep has finished\nx_data = pna.ch_1.tr_1.x_data  # get the X data of trace 1 in channel 1\ny_data = pna.ch_2.tr_5.y_data  # get the Y data of trace 5 in channel 2\ny_complex = pna.ch_2.tr_5.y_data_complex  # get the complex Y data of trace 5 in channel 2\npna.ch_1.tr_1.mkr_1.enabled = True  # Activate marker 1 on trace 1 in channel 1\npna.ch_1.tr_1.mkr_1.x = 123e6  # Set marker 1 to 123 MHz\nmkr_y = pna.ch_1.tr_1.mkr_1.y  # Read the marker 1 y data"
+     ],
+     "id": "keysight-KeysightPNA",
+     "library_version": "0.16.0",
+     "package_import": "pymeasure.instruments.keysight",
+     "read_example": "measurement_channels",
+     "required_params": [
+      "adapter"
+     ],
+     "vendor_package": "keysight"
+    },
+    "import_path": "pymeasure.instruments.keysight.keysightPNA.KeysightPNA",
+    "manufacturer": "Keysight",
+    "model": "PNA",
+    "name": "KeysightPNA",
+    "simulated": false,
+    "summary": "A class representing a Keysight PNA vector network analyzer",
+    "tier": ""
+   }
+  ]
+ }
+}

@@ -12,7 +12,7 @@ The `Instrument`, `Measurement`, and `Command` building blocks
 This page gives a conceptual overview of how `instro`  is structured.
 
 ## Instrument
-{py:obj}`Instrument <instro.lib.instrument.Instrument>` is the base class for [all instrument types](/instruments.md). Its responsibilities include:
+{py:obj}`Instrument <instro.lib.instrument.Instrument>` is the base class for [all instrument types](/instruments/index.md). Its responsibilities include:
 * Creates and holds the communication interface for the instrument.
 * Publishing `Measurements and Commands` to any attached `Publishers`.
 * Handling background daemons for synchronous instrument communication.
