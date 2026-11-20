@@ -65,8 +65,9 @@ def test_stub_links_the_reference_api(tmp_path):
     scope = _scope()
     assert f"**Reference API:** {{py:obj}}`{scope.name} <{scope.import_path}>`" in stub_page(scope, tmp_path)
     smu = _smu()
-    assert "**Reference API:** [`Keithley2400`](https://pymeasure.readthedocs.io/en/latest/api/instruments/keithley/" in (
-        stub_page(smu, tmp_path)
+    assert (
+        "**Reference API:** [`Keithley2400`](https://pymeasure.readthedocs.io/en/latest/api/instruments/keithley/"
+        in (stub_page(smu, tmp_path))
     )
 
 
