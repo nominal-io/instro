@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.15.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.14.0...instro-unstable-v1.15.0) (2026-11-20)
+
+
+### Features
+
+* **dmm:** add Fluke 8808A RS-232 DMM driver (unstable) ([#629](https://github.com/nominal-io/instro/issues/629)) ([4aaaf15](https://github.com/nominal-io/instro/commit/4aaaf15118c52b53fc1eb0f4d3010422d4821909))
+
 ## [1.14.0](https://github.com/nominal-io/instro/compare/instro-unstable-v1.13.0...instro-unstable-v1.14.0) (2026-10-28)
 
 
