@@ -322,6 +322,8 @@ BasicBufferedPublisher(
 )
 ```
 
+If the wrapped publisher raises, the error is logged and that item is dropped; the background thread keeps publishing the rest of the queue.
+
 **Example:**
 
 ```python

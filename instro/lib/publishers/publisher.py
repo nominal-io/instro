@@ -85,10 +85,19 @@ class QueuedPublisher(Publisher):
         while not self._stop_event.is_set() or (self.wait_for_queue and not self._queue.empty()):
             try:
                 data, kwargs = self._queue.get(timeout=0.1)
-                self.publisher.publish(data, **kwargs)
-                self._queue.task_done()
             except queue.Empty:
                 continue
+            try:
+                self.publisher.publish(data, **kwargs)
+            except Exception:
+                # Log and keep draining: if this thread died, nothing would publish again and, once the
+                # queue filled, publish() would block its caller (usually an instrument method) forever.
+                logger.exception(
+                    "Dropping queued item after publish error (publisher=%s)",
+                    self.publisher.__class__.__name__,
+                )
+            finally:
+                self._queue.task_done()
 
     @property
     def queue_size(self) -> int:
