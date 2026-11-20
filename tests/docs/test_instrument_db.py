@@ -67,8 +67,8 @@ def test_stub_links_the_reference_api(tmp_path):
     smu = _smu()
     assert (
         "**Reference API:** [`Keithley2400`](https://pymeasure.readthedocs.io/en/latest/api/instruments/keithley/"
-        in (stub_page(smu, tmp_path))
-    )
+        "keithley2400.html#pymeasure.instruments.keithley.keithley2400.Keithley2400)"
+    ) in stub_page(smu, tmp_path)
 
 
 def test_stub_shows_the_picture_found_by_convention(tmp_path):
