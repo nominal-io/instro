@@ -8,6 +8,7 @@ import enum
 import logging
 import socket
 import threading
+import time
 import typing
 import warnings
 
@@ -104,6 +105,8 @@ class VisaConfig:
             NI-VISA does this by default; pyvisa-py does not, which can wedge
             instruments that reset on coalesced writes (issue #156). No effect
             on non-socket transports. Defaults to ``True``.
+        query_delay: Seconds to wait between the write and the read of a query.
+            Applies to every query method. Defaults to ``0.0``.
     """
 
     visa_resource: str
@@ -112,6 +115,7 @@ class VisaConfig:
     terminator: TerminatorConfig = dataclasses.field(default_factory=TerminatorConfig)
     timeout: TimeoutConfig = dataclasses.field(default_factory=TimeoutConfig)
     tcp_nodelay: bool = True
+    query_delay: float = 0.0
 
 
 class VisaDriver(TransportBase):
@@ -192,11 +196,11 @@ class VisaDriver(TransportBase):
             inst = self._require_open_locked()
             return inst.read()
 
-    def query(self, command: str) -> str:
-        """Write ``command`` and read the response."""
+    def query(self, command: str, delay: float | None = None) -> str:
+        """Write ``command`` and read the response, waiting ``delay`` s (default: configured ``query_delay``)."""
         with self._lock:
             inst = self._require_open_locked()
-            return inst.query(command)
+            return inst.query(command, delay)
 
     def write_raw(self, data: bytes) -> None:
         """Write raw bytes verbatim. Caller owns framing for binary payloads."""
@@ -210,11 +214,18 @@ class VisaDriver(TransportBase):
             inst = self._require_open_locked()
             return inst.read_raw()
 
-    def query_raw(self, command: str) -> bytes:
-        """Write ``command`` (with terminator) and read raw bytes — reply is not decoded or stripped."""
+    def query_raw(self, command: str, delay: float | None = None) -> bytes:
+        """Write ``command`` (with terminator) and read raw bytes — reply is not decoded or stripped.
+
+        Waits ``delay`` s between write and read (default: configured ``query_delay``).
+        """
         with self._lock:
             inst = self._require_open_locked()
             inst.write(command)
+            if delay is None:
+                delay = inst.query_delay
+            if delay > 0:
+                time.sleep(delay)
             return inst.read_raw()
 
     def query_binary_values(
@@ -223,6 +234,7 @@ class VisaDriver(TransportBase):
         datatype: str = "B",
         is_big_endian: bool = False,
         container: type = list,
+        delay: float | None = None,
     ) -> typing.Any:
         """Send ``command`` and decode the IEEE-488.2 definite-length binary block reply.
 
@@ -233,6 +245,7 @@ class VisaDriver(TransportBase):
             datatype: ``struct``-style format char (``"B"`` u8, ``"h"`` i16, ``"H"`` u16, ``"f"`` f32).
             is_big_endian: Byte order of multi-byte elements.
             container: Container for decoded values (default ``list``).
+            delay: Seconds to wait between write and read. Defaults to the configured ``query_delay``.
         """
         with self._lock:
             inst = self._require_open_locked()
@@ -241,6 +254,7 @@ class VisaDriver(TransportBase):
                 datatype=datatype,  # type: ignore[arg-type]
                 is_big_endian=is_big_endian,
                 container=container,
+                delay=delay,
             )
 
     def clear(self) -> None:
@@ -307,6 +321,7 @@ def _configure_resource(
     inst.read_termination = cfg.terminator.read
     inst.write_termination = cfg.terminator.write
     inst.timeout = cfg.timeout.recv * 1000
+    inst.query_delay = cfg.query_delay
 
     if cfg.tcp_nodelay:
         _disable_nagle(inst)

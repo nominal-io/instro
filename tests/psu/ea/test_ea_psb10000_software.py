@@ -35,7 +35,7 @@ _QUERY_RESPONSES = {
 def _replies(**overrides: str):
     """Query side effect over the canned replies, with ``overrides`` applied."""
     responses = {**_QUERY_RESPONSES, **overrides}
-    return lambda cmd: responses[cmd]
+    return lambda cmd, delay=None: responses[cmd]
 
 
 def _writes(mock: MagicMock) -> list[str]:
@@ -141,7 +141,7 @@ def test_reopening_the_same_quadrant_is_idempotent(dev: EAPSB10000Visa, resource
 def test_failed_setup_strands_no_owner(dev: EAPSB10000Visa, resource) -> None:
     """A stranded holder would make the retry report not-first-owner and skip SYST:LOCK ON forever."""
     _, inst = resource
-    inst.query.side_effect = lambda cmd: {"SYST:ERR?": '-201,"Cannot be done in local mode"'}[cmd]
+    inst.query.side_effect = lambda cmd, delay=None: {"SYST:ERR?": '-201,"Cannot be done in local mode"'}[cmd]
     with pytest.raises(RuntimeError, match="reported error"):
         dev.source.open()
 
