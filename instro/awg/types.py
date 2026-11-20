@@ -225,11 +225,18 @@ class Arbitrary:
 
     def __post_init__(self) -> None:
         """Validate shape parameters at definition time."""
-        object.__setattr__(self, "samples", tuple(self.samples))
+        samples = tuple(self.samples)
+        object.__setattr__(self, "samples", samples)
         _require_positive("sample_rate_sas", self.sample_rate_sas)
-        if len(self.samples) < 2:
-            raise ValueError(f"Arbitrary waveform must contain at least 2 samples, got {len(self.samples)}")
-        if any(not -1.0 <= s <= 1.0 for s in self.samples):
+        if len(samples) < 2:
+            raise ValueError(f"Arbitrary waveform must contain at least 2 samples, got {len(samples)}")
+        try:
+            # Fast C-level path; NaN can slip past min/max but poisons hypot (inf is already rejected by the bounds).
+            normalized = -1.0 <= min(samples) <= max(samples) <= 1.0 and not math.isnan(math.hypot(*samples))
+        except (TypeError, ArithmeticError):
+            # Mixed/unorderable types or huge ints: check element by element for the exact error.
+            normalized = all(-1.0 <= s <= 1.0 for s in samples)
+        if not normalized:
             raise ValueError("samples must be normalized to [-1.0, 1.0]")
 
 
