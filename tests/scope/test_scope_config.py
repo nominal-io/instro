@@ -361,21 +361,6 @@ def test_init_with_virtual_driver_under_visa_config_rejected(valid_config):
         InstroScope(config={**valid_config, "driver": driver})
 
 
-def test_saleae_driver_config_builds_driver_for_serial():
-    from instro.scope.drivers import SaleaeLogicMSO
-
-    driver = {"connection_type": "saleae", "name": "SaleaeLogicMSO", "num_channels": 4, "serial_number": "ABC123"}
-    scope = InstroScope(config={"device": {"name": "mso"}, "driver": driver})
-    assert isinstance(scope._driver, SaleaeLogicMSO)
-    assert scope._driver._serial_number == "ABC123"
-
-
-def test_saleae_driver_under_visa_config_rejected(valid_config):
-    driver = {**valid_config["driver"], "name": "SaleaeLogicMSO"}
-    with pytest.raises(Exception, match='SaleaeLogicMSO does not use VISA; use {"connection_type": "saleae"'):
-        InstroScope(config={**valid_config, "driver": driver})
-
-
 def test_init_with_config_dict_unknown_field_rejected(valid_config):
     with pytest.raises(Exception):
         InstroScope(config={**valid_config, "channels": {"1": {"vertical_scael": 1.0}}})

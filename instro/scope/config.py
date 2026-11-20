@@ -36,7 +36,6 @@ __all__ = [
     "FilePublisherConfig",
     "NominalCorePublisherConfig",
     "ScopeConfig",
-    "SaleaeDriverConfig",
     "SignalConfig",
     "TimingConfig",
     "TriggerConfig",
@@ -60,8 +59,6 @@ SCOPE_VENDOR_REGISTRY: dict[str, DriverEntry] = {
             IdnPattern(("SIGLENT TECHNOLOGIES",), r"^SDS1204X-E", 4),
         ),
     ),
-    # no *IDN?: the MSO is reached over USB through Saleae's API, so discovery can't see it
-    "SaleaeLogicMSO": DriverEntry("instro.scope.drivers.saleae_logic_mso.SaleaeLogicMSO"),
     "Tektronix2SeriesMSO": DriverEntry(
         "instro.scope.drivers.tektronix_2series.Tektronix2SeriesMSO",
         (IdnPattern(("TEKTRONIX",), r"^MSO2[24]", 4),),
@@ -140,10 +137,6 @@ class VisaDriverConfig(BaseModel):
             raise ValueError(
                 f'{v} has no connection; use {{"connection_type": "virtual", "name": "{v}", "num_channels": N}}'
             )
-        if v == "SaleaeLogicMSO":
-            raise ValueError(
-                f'{v} does not use VISA; use {{"connection_type": "saleae", "name": "{v}", "num_channels": N}}'
-            )
         return v
 
 
@@ -177,18 +170,6 @@ class VirtualDriverConfig(BaseModel):
         return self
 
 
-class SaleaeDriverConfig(BaseModel):
-    """Driver config for a Saleae Logic MSO, reached over USB through Saleae's ``saleae-mso-api`` package."""
-
-    model_config = ConfigDict(extra="forbid")
-    connection_type: Literal["saleae"]
-    name: Literal["SaleaeLogicMSO"] = Field(description="Saleae driver key.")
-    num_channels: int = Field(ge=1, le=4, description="Number of analog-input channels: 2 or 4, by model.")
-    serial_number: str | None = Field(
-        default=None, description="Serial number of the MSO; omit to use the first found."
-    )
-
-
 class ScopeConfig(BaseModel):
     """Validated config for constructing an InstroScope from JSON."""
 
@@ -196,7 +177,7 @@ class ScopeConfig(BaseModel):
     version: Literal[1] = 1
     instrument: Literal["InstroScope"] = "InstroScope"
     device: DeviceInfo
-    driver: VisaDriverConfig | VirtualDriverConfig | SaleaeDriverConfig
+    driver: VisaDriverConfig | VirtualDriverConfig
     channels: dict[int, ChannelConfig] = Field(
         default_factory=dict, description="Per-channel initial state keyed by 1-based channel number."
     )
@@ -240,8 +221,6 @@ def resolve_scope_from_config(
             for channel, s in config.driver.signals.items()
         }
         driver: ScopeDriverBase = driver_cls(num_channels=config.driver.num_channels, signals=signals)
-    elif isinstance(config.driver, SaleaeDriverConfig):
-        driver = driver_cls(serial_number=config.driver.serial_number)
     else:
         driver = driver_cls(config.driver.visa)  # type: ignore[call-arg]
 
