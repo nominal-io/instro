@@ -66,6 +66,32 @@ This is the complete set of `instro-contrib` drivers as of the current release.
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 
+### Siglent SPS5042X PSU
+
+**Class**: `SiglentSPS5042X`  
+**Import**: `from instro.contrib.psu.drivers import SiglentSPS5042X`  
+**Tested against**: SPS5042X, firmware 3.1.1.8R1  
+**Protocol**: SCPI over VISA (tested over LAN)
+
+```python
+from instro.contrib.psu.drivers import SiglentSPS5042X
+from instro.psu import InstroPSU
+
+psu = InstroPSU(
+    name="myPSU",
+    driver=SiglentSPS5042X(visa_resource="TCPIP0::192.168.1.100::INSTR"),
+    num_channels=1,
+)
+```
+
+Protection behavior:
+
+- OVP is always on. Set its threshold with `set_overvoltage_protection_level`; there is no switch to turn it off.
+- OCP can be switched on and off with `set_overcurrent_protection_enabled`.
+- A trip switches the output off and latches it. `output_enable(True)` has no effect until `clear_protection` releases the latch.
+- The instrument reports no trip state over SCPI, so `get_overvoltage_protection_tripped` and `get_overcurrent_protection_tripped` are not supported. A tripped output reads as disabled in `get_output_status`.
+- The instrument clamps an out-of-range voltage, current limit, or protection level to its range without reporting an error. The driver reads each value back and raises `ValueError` when it was clamped.
+
 Drivers should be added to this list as part of the merge which brings them into the main branch. For pre-release drivers browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib) or [this file](https://github.com/nominal-io/instro/blob/main/docs/guides/library/contrib.mdx) in the source GitHub repository.
 
 ## Graduation to core
