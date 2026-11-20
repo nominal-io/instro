@@ -242,6 +242,22 @@ def _fence(code: str) -> str:
     return f"```python\n{code}```\n"
 
 
+def _pymeasure_api_url(r: InstrumentRecord) -> str:
+    """URL of the driver class in the pymeasure API reference."""
+    module = r.import_path.rsplit(".", 1)[0]
+    return (
+        f"https://pymeasure.readthedocs.io/en/latest/api/instruments/{r.extra['vendor_package']}"
+        f"/{module.rsplit('.', 1)[1]}.html#{r.import_path}"
+    )
+
+
+def _reference_link(r: InstrumentRecord) -> str:
+    """Link to the driver class in its library's API reference: instro's own, or pymeasure's."""
+    if r.driver_type == "pymeasure":
+        return f"[`{r.name}`]({_pymeasure_api_url(r)})"
+    return f"{{py:obj}}`{r.name} <{r.import_path}>`"
+
+
 def _body(r: InstrumentRecord, srcdir: Path) -> str:
     if r.driver_type == "instro":
         out = ["## Creating the instrument\n", _fence(_instro_example(r)[0][1])]
@@ -255,9 +271,7 @@ def _body(r: InstrumentRecord, srcdir: Path) -> str:
         return "\n".join(out)
     if r.driver_type == "pymeasure":
         direct, publish = _pymeasure_example(r)
-        module = r.import_path.rsplit(".", 1)[0]
-        api = f"https://pymeasure.readthedocs.io/en/latest/api/instruments/{r.extra['vendor_package']}"
-        api += f"/{module.rsplit('.', 1)[1]}.html#{r.import_path}"
+        api = _pymeasure_api_url(r)
         examples = r.extra.get("examples", [])
         attach_form = next((t for code in examples if (t := with_instro(r, code))), None)
         wrapper_form = next((t for code in examples if (t := with_wrapper(r, code))), None)
@@ -338,6 +352,7 @@ def stub_page(r: InstrumentRecord, srcdir: Path) -> str:
         f"**Driver:** [{badge}]({library_url})" if library_url else f"**Driver:** {badge}",
         f"**Type:** [{category_title(r.category)}](/{ROOT}/type/{slug(r.category)}.md)",
         f"**Manufacturer:** [{r.manufacturer}](/{ROOT}/manufacturer/{slug(r.manufacturer)}.md)",
+        f"**Reference API:** {_reference_link(r)}",
     ]
     parts = [
         "---\norphan: true\n"
