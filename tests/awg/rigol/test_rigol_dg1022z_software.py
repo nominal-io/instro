@@ -403,9 +403,12 @@ def test_12_set_amplitude_rejects_vp_unit(rigol: RigolDG1022Z, rigol_visa: Magic
 
 
 def test_13_offset_roundtrip_uses_offset_commands(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _query_sequence(rigol_visa, ["SIN"])
     rigol.set_offset(2, 0.5)
-    rigol_visa.write.assert_called_once_with(":SOUR2:VOLT:OFFS 0.5")
+    assert rigol_visa.write.call_args_list == [call(":SOUR2:VOLT:OFFS 0.5")]
+    assert _real_query_calls(rigol_visa) == [call(":SOUR2:FUNC?")]
 
+    rigol_visa.reset_mock()
     _query_sequence(
         rigol_visa,
         [
@@ -423,6 +426,16 @@ def test_14_get_offset_dc_mode_uses_apply_reply(rigol: RigolDG1022Z, rigol_visa:
 
     assert rigol.get_offset(1) == pytest.approx(0.75)
     assert _real_query_calls(rigol_visa) == [call(":SOUR1:APPL?")]
+
+
+def test_set_offset_rejects_static_value_carrier(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:
+    _query_sequence(rigol_visa, ["DC"])
+
+    with pytest.raises(ValueError, match="cannot offset a StaticValue"):
+        rigol.set_offset(1, 0.5)
+
+    rigol_visa.write.assert_not_called()
+    assert _real_query_calls(rigol_visa) == [call(":SOUR1:FUNC?")]
 
 
 def test_15_output_enable_formats_on_off_and_parses_state(rigol: RigolDG1022Z, rigol_visa: MagicMock) -> None:

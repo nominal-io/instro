@@ -62,6 +62,8 @@ InstroAWG supports programming a channel with the following waveforms: `Sine`, `
 
 `Arbitrary` requires a sample rate field (`sample_rate_sas`, in samples per second) to specify the number of samples that the internal DAC outputs per second.
 
+`StaticValue` programs a DC level rather than a shape with an independent offset, so `set_offset()` raises on a `StaticValue` channel. Construct a new `StaticValue` and call `set_waveform()` to change the level.
+
 <Note>
 **Driver support varies**
 
