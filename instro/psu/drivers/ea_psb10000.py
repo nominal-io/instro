@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import string
 import threading
+import time
 from functools import cached_property
 
 from instro.eload import ELoadDriverBase
@@ -110,6 +111,7 @@ class EAPSB10000Visa:
     def _write_checked(self, command: str) -> None:
         with self._visa.lock():
             self._visa.write(command)
+            time.sleep(0.01)
             self._check_errors()
 
     def _query_checked(self, command: str) -> str:
