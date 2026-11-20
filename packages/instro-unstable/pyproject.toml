@@ -5,7 +5,7 @@ description = "Unstable modules for instro (in-development features)"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-keywords = ["instro", "test-and-measurement", "instrument-control", "motor-controller", "flow-controller", "vesc", "alicat", "can-bus"]
+keywords = ["instro", "test-and-measurement", "instrument-control", "motor-controller", "flow-controller", "vesc", "alicat", "can-bus", "dynamometer", "magtrol"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
