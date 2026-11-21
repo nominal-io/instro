@@ -93,7 +93,7 @@ def test_wire_scalars_have_python_type_and_value(
     actual = client_node.value.value
     assert type(actual) is python_type
     assert actual == expected
-    assert str(client_node.data_type.value), dtype.to_string()
+    assert client_node.data_type.value == NodeId(dtype.to_string())
 
 
 def test_array_payload_preserves_order_and_allocation(server_node: ServerNode, client_node: Node):

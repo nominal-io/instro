@@ -666,7 +666,11 @@ pub(crate) mod lifecycle_tests {
         })
     }
 
-    pub(crate) async fn native_client(server: &TestServer, pki: &Path) -> OpcUaClient {
+    pub(crate) async fn native_client(
+        server: &TestServer,
+        pki: &Path,
+        max_array_length: usize,
+    ) -> OpcUaClient {
         Python::initialize();
         let certificates = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/opcua/certs");
         let mut factory = ClientBuilder::new()
@@ -679,6 +683,7 @@ pub(crate) mod lifecycle_tests {
             .trust_server_certs(true)
             .verify_server_certs(false)
             .session_retry_limit(-1)
+            .max_array_length(max_array_length)
             .session_retry_initial(Duration::from_millis(1))
             .session_retry_max(Duration::from_millis(10))
             .client()
@@ -704,7 +709,7 @@ pub(crate) mod lifecycle_tests {
     -> PyResult<()> {
         let server = TestServer::builder().start().expect("server starts");
         let pki = tempfile::tempdir().expect("temporary PKI");
-        let mut client = native_client(&server, pki.path()).await;
+        let mut client = native_client(&server, pki.path(), 1000).await;
         let mut native_completion = client.native_state();
         let (completion, controlled) = watch::channel(ClientState::Recovering);
         client.state = controlled;
@@ -754,7 +759,7 @@ pub(crate) mod lifecycle_tests {
     async fn disconnect_during_real_recovery_finishes_native_loop() -> PyResult<()> {
         let server = TestServer::builder().start().expect("server starts");
         let pki = tempfile::tempdir().expect("temporary PKI");
-        let client = native_client(&server, pki.path()).await;
+        let client = native_client(&server, pki.path(), 1000).await;
         let mut state = client.native_state();
         tokio::time::timeout(Duration::from_secs(5), async {
             while !matches!(*state.borrow_and_update(), ClientState::Connected) {
@@ -778,7 +783,7 @@ pub(crate) mod lifecycle_tests {
     async fn successful_activation_reports_connected() -> PyResult<()> {
         let server = TestServer::builder().start().expect("server starts");
         let pki = tempfile::tempdir().expect("temporary PKI");
-        let client = native_client(&server, pki.path()).await;
+        let client = native_client(&server, pki.path(), 1000).await;
         let state = client.native_state();
 
         let _client = client.activate().await?;
@@ -791,7 +796,7 @@ pub(crate) mod lifecycle_tests {
     async fn last_owner_drop_finishes_native_loop() -> PyResult<()> {
         let server = TestServer::builder().start().expect("server starts");
         let pki = tempfile::tempdir().expect("temporary PKI");
-        let client = native_client(&server, pki.path()).await;
+        let client = native_client(&server, pki.path(), 1000).await;
         let mut state = client.native_state();
 
         while !matches!(*state.borrow_and_update(), ClientState::Connected) {

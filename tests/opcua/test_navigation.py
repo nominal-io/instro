@@ -1,4 +1,5 @@
 import warnings
+from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
@@ -41,6 +42,50 @@ def test_children_are_usable_nodes(client: OpcUaClient):
         "Float": 1.25,
         "Boolean": True,
     }
+
+
+@pytest.mark.parametrize(("advertised", "requested"), [(3, 3), (50, 5), (0, 5), (None, 5)])
+def test_children_reads_server_hint_before_bounded_browse(
+    endpoint: str,
+    tmp_path: Path,
+    server: Server,
+    monkeypatch: pytest.MonkeyPatch,
+    advertised: int | None,
+    requested: int,
+):
+    view = server.iserver.view_service
+    browse = view.browse
+    attribute_service = server.iserver.attribute_service
+    read = attribute_service.read
+    capability_node = ua.NodeId(ua.Int32(ObjectIds.Server_ServerCapabilities_MaxArrayLength))
+    requests: list[ua.ReadParameters | ua.BrowseParameters] = []
+
+    def read_capability(params: ua.ReadParameters) -> list[ua.DataValue]:
+        if not any(item.NodeId == capability_node for item in params.NodesToRead):
+            return read(params)
+        requests.append(params)
+        if advertised is None:
+            return [ua.DataValue(None, ua.StatusCode(ua.UInt32(StatusCodes.BadNodeIdUnknown)))]
+        return [ua.DataValue(ua.Variant(ua.UInt32(advertised), ua.VariantType.UInt32))]
+
+    def record_browse(params: ua.BrowseParameters) -> list[ua.BrowseResult]:
+        requests.append(params)
+        return browse(params)
+
+    with OpcUaClient.connect(endpoint, pki_dir=tmp_path, max_array_length=5) as client:
+        rig = client.get_node("/Objects/2:Rig")
+        monkeypatch.setattr(attribute_service, "read", read_capability)
+        monkeypatch.setattr(view, "browse", record_browse)
+
+        assert {child.node_id.identifier for child in rig.children} == {"Temperature", "Float", "Boolean"}
+
+    read_request, browse_request = requests
+    assert isinstance(read_request, ua.ReadParameters)
+    assert [(item.NodeId, item.AttributeId) for item in read_request.NodesToRead] == [
+        (capability_node, ua.AttributeIds.Value)
+    ]
+    assert isinstance(browse_request, ua.BrowseParameters)
+    assert browse_request.RequestedMaxReferencesPerNode == requested
 
 
 def test_batch_read_translates_paths_together_and_preserves_order(

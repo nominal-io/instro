@@ -134,11 +134,7 @@ impl Node {
         PyAttributeValue::from_native(py, attribute, value)
     }
 
-    async fn collect_children(
-        &self,
-        max_references: u32,
-        remote: &mut Vec<ua::ExpandedNodeId>,
-    ) -> PyResult<Vec<Node>> {
+    async fn collect_children(&self, remote: &mut Vec<ua::ExpandedNodeId>) -> PyResult<Vec<Node>> {
         let description = ua::BrowseDescription {
             node_id: self.node_id.clone(),
             reference_type_id: ua::ReferenceTypeId::HierarchicalReferences.into(),
@@ -151,6 +147,46 @@ impl Node {
         let references = self
             .client
             .with_session(async |session| {
+                let decode_limit =
+                    u32::try_from(session.decoding_options().max_array_length).unwrap_or(u32::MAX);
+
+                if decode_limit == 0 {
+                    return Err(error::status(
+                        ua::StatusCode::BadEncodingLimitsExceeded,
+                        "browsing requires a nonzero decoded array limit",
+                    ));
+                }
+
+                // MaxArrayLength is optional and only a hint for service response sizes.
+                let request = ua::ReadValueId::new(
+                    ua::VariableId::Server_ServerCapabilities_MaxArrayLength.into(),
+                    ua::AttributeId::Value,
+                );
+
+                let values = session
+                    .read(&[request], ua::TimestampsToReturn::Neither, 0.0)
+                    .await
+                    .map_err(error::native)?;
+
+                let [capability] = values.as_slice() else {
+                    return Err(error::status(
+                        ua::StatusCode::BadUnexpectedError,
+                        "expected one MaxArrayLength read result",
+                    ));
+                };
+
+                let max_references = match capability {
+                    ua::DataValue {
+                        value: Some(ua::Variant::UInt32(limit)),
+                        status,
+                        ..
+                    } if *limit > 0 && status.is_none_or(|status| status.is_good()) => {
+                        decode_limit.min(*limit)
+                    }
+
+                    _ => decode_limit,
+                };
+
                 let mut page = session.browse(&[description], max_references, None).await;
                 let mut points = Vec::new();
                 let mut references = Vec::new();
@@ -266,6 +302,7 @@ impl Node {
     /// list[Node]: All immediate local hierarchical children, across every page.
     ///
     /// Out-of-server references are omitted with one aggregated ``RuntimeWarning``.
+    /// Each page is bounded by the client decoder and any usable server array limit.
     /// Enumeration failure returns no partial list and retains the original error.
     /// If Python interrupts the wait, browsing continues in the background.
     #[getter]
@@ -274,7 +311,7 @@ impl Node {
 
         let (result, remote) = util::wait_detached(py, async move {
             let mut remote = Vec::new();
-            let result = node.collect_children(0, &mut remote).await;
+            let result = node.collect_children(&mut remote).await;
             Ok((result, remote))
         })?;
 
@@ -724,11 +761,16 @@ mod browsing_tests {
             .add_folder(
                 FolderSpec::new(7103_u32, "Center").parent(ParentRef::Label("Panel".into())),
             )
+            .add_folder(FolderSpec::new(7104_u32, "Top").parent(ParentRef::Label("Panel".into())))
+            .add_folder(
+                FolderSpec::new(7105_u32, "Bottom").parent(ParentRef::Label("Panel".into())),
+            )
+            .add_folder(FolderSpec::new(7106_u32, "Back").parent(ParentRef::Label("Panel".into())))
             .start()
             .expect("server starts");
 
         let pki = tempfile::tempdir().expect("temporary PKI");
-        let client = native_client(&server, pki.path()).await;
+        let client = native_client(&server, pki.path(), 5).await;
         let connected = client
             .with_session(async |session| Ok(session.wait_for_connection().await))
             .await?;
@@ -745,7 +787,7 @@ mod browsing_tests {
             .await
             .expect("panel");
         let children = node
-            .collect_children(1, &mut Vec::new())
+            .collect_children(&mut Vec::new())
             .await
             .expect("browse task");
 
@@ -761,7 +803,15 @@ mod browsing_tests {
             .collect::<Vec<_>>();
 
         actual.sort_by_key(|(id, _, _)| id.to_string());
-        let expected = [(7101, "Left"), (7102, "Right"), (7103, "Center")].map(|(id, name)| {
+        let expected = [
+            (7101, "Left"),
+            (7102, "Right"),
+            (7103, "Center"),
+            (7104, "Top"),
+            (7105, "Bottom"),
+            (7106, "Back"),
+        ]
+        .map(|(id, name)| {
             (
                 ua::NodeId::new(namespace, id),
                 ua::NodeId::new(0, 84_u32),
