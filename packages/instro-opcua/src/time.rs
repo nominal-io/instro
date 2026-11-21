@@ -170,6 +170,26 @@ pub fn unix_timestamp(value: Option<ua::DateTime>, fraction: Option<u16>) -> Opt
     })
 }
 
+pub(crate) fn datetime_from_unix_nanos(nanos: i128) -> PyResult<ua::DateTime> {
+    const UNIX_EPOCH_TICKS: i128 = 116_444_736_000_000_000;
+    const NANOS_PER_TICK: i128 = 100;
+
+    if nanos % NANOS_PER_TICK != 0 {
+        return Err(PyValueError::new_err(
+            "DateTime requires whole 100-nanosecond ticks",
+        ));
+    }
+
+    let ticks = UNIX_EPOCH_TICKS + nanos / NANOS_PER_TICK;
+    if !(0..=i128::from(ua::DateTime::endtimes_ticks())).contains(&ticks) {
+        return Err(PyValueError::new_err(
+            "value exceeds the OPC UA DateTime range",
+        ));
+    }
+
+    Ok(ua::DateTime::from(ticks as i64))
+}
+
 impl crate::values::UaType for DateTime {
     type Inner = ua::DateTime;
 

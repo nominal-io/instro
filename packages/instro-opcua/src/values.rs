@@ -2,6 +2,7 @@ pub(crate) mod attributes;
 mod ordering;
 mod payload;
 mod wrappers;
+pub(crate) mod write;
 
 pub(crate) use attributes::PyAttributeValue;
 pub(crate) use wrappers::*;
