@@ -155,16 +155,38 @@ def test_xml_write_requires_an_xml_element(client_node: Node, requests: tuple[Mo
     write.assert_not_awaited()
 
 
+@pytest.mark.parametrize(
+    ("declared_type", "value", "wire_type", "payload"),
+    [
+        (ua.ObjectIds.UInt16, 42, ua.VariantType.UInt16, 42),
+        (ua.ObjectIds.Duration, 500.25, ua.VariantType.Double, 500.25),
+        (
+            ua.ObjectIds.UtcTime,
+            -1_234_000,
+            ua.VariantType.DateTime,
+            datetime(1969, 12, 31, 23, 59, 59, 998766, timezone.utc),
+        ),
+    ],
+)
 def test_value_assignment_uses_the_declared_wire_type(
-    client_node: Node, server_node: ServerNode, requests: tuple[Mock, AsyncMock]
+    client_node: Node,
+    server_node: ServerNode,
+    requests: tuple[Mock, AsyncMock],
+    declared_type: int,
+    value: int | float,
+    wire_type: ua.VariantType,
+    payload: int | float | datetime,
 ):
     read, write = requests
-    server_node.set_attr(AttributeIds.DataType, ua.DataValue(ua.Variant(ua.NodeId(ua.Int32(5)), ua.VariantType.NodeId)))
+    dtype = ua.Variant(ua.NodeId(ua.Int32(declared_type)), ua.VariantType.NodeId)
+    server_node.set_attr(AttributeIds.DataType, ua.DataValue(dtype))
 
-    client_node.value = 42
+    client_node.value = value
 
     assert target_reads(read) == [AttributeIds.DataType]
-    assert single_write(write, AttributeIds.Value) == ua.Variant(42, ua.VariantType.UInt16)
+    variant = single_write(write, AttributeIds.Value)
+    assert variant.VariantType == wire_type
+    assert variant.Value == payload
 
 
 @pytest.mark.parametrize("explicit", [False, True])

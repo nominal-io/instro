@@ -43,7 +43,9 @@ pub(crate) fn encode(value: &Bound<'_, PyAny>, dtype: ua::DataTypeId) -> PyResul
         D::UInt32 => integer(value, K::UInt32, V::UInt32),
         D::Int64 => integer(value, K::Int64, V::Int64),
         D::UInt64 => integer(value, K::UInt64, V::UInt64),
-        D::Double => scalar_or_list(value, K::Double, |item| Ok(V::Double(double(item)?))),
+        D::Double | D::Duration => {
+            scalar_or_list(value, K::Double, |item| Ok(V::Double(double(item)?)))
+        }
         D::String => scalar_or_list(value, K::String, |item| {
             Ok(V::String(item.extract::<String>()?.into()))
         }),
@@ -51,7 +53,7 @@ pub(crate) fn encode(value: &Bound<'_, PyAny>, dtype: ua::DataTypeId) -> PyResul
             let bytes = item.cast::<PyBytes>()?.as_bytes().to_vec();
             Ok(V::ByteString(bytes.into()))
         }),
-        D::DateTime => scalar_or_list(value, K::DateTime, |item| {
+        D::DateTime | D::UtcTime => scalar_or_list(value, K::DateTime, |item| {
             let NativeInteger(nanos) = item.extract::<NativeInteger<i128>>()?;
             let value = crate::time::datetime_from_unix_nanos(nanos)?;
             Ok(V::DateTime(Box::new(value)))
