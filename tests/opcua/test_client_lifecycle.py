@@ -3,9 +3,43 @@ import signal
 from asyncio.streams import StreamReader, StreamWriter
 
 import pytest
-from typing_extensions import TypeAlias
+from asyncua import ua
+from asyncua.crypto.permission_rules import User, UserRole
+from asyncua.server.internal_server import InternalServer
+from asyncua.server.server import Server
+from asyncua.ua.status_codes import StatusCodes
+from typing_extensions import Any, TypeAlias, cast
 
-from instro.unstable.opcua import OpcUaClient, get_endpoints
+from instro.unstable.opcua import IdentityToken, OpcUaClient, OpcUaError, get_endpoints
+from instro.unstable.opcua.types import NodeId
+
+
+def test_client_context_disconnects_network_but_retains_local_node_metadata(endpoint, connection_options):
+    with OpcUaClient.connect(endpoint, **connection_options) as client:
+        node = client.get_node("/Objects/2:Rig/2:Temperature")
+        assert node.value.value == 23.5
+
+    assert node.node_id == NodeId("ns=2;s=Temperature")
+    assert node.browse_path.starting_node == NodeId("i=84")
+    with pytest.raises(OpcUaError) as failure:
+        _ = node.value
+
+    assert failure.value.status_code.code == StatusCodes.BadServerNotConnected
+
+
+def test_node_retains_client_after_original_reference_is_deleted(endpoint, connection_options):
+    client = OpcUaClient.connect(endpoint, **connection_options)
+    try:
+        node = client.get_node("/Objects/2:Rig/2:Temperature")
+    finally:
+        del client
+
+    try:
+        assert node.value.value == 23.5
+    finally:
+        del node
+
+
 from tests.opcua.conftest import AsyncRunner, DefaultConnectionOptions
 
 Endpoint: TypeAlias = tuple[str, int]
@@ -20,6 +54,46 @@ ENDPOINTS: set[Endpoint] = {
 def test_discovery_returns_advertised_security_modes(endpoint: str):
     endpoints = get_endpoints(endpoint)
     assert {(item.security_policy, int(item.security_mode)) for item in endpoints} == ENDPOINTS
+
+
+@pytest.mark.parametrize(
+    ("mode", "wire_mode"),
+    [("Sign", ua.MessageSecurityMode.Sign), ("SignAndEncrypt", ua.MessageSecurityMode.SignAndEncrypt)],
+)
+def test_username_authentication_reads_over_selected_secure_mode(
+    endpoint: str,
+    connection_options: DefaultConnectionOptions,
+    server: Server,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+    wire_mode: ua.MessageSecurityMode,
+):
+    def operator_only(
+        iserver: InternalServer,
+        username: str | None = None,
+        password: str | None = None,
+        certificate: Any | None = None,
+    ):
+        if (username, password) == ("operator", "secret"):
+            return User(role=UserRole.User, name="operator")
+        return None
+
+    endpoints = [item for item in server.iserver.endpoints if item.SecurityMode == wire_mode]
+    monkeypatch.setattr(server.iserver, "endpoints", endpoints)
+    monkeypatch.setattr(server.iserver.user_manager, "get_user", operator_only)
+
+    options = cast(
+        DefaultConnectionOptions,
+        {
+            **connection_options,
+            "identity": IdentityToken.user_name("operator", "secret"),
+            "security_policy": "Basic256Sha256",
+            "security_mode": mode,
+        },
+    )
+
+    with OpcUaClient.connect(endpoint, **options) as client:
+        assert client.get_node("/Objects/2:Rig/2:Temperature").value.value == 23.5
 
 
 @pytest.mark.parametrize("operation", ["discovery", "connect"])
