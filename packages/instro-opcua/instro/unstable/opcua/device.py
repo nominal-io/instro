@@ -5,7 +5,7 @@ from __future__ import annotations
 from contextlib import nullcontext
 from os import getenv
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 from urllib.parse import urlsplit
 
 import pydantic
@@ -44,10 +44,9 @@ class OpcUaConnectionConfig(_ConfigModel):
     """Endpoint, user identity, and application security settings."""
 
     endpoint_url: str
-    authentication: Annotated[
-        OpcUaAnonymousAuth | OpcUaUsernameAuth,
-        pydantic.Field(discriminator="mode"),
-    ] = pydantic.Field(default_factory=OpcUaAnonymousAuth)
+    authentication: OpcUaAnonymousAuth | OpcUaUsernameAuth = pydantic.Field(
+        default_factory=OpcUaAnonymousAuth, discriminator="mode"
+    )
     security_mode: Literal["None", "Sign", "SignAndEncrypt"] = "None"
     security_policy: str = "None"
     pki_dir: Path | None = None

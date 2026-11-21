@@ -92,7 +92,9 @@ def test_device_opens_from_json_and_binds_in_one_ordered_request(
         _ = device.client
 
 
-def test_failed_path_binding_disconnects_session(endpoint: str, server: Server, tmp_path: Path, monkeypatch):
+def test_failed_path_binding_disconnects_session(
+    endpoint: str, server: Server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
     baseline_sessions = set(server.iserver._external_sessions)
     view = server.iserver.view_service
     translate = view.translate_browsepaths_to_nodeids
