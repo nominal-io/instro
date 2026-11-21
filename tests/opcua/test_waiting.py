@@ -225,3 +225,70 @@ def test_disconnect_reports_a_rejected_close_session_after_shutdown(
 
         assert rejected.value.status_code.code == ua.StatusCodes.BadUserAccessDenied
         client.disconnect()
+
+
+def test_interrupted_subscription_setup_finishes_and_rolls_back(
+    endpoint: str,
+    connection_options: DefaultConnectionOptions,
+    server: Server,
+    run: AsyncRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    stalled_reply: StalledReply,
+):
+    arm, released, handled_on, main_thread, finish = stalled_reply
+    deleted = asyncio.Event()
+    service = server.iserver.subscription_service
+    delete = service.delete_subscriptions
+
+    async def observe_deletion(ids):
+        result = await delete(ids)
+        deleted.set()
+        return result
+
+    monkeypatch.setattr(service, "delete_subscriptions", observe_deletion)
+    connection_options["request_timeout"] = 10
+    with OpcUaClient.connect(endpoint, **connection_options) as client:
+        node = client.get_node("/Objects/2:Rig/2:Temperature")
+        arm("create_monitored_items", 5)
+
+        try:
+            with pytest.raises(SignalObserved):
+                client.subscribe([node])
+
+            assert not released.is_set()
+            assert handled_on == [main_thread]
+        finally:
+            finish()
+
+        run(asyncio.wait_for(deleted.wait(), 2))
+        assert service.subscriptions == {}
+
+
+@pytest.mark.parametrize("method", ["delete_subscriptions", "close_session"])
+def test_explicit_cleanup_waits_through_a_signal(
+    endpoint: str,
+    connection_options: DefaultConnectionOptions,
+    server: Server,
+    stalled_reply: StalledReply,
+    method: str,
+):
+    arm, released, _handled_on, main_thread, finish = stalled_reply
+
+    observed = []
+    signal.signal(signal.SIGINT, lambda _signum, _frame: observed.append((get_ident(), released.is_set())))
+
+    connection_options["request_timeout"] = 10
+    with OpcUaClient.connect(endpoint, **connection_options) as client:
+        samples = client.subscribe(["/Objects/2:Rig/2:Temperature"])
+        next(samples)
+        cleanup = samples.close if method == "delete_subscriptions" else client.disconnect
+        arm(method, 0.2)
+
+        try:
+            cleanup()
+            assert released.is_set()
+            assert observed == [(main_thread, True)]
+            assert server.iserver.subscription_service.subscriptions == {}
+
+        finally:
+            finish()

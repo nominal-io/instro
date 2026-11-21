@@ -7,12 +7,12 @@ import pytest
 from asyncua import ua
 from asyncua.server.address_space import AttributeValue, NodeData
 from asyncua.server.server import Server
+from asyncua.server.subscription_service import SubscriptionService
 from asyncua.ua.attribute_ids import AttributeIds
 from pytest import FixtureRequest, MonkeyPatch, TempPathFactory
 from typing_extensions import Any, Coroutine, Generator, Protocol, TypeVar
 
-from instro.unstable.opcua import IdentityToken, Node, OpcUaClient
-from instro.unstable.opcua.types import MessageSecurityMode, SecurityPolicy
+from instro.unstable.opcua import Node, OpcUaClient
 
 from .server import CERT_DIR, start_server
 
@@ -64,7 +64,7 @@ class DefaultConnectionOptions(TypedDict):
     verify_server_certs: bool
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 def connection_options(tmp_path: Path, request: FixtureRequest) -> DefaultConnectionOptions:
     return {
         "pki_dir": tmp_path,
@@ -112,3 +112,10 @@ def server_node(server: Server, monkeypatch: MonkeyPatch) -> ServerNode:
     node_id = ua.NodeId(ua.String("Temperature"), ua.Int16(2))
 
     return _ServerNode(server.iserver.aspace[node_id])
+
+
+@pytest.fixture
+def service(server: Server, run: AsyncRunner) -> Generator[SubscriptionService, None, None]:
+    service = server.iserver.subscription_service
+    yield service
+    run(service.delete_subscriptions(list(service.subscriptions)))
