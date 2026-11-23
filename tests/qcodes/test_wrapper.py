@@ -308,3 +308,34 @@ def test_device_attr_adds_an_alias(bench):
     assert wrapper.smu is bench and wrapper.device is bench
     with pytest.raises(ValueError, match="free attribute"):
         QcodesInstrument("bench", Bench("other"), [], device_attr="name")
+
+
+def test_a_stale_detach_does_not_release_a_newer_recorder(bench):
+    first = attach(bench, "a", [RecordingPublisher()])
+    first.detach()
+    second = attach(bench, "b", [RecordingPublisher()])
+
+    first.close()
+
+    with pytest.raises(RuntimeError, match="already attached"):
+        attach(bench, "c", [RecordingPublisher()])
+    second.close()
+
+
+def test_one_failing_poll_parameter_does_not_stop_the_others(bench):
+    publisher = RecordingPublisher()
+    wrapper = QcodesInstrument("bench", bench, [publisher], poll=["level", "probe.temperature"])
+    bench.level.get = lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+
+    wrapper._poll_once()
+
+    assert publisher.channels() == {"bench.probe.temperature": [21.5]}
+
+
+def test_set_with_a_keyword_value_still_publishes(bench):
+    publisher = RecordingPublisher()
+    attach(bench, "bench", [publisher])
+
+    bench.level.set(value=3)
+
+    assert publisher.channels() == {"bench.level.cmd": [3.0]}

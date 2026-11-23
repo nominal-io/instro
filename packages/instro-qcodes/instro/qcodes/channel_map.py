@@ -69,7 +69,7 @@ class ChannelMap:
         """Parse the JSON-compatible form written by `to_dict`.
 
         Each ``channels`` value may be a channel-name string, ``null``, or an object whose
-        ``channel`` key holds either; its ``kind``/``get``/``set``/``doc`` keys are informational.
+        ``channel`` key holds either; its ``kind``/``unit``/``label`` keys are informational.
 
         Raises:
             ValueError: The format tag is unknown or an entry is malformed.
@@ -131,7 +131,7 @@ class ChannelMap:
         Args:
             path: Destination file.
             target: Instrument the map belongs to; when given, entries carry each parameter's kind,
-                SCPI commands, and docstring.
+                unit, and label.
         """
         specs = describe(target) if target is not None else None
         Path(path).write_text(json.dumps(self.to_dict(specs), indent=2) + "\n")

@@ -199,7 +199,9 @@ class QcodesInstrument(Instrument, Generic[T]):
                 obj.__dict__.pop(attr, None)
             else:
                 obj.__dict__[attr] = original
-        self._device.__dict__.pop(_OWNER_ATTR, None)
+        # A later recorder may own the device by now; only clear our own marker.
+        if self._device.__dict__.get(_OWNER_ATTR) is self:
+            self._device.__dict__.pop(_OWNER_ATTR, None)
 
     def close(self) -> None:
         """Stop the daemon, close the publishers, detach, and close the device if ``close_device``."""
@@ -274,13 +276,21 @@ class QcodesInstrument(Instrument, Generic[T]):
                 result = set_(*args, **kwargs)
             if len(args) == 1 and not kwargs:
                 self._publish_safely(path, args[0], command=True)
+            elif not args and list(kwargs) == ["value"]:
+                self._publish_safely(path, kwargs["value"], command=True)
+            else:
+                logger.warning("Not publishing the set of '%s' on instrument '%s': no single value", path, self.name)
             return result
 
         return write
 
     def _poll_once(self) -> None:
-        for parameter in self._poll_parameters:
-            parameter.get()
+        for path, parameter in zip(self._poll, self._poll_parameters):
+            # One failing parameter must not stop the others from being read.
+            try:
+                parameter.get()
+            except Exception:
+                logger.exception("Failed to read poll parameter '%s' on instrument '%s'", path, self.name)
 
     def _publish_safely(self, path: str, value: Any, *, command: bool) -> None:
         name = self._channel_names.get(path)
