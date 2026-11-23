@@ -5077,6 +5077,2926 @@
     "summary": "A class representing a Keysight PNA vector network analyzer",
     "tier": ""
    }
+  ],
+  "qcodes": [
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "HP-HP8133A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.HP",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "HP"
+    },
+    "import_path": "qcodes.instrument_drivers.HP.HP_8133A.HP8133A",
+    "manufacturer": "HP",
+    "model": "8133A",
+    "name": "HP8133A",
+    "simulated": false,
+    "summary": "QCoDeS driver for Hewlett Packard 8133A Pulse Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33xxx",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.KeysightAgilent_33XXX.Keysight33xxx",
+    "manufacturer": "Keysight",
+    "model": "33xxx",
+    "name": "Keysight33xxx",
+    "simulated": false,
+    "summary": "Base class for Keysight/Agilent 33XXX waveform generators",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33xxxDualChannels",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.KeysightAgilent_33XXX.Keysight33xxxDualChannels",
+    "manufacturer": "Keysight",
+    "model": "33xxxDualChannels",
+    "name": "Keysight33xxxDualChannels",
+    "simulated": false,
+    "summary": "Subclass for 2 channel Keysight/Agilent 33XXX waveform generators",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33xxxSingleChannel",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.KeysightAgilent_33XXX.Keysight33xxxSingleChannel",
+    "manufacturer": "Keysight",
+    "model": "33xxxSingleChannel",
+    "name": "Keysight33xxxSingleChannel",
+    "simulated": false,
+    "summary": "Subclass for 1 channel Keysight/Agilent 33XXX waveform generators",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33210A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33210a.Keysight33210A",
+    "manufacturer": "Keysight",
+    "model": "33210A",
+    "name": "Keysight33210A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33210A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33250A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33250a.Keysight33250A",
+    "manufacturer": "Keysight",
+    "model": "33250A",
+    "name": "Keysight33250A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33250A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33510B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33510b.Keysight33510B",
+    "manufacturer": "Keysight",
+    "model": "33510B",
+    "name": "Keysight33510B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33510B waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33511B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33511b.Keysight33511B",
+    "manufacturer": "Keysight",
+    "model": "33511B",
+    "name": "Keysight33511B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33511B waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33512B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33512b.Keysight33512B",
+    "manufacturer": "Keysight",
+    "model": "33512B",
+    "name": "Keysight33512B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33512B waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33521B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33521b.Keysight33521B",
+    "manufacturer": "Keysight",
+    "model": "33521B",
+    "name": "Keysight33521B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33521B waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33522B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33522b.Keysight33522B",
+    "manufacturer": "Keysight",
+    "model": "33522B",
+    "name": "Keysight33522B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33522B waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33611A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33611a.Keysight33611A",
+    "manufacturer": "Keysight",
+    "model": "33611A",
+    "name": "Keysight33611A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33611A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33612A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33612a.Keysight33612A",
+    "manufacturer": "Keysight",
+    "model": "33612A",
+    "name": "Keysight33612A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33612A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33621A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33621a.Keysight33621A",
+    "manufacturer": "Keysight",
+    "model": "33621A",
+    "name": "Keysight33621A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33621A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight33622A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_33622a.Keysight33622A",
+    "manufacturer": "Keysight",
+    "model": "33622A",
+    "name": "Keysight33622A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keysight 33622A waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightM9336A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.KtMAwg.KeysightM9336A",
+    "manufacturer": "Keysight",
+    "model": "M9336A",
+    "name": "KeysightM9336A",
+    "simulated": false,
+    "summary": "AWG Driver for the Keysight M9336A PXIe I/Q Arbitrary Waveform Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDG1062",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DG1062.RigolDG1062",
+    "manufacturer": "Rigol",
+    "model": "DG1062",
+    "name": "RigolDG1062",
+    "simulated": false,
+    "summary": "Instrument driver for the Rigol DG1062",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDG4000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DG4000.RigolDG4000",
+    "manufacturer": "Rigol",
+    "model": "DG4000",
+    "name": "RigolDG4000",
+    "simulated": false,
+    "summary": "Driver for the Rigol DG4000 series arbitrary waveform generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG5014",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.AWG5014.TektronixAWG5014",
+    "manufacturer": "Tektronix",
+    "model": "AWG5014",
+    "name": "TektronixAWG5014",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Tektronix AWG5014 Arbitrary Waveform Generator",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG5208",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.AWG5208.TektronixAWG5208",
+    "manufacturer": "Tektronix",
+    "model": "AWG5208",
+    "name": "TektronixAWG5208",
+    "simulated": false,
+    "summary": "The QCoDeS driver for Tektronix AWG5208",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG70002A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.AWG70002A.TektronixAWG70002A",
+    "manufacturer": "Tektronix",
+    "model": "AWG70002A",
+    "name": "TektronixAWG70002A",
+    "simulated": false,
+    "summary": "The QCoDeS driver for Tektronix AWG70002A series AWG's",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG70001A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_70001A.TektronixAWG70001A",
+    "manufacturer": "Tektronix",
+    "model": "AWG70001A",
+    "name": "TektronixAWG70001A",
+    "simulated": false,
+    "summary": "The QCoDeS driver for Tektronix AWG70001A series AWG's",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG70001B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_70001B.TektronixAWG70001B",
+    "manufacturer": "Tektronix",
+    "model": "AWG70001B",
+    "name": "TektronixAWG70001B",
+    "simulated": false,
+    "summary": "The QCoDeS driver for Tektronix AWG70001B series AWG's",
+    "tier": ""
+   },
+   {
+    "category": "awg",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixAWG70002B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_70002B.TektronixAWG70002B",
+    "manufacturer": "Tektronix",
+    "model": "AWG70002B",
+    "name": "TektronixAWG70002B",
+    "simulated": false,
+    "summary": "The QCoDeS driver for Tektronix AWG70002B series AWG's",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AcquisitionController",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name",
+      "alazar_name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS.AcquisitionController",
+    "manufacturer": "AlazarTech",
+    "model": "AcquisitionController",
+    "name": "AcquisitionController",
+    "simulated": false,
+    "summary": "Compatibility class",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AlazarTechATS",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS.AlazarTechATS",
+    "manufacturer": "AlazarTech",
+    "model": "ATS",
+    "name": "AlazarTechATS",
+    "simulated": false,
+    "summary": "This is the BaseClass for the qcodes drivers for Alazar data acquisition cards",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AlazarTechATS9360",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS9360.AlazarTechATS9360",
+    "manufacturer": "AlazarTech",
+    "model": "ATS9360",
+    "name": "AlazarTechATS9360",
+    "simulated": false,
+    "summary": "This class is the driver for the ATS9360 board it inherits from the ATS base class",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AlazarTechATS9373",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS9373.AlazarTechATS9373",
+    "manufacturer": "AlazarTech",
+    "model": "ATS9373",
+    "name": "AlazarTechATS9373",
+    "simulated": false,
+    "summary": "This class is the driver for the ATS9373 board",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AlazarTechATS9440",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS9440.AlazarTechATS9440",
+    "manufacturer": "AlazarTech",
+    "model": "ATS9440",
+    "name": "AlazarTechATS9440",
+    "simulated": false,
+    "summary": "This class is the driver for the ATS9440 board it inherits from the ATS base class",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-AlazarTechATS9870",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS9870.AlazarTechATS9870",
+    "manufacturer": "AlazarTech",
+    "model": "ATS9870",
+    "name": "AlazarTechATS9870",
+    "simulated": false,
+    "summary": "This class is the driver for the ATS9870 board it inherits from the ATS base class",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AlazarTech-DemodulationAcquisitionController",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AlazarTech",
+     "required_params": [
+      "name",
+      "alazar_name",
+      "demodulation_frequency"
+     ],
+     "vendor_package": "AlazarTech"
+    },
+    "import_path": "qcodes.instrument_drivers.AlazarTech.ATS_acquisition_controllers.DemodulationAcquisitionController",
+    "manufacturer": "AlazarTech",
+    "model": "DemodulationAcquisitionController",
+    "name": "DemodulationAcquisitionController",
+    "simulated": false,
+    "summary": "This class represents an example acquisition controller",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Harvard-HarvardDecadac",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Harvard",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Harvard"
+    },
+    "import_path": "qcodes.instrument_drivers.Harvard.Decadac.HarvardDecadac",
+    "manufacturer": "Harvard",
+    "model": "Decadac",
+    "name": "HarvardDecadac",
+    "simulated": false,
+    "summary": "The qcodes driver for the Decadac",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley3706A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_3706A.Keithley3706A",
+    "manufacturer": "Keithley",
+    "model": "3706A",
+    "name": "Keithley3706A",
+    "simulated": false,
+    "summary": "This is the QCoDeS instrument driver for the Keithley 3706A-SNFP System Switch",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34980A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysight_34980a.Keysight34980A",
+    "manufacturer": "Keysight",
+    "model": "34980A",
+    "name": "Keysight34980A",
+    "simulated": false,
+    "summary": "QCodes driver for 34980A switch/measure unit",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightB2200",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysight_b220x.KeysightB2200",
+    "manufacturer": "Keysight",
+    "model": "B2200",
+    "name": "KeysightB2200",
+    "simulated": false,
+    "summary": "QCodes driver for B2200",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightB2201",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysight_b220x.KeysightB2201",
+    "manufacturer": "Keysight",
+    "model": "B2201",
+    "name": "KeysightB2201",
+    "simulated": false,
+    "summary": "QCodes driver for B2201",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightB220X",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysight_b220x.KeysightB220X",
+    "manufacturer": "Keysight",
+    "model": "B220X",
+    "name": "KeysightB220X",
+    "simulated": false,
+    "summary": "QCodes driver for B2200 / B2201 switch matrix",
+    "tier": ""
+   },
+   {
+    "category": "daq",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "QDev-QDevQDac",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.QDev",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "QDev"
+    },
+    "import_path": "qcodes.instrument_drivers.QDev.QDac_channels.QDevQDac",
+    "manufacturer": "Qdev",
+    "model": "QDac",
+    "name": "QDevQDac",
+    "simulated": false,
+    "summary": "Channelised driver for the QDev digital-analog converter QDac",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2000.Keithley2000",
+    "manufacturer": "Keithley",
+    "model": "2000",
+    "name": "Keithley2000",
+    "simulated": false,
+    "summary": "Driver for the Keithley 2000 multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2450",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2450.Keithley2450",
+    "manufacturer": "Keithley",
+    "model": "2450",
+    "name": "Keithley2450",
+    "simulated": false,
+    "summary": "The QCoDeS driver for the Keithley 2450 SMU",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2601B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2601B.Keithley2601B",
+    "manufacturer": "Keithley",
+    "model": "2601B",
+    "name": "Keithley2601B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2601B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2602A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2602A.Keithley2602A",
+    "manufacturer": "Keithley",
+    "model": "2602A",
+    "name": "Keithley2602A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2602A Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2602B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2602B.Keithley2602B",
+    "manufacturer": "Keithley",
+    "model": "2602B",
+    "name": "Keithley2602B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2602B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2604B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2604B.Keithley2604B",
+    "manufacturer": "Keithley",
+    "model": "2604B",
+    "name": "Keithley2604B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2604B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2611B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2611B.Keithley2611B",
+    "manufacturer": "Keithley",
+    "model": "2611B",
+    "name": "Keithley2611B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2611B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2612B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2612B.Keithley2612B",
+    "manufacturer": "Keithley",
+    "model": "2612B",
+    "name": "Keithley2612B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2612B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2614B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2614B.Keithley2614B",
+    "manufacturer": "Keithley",
+    "model": "2614B",
+    "name": "Keithley2614B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2614B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2634B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2634B.Keithley2634B",
+    "manufacturer": "Keithley",
+    "model": "2634B",
+    "name": "Keithley2634B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2634B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2635B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2635B.Keithley2635B",
+    "manufacturer": "Keithley",
+    "model": "2635B",
+    "name": "Keithley2635B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2635B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2636B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2636B.Keithley2636B",
+    "manufacturer": "Keithley",
+    "model": "2636B",
+    "name": "Keithley2636B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2636B Source-Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley6500",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_6500.Keithley6500",
+    "manufacturer": "Keithley",
+    "model": "6500",
+    "name": "Keithley6500",
+    "simulated": false,
+    "summary": "Base class for all instruments using visa connections",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley7510",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_7510.Keithley7510",
+    "manufacturer": "Keithley",
+    "model": "7510",
+    "name": "Keithley7510",
+    "simulated": false,
+    "summary": "The QCoDeS driver for the Keithley 7510 DMM",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightInfiniiumBoundMeasurement",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "parent",
+      "name"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Infiniium.KeysightInfiniiumBoundMeasurement",
+    "manufacturer": "Keysight",
+    "model": "InfiniiumBoundMeasurement",
+    "name": "KeysightInfiniiumBoundMeasurement",
+    "simulated": false,
+    "summary": "Submodule containing the measurement subsystem commands and associated parameters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightInfiniiumUnboundMeasurement",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "parent",
+      "name"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Infiniium.KeysightInfiniiumUnboundMeasurement",
+    "manufacturer": "Keysight",
+    "model": "InfiniiumUnboundMeasurement",
+    "name": "KeysightInfiniiumUnboundMeasurement",
+    "simulated": false,
+    "summary": "Submodule containing the measurement subsystem commands and associated parameters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34410A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34410A_submodules.Keysight34410A",
+    "manufacturer": "Keysight",
+    "model": "34410A",
+    "name": "Keysight34410A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34410A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34411A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34411A_submodules.Keysight34411A",
+    "manufacturer": "Keysight",
+    "model": "34411A",
+    "name": "Keysight34411A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34411A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34460A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34460A_submodules.Keysight34460A",
+    "manufacturer": "Keysight",
+    "model": "34460A",
+    "name": "Keysight34460A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34460A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34461A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34461A_submodules.Keysight34461A",
+    "manufacturer": "Keysight",
+    "model": "34461A",
+    "name": "Keysight34461A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34461A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34465A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34465A_submodules.Keysight34465A",
+    "manufacturer": "Keysight",
+    "model": "34465A",
+    "name": "Keysight34465A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34465A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight34470A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_34470A_submodules.Keysight34470A",
+    "manufacturer": "Keysight",
+    "model": "34470A",
+    "name": "Keysight34470A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight 34470A Multimeter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightM960x",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.KtM960x.KeysightM960x",
+    "manufacturer": "Keysight",
+    "model": "M960x",
+    "name": "KeysightM960x",
+    "simulated": false,
+    "summary": "Provide a wrapper for the Keysight KtM960x DAC. This driver provides an interface into the IVI-C driver provided by Keysight",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightE4980A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysight_e4980a.KeysightE4980A",
+    "manufacturer": "Keysight",
+    "model": "E4980A",
+    "name": "KeysightE4980A",
+    "simulated": false,
+    "summary": "QCodes driver for E4980A Precision LCR Meter",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightB1500",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.keysightb1500.KeysightB1500_base.KeysightB1500",
+    "manufacturer": "Keysight",
+    "model": "B1500",
+    "name": "KeysightB1500",
+    "simulated": false,
+    "summary": "Driver for Keysight B1500 Semiconductor Parameter Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-Keysight344xxA",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.private.Keysight_344xxA_submodules.Keysight344xxA",
+    "manufacturer": "Keysight",
+    "model": "344xxA",
+    "name": "Keysight344xxA",
+    "simulated": false,
+    "summary": "Base class for Keysight 34410A, 34411A, 34460A, 34461A, 34465A and 34470A multimeters",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "agilent-Agilent34401A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.agilent",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "qcodes.instrument_drivers.agilent.Agilent_34401A.Agilent34401A",
+    "manufacturer": "Agilent",
+    "model": "34401A",
+    "name": "Agilent34401A",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Agilent 34401A DMM",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "agilent-Agilent34410A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.agilent",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "qcodes.instrument_drivers.agilent.Agilent_34410A.Agilent34410A",
+    "manufacturer": "Agilent",
+    "model": "34410A",
+    "name": "Agilent34410A",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Agilent 34410A DMM",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "agilent-Agilent34411A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.agilent",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "qcodes.instrument_drivers.agilent.Agilent_34411A.Agilent34411A",
+    "manufacturer": "Agilent",
+    "model": "34411A",
+    "name": "Agilent34411A",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Agilent 34411A DMM",
+    "tier": ""
+   },
+   {
+    "category": "dmm",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-MockParabola",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.MockParabola",
+    "manufacturer": "QCoDeS",
+    "model": "MockParabola",
+    "name": "MockParabola",
+    "simulated": true,
+    "summary": "Holds dummy parameters which are get and set able as well as provides some basic functions that depends on these parameters for testing purposes",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "ithaco-Ithaco1211",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.ithaco",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "ithaco"
+    },
+    "import_path": "qcodes.instrument_drivers.ithaco.Ithaco_1211.Ithaco1211",
+    "manufacturer": "Ithaco",
+    "model": "1211",
+    "name": "Ithaco1211",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Ithaco 1211 Current-preamplifier",
+    "tier": ""
+   },
+   {
+    "category": "laser",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR560",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR560.SR560",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR560",
+    "name": "SR560",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SR560 Voltage-preamplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-MockLockin",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.MockLockin",
+    "manufacturer": "QCoDeS",
+    "model": "MockLockin",
+    "name": "MockLockin",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR830",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR830.SR830",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR830",
+    "name": "SR830",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SR830 Lock-in Amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR860",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR860.SR860",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR860",
+    "name": "SR860",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SR860 Lock-in Amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR865",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR865.SR865",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR865",
+    "name": "SR865",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SR865 Lock-in Amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR865A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR865A.SR865A",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR865A",
+    "name": "SR865A",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SR865A Lock-in Amplifier",
+    "tier": ""
+   },
+   {
+    "category": "lockin",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SR86x",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address",
+      "max_frequency"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SR86x.SR86x",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SR86x",
+    "name": "SR86x",
+    "simulated": false,
+    "summary": "Base class for Stanford SR86x Lock-in Amplifier drivers",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyAttrInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyAttrInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "DummyAttrInstrument",
+    "name": "DummyAttrInstrument",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyChannelInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyChannelInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "DummyChannelInstrument",
+    "name": "DummyChannelInstrument",
+    "simulated": true,
+    "summary": "Dummy instrument with channels",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyChannelOnlyInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyChannelOnlyInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "DummyChannelOnlyInstrument",
+    "name": "DummyChannelOnlyInstrument",
+    "simulated": true,
+    "summary": "Dummy instrument with channels that have not been added as individual submodules",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyFailingInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyFailingInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "DummyFailingInstrument",
+    "name": "DummyFailingInstrument",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "DummyInstrument",
+    "name": "DummyInstrument",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-DummyInstrumentWithMeasurement",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name",
+      "setter_instr"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.DummyInstrumentWithMeasurement",
+    "manufacturer": "QCoDeS",
+    "model": "DummyInstrumentWithMeasurement",
+    "name": "DummyInstrumentWithMeasurement",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-MockDAC",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.MockDAC",
+    "manufacturer": "QCoDeS",
+    "model": "MockDAC",
+    "name": "MockDAC",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-MockField",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.MockField",
+    "manufacturer": "QCoDeS",
+    "model": "MockField",
+    "name": "MockField",
+    "simulated": true,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-MockMetaParabola",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name",
+      "mock_parabola_inst"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.MockMetaParabola",
+    "manufacturer": "QCoDeS",
+    "model": "MockMetaParabola",
+    "name": "MockMetaParabola",
+    "simulated": true,
+    "summary": "Test for a meta instrument, has a tunable gain knob",
+    "tier": ""
+   },
+   {
+    "category": "other",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "mock_instruments-SnapShotTestInstrument",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.mock_instruments",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "mock_instruments"
+    },
+    "import_path": "qcodes.instrument_drivers.mock_instruments.SnapShotTestInstrument",
+    "manufacturer": "QCoDeS",
+    "model": "SnapShotTestInstrument",
+    "name": "SnapShotTestInstrument",
+    "simulated": true,
+    "summary": "A highly specialized dummy instrument for testing the snapshot",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL068P",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL068_P.AimTTiPL068P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL068P",
+    "name": "AimTTiPL068P",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL068-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL155P",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL155_P.AimTTiPL155P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL155P",
+    "name": "AimTTiPL155P",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL155-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL303QMDP",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL303QMD_P.AimTTiPL303QMDP",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303QMDP",
+    "name": "AimTTiPL303QMDP",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL303QMD-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL303QMTP",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL303QMT_P.AimTTiPL303QMTP",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303QMTP",
+    "name": "AimTTiPL303QMTP",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL303QMT-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL303P",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL303_P.AimTTiPL303P",
+    "manufacturer": "Aim-TTi",
+    "model": "PL303P",
+    "name": "AimTTiPL303P",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL303-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiPL601",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_PL601_P.AimTTiPL601",
+    "manufacturer": "Aim-TTi",
+    "model": "PL601",
+    "name": "AimTTiPL601",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi PL601-P series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "AimTTi-AimTTiQL355TP",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.AimTTi",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "AimTTi"
+    },
+    "import_path": "qcodes.instrument_drivers.AimTTi.Aim_TTi_QL355_TP.AimTTiQL355TP",
+    "manufacturer": "Aim-TTi",
+    "model": "QL355TP",
+    "name": "AimTTiQL355TP",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Aim TTi QL355TP series power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-Keithley2400",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_2400.Keithley2400",
+    "manufacturer": "Keithley",
+    "model": "2400",
+    "name": "Keithley2400",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Keithley 2400 voltage source",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightB2962A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_B2962A.KeysightB2962A",
+    "manufacturer": "Keysight",
+    "model": "B2962A",
+    "name": "KeysightB2962A",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Keysight B2962A 6.5 Digit Low Noise Power Source",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN6705B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N6705B.KeysightN6705B",
+    "manufacturer": "Keysight",
+    "model": "N6705B",
+    "name": "KeysightN6705B",
+    "simulated": false,
+    "summary": "Base class for all instruments using visa connections",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "american_magnetics-AMIModel430",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.american_magnetics",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "american_magnetics"
+    },
+    "import_path": "qcodes.instrument_drivers.american_magnetics.AMI430_visa.AMIModel430",
+    "manufacturer": "American Magnetics",
+    "model": "AMIModel430",
+    "name": "AMIModel430",
+    "simulated": false,
+    "summary": "Base class for all instruments using visa connections",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "american_magnetics-AMIModel4303D",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.american_magnetics",
+     "required_params": [
+      "name",
+      "instrument_x",
+      "instrument_y",
+      "instrument_z",
+      "field_limit"
+     ],
+     "vendor_package": "american_magnetics"
+    },
+    "import_path": "qcodes.instrument_drivers.american_magnetics.AMI430_visa.AMIModel4303D",
+    "manufacturer": "American Magnetics",
+    "model": "AMIModel4303D",
+    "name": "AMIModel4303D",
+    "simulated": false,
+    "summary": "Base class for all QCodes instruments",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "oxford-OxfordMercuryiPS",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.oxford",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "oxford"
+    },
+    "import_path": "qcodes.instrument_drivers.oxford.MercuryiPS_VISA.OxfordMercuryiPS",
+    "manufacturer": "Oxford Instruments",
+    "model": "MercuryiPS",
+    "name": "OxfordMercuryiPS",
+    "simulated": false,
+    "summary": "Driver class for the QCoDeS Oxford Instruments MercuryiPS magnet power supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDP821",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DP821.RigolDP821",
+    "manufacturer": "Rigol",
+    "model": "DP821",
+    "name": "RigolDP821",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Rigol DP821(A) Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDP831",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DP831.RigolDP831",
+    "manufacturer": "Rigol",
+    "model": "DP831",
+    "name": "RigolDP831",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Rigol DP831(A) Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDP832",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DP832.RigolDP832",
+    "manufacturer": "Rigol",
+    "model": "DP832",
+    "name": "RigolDP832",
+    "simulated": false,
+    "summary": "This is the qcodes driver for the Rigol DP832(A) Power Supply",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stahl-Stahl",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stahl",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stahl"
+    },
+    "import_path": "qcodes.instrument_drivers.stahl.stahl.Stahl",
+    "manufacturer": "Stahl Electronics",
+    "model": "Stahl",
+    "name": "Stahl",
+    "simulated": false,
+    "summary": "Base class for all instruments using visa connections",
+    "tier": ""
+   },
+   {
+    "category": "psu",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "yokogawa-YokogawaGS200",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.yokogawa",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "yokogawa"
+    },
+    "import_path": "qcodes.instrument_drivers.yokogawa.Yokogawa_GS200.YokogawaGS200",
+    "manufacturer": "Yokogawa",
+    "model": "GS200",
+    "name": "YokogawaGS200",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Yokogawa GS200 voltage and current source",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "HP-HP83650A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.HP",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "HP"
+    },
+    "import_path": "qcodes.instrument_drivers.HP.HP_83650A.HP83650A",
+    "manufacturer": "HP",
+    "model": "83650A",
+    "name": "HP83650A",
+    "simulated": false,
+    "summary": "QCoDeS driver for HP 83650A",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keithley-KeithleyS46",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keithley",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keithley"
+    },
+    "import_path": "qcodes.instrument_drivers.Keithley.Keithley_s46.KeithleyS46",
+    "manufacturer": "Keithley",
+    "model": "S46",
+    "name": "KeithleyS46",
+    "simulated": false,
+    "summary": "Base class for all instruments using visa connections",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN5173B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N5173B.KeysightN5173B",
+    "manufacturer": "Keysight",
+    "model": "N5173B",
+    "name": "KeysightN5173B",
+    "simulated": false,
+    "summary": "This is the qcodes driver for Keysight/Agilent scalar RF sources",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN5183B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N5183B.KeysightN5183B",
+    "manufacturer": "Keysight",
+    "model": "N5183B",
+    "name": "KeysightN5183B",
+    "simulated": false,
+    "summary": "This is the qcodes driver for Keysight/Agilent scalar RF sources",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "agilent-AgilentE8257D",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.agilent",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "qcodes.instrument_drivers.agilent.Agilent_E8257D.AgilentE8257D",
+    "manufacturer": "Agilent",
+    "model": "E8257D",
+    "name": "AgilentE8257D",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Agilent E8257D signal generator",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "agilent-AgilentE8267C",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.agilent",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "agilent"
+    },
+    "import_path": "qcodes.instrument_drivers.agilent.Agilent_E8267C.AgilentE8267C",
+    "manufacturer": "Agilent",
+    "model": "E8267C",
+    "name": "AgilentE8267C",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Agilent E8267C signal generator",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rohde_schwarz-RohdeSchwarzSGS100A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rohde_schwarz",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rohde_schwarz"
+    },
+    "import_path": "qcodes.instrument_drivers.rohde_schwarz.SGS100A.RohdeSchwarzSGS100A",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "RohdeSchwarzSGS100A",
+    "name": "RohdeSchwarzSGS100A",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Rohde & Schwarz SGS100A signal generator",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "stanford_research-SG384",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.stanford_research",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "stanford_research"
+    },
+    "import_path": "qcodes.instrument_drivers.stanford_research.SG384.SG384",
+    "manufacturer": "Stanford Research Systems",
+    "model": "SG384",
+    "name": "SG384",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Stanford Research Systems SG384 RF Signal Generator",
+    "tier": ""
+   },
+   {
+    "category": "rf",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "weinschel-Weinschel8320",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.weinschel",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "weinschel"
+    },
+    "import_path": "qcodes.instrument_drivers.weinschel.Weinschel_8320.Weinschel8320",
+    "manufacturer": "Weinschel",
+    "model": "8320",
+    "name": "Weinschel8320",
+    "simulated": false,
+    "summary": "QCodes driver for the Weinschel 8320 stepped attenuator",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightInfiniium",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Infiniium.KeysightInfiniium",
+    "manufacturer": "Keysight",
+    "model": "Infiniium",
+    "name": "KeysightInfiniium",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Keysight Infiniium oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDS1074Z",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DS1074Z.RigolDS1074Z",
+    "manufacturer": "Rigol",
+    "model": "DS1074Z",
+    "name": "RigolDS1074Z",
+    "simulated": false,
+    "summary": "The QCoDeS drivers for Oscilloscope Rigol DS1074Z",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rigol-RigolDS4000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rigol",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rigol"
+    },
+    "import_path": "qcodes.instrument_drivers.rigol.Rigol_DS4000.RigolDS4000",
+    "manufacturer": "Rigol",
+    "model": "DS4000",
+    "name": "RigolDS4000",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Rigol DS4000 series oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rohde_schwarz-RohdeSchwarzRTO1000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rohde_schwarz",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rohde_schwarz"
+    },
+    "import_path": "qcodes.instrument_drivers.rohde_schwarz.RTO1000.RohdeSchwarzRTO1000",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "RohdeSchwarzRTO1000",
+    "name": "RohdeSchwarzRTO1000",
+    "simulated": false,
+    "summary": "QCoDeS Instrument driver for the Rohde-Schwarz RTO1000 series oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixTPS2012",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.TPS2012.TektronixTPS2012",
+    "manufacturer": "Tektronix",
+    "model": "TPS2012",
+    "name": "TektronixTPS2012",
+    "simulated": false,
+    "summary": "This is the QCoDeS driver for the Tektronix 2012B oscilloscope",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixDPO5000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_DPO5000.TektronixDPO5000",
+    "manufacturer": "Tektronix",
+    "model": "DPO5000",
+    "name": "TektronixDPO5000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix DPO5000 Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixDPO7000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_DPO7000.TektronixDPO7000",
+    "manufacturer": "Tektronix",
+    "model": "DPO7000",
+    "name": "TektronixDPO7000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix DPO7000 Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixDPO70000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_DPO70000.TektronixDPO70000",
+    "manufacturer": "Tektronix",
+    "model": "DPO70000",
+    "name": "TektronixDPO70000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix DPO70000 Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixDSA70000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_DSA70000.TektronixDSA70000",
+    "manufacturer": "Tektronix",
+    "model": "DSA70000",
+    "name": "TektronixDSA70000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix DSA70000 Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixMSO5000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_MSO5000.TektronixMSO5000",
+    "manufacturer": "Tektronix",
+    "model": "MSO5000",
+    "name": "TektronixMSO5000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix MSO5000 Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "scope",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "tektronix-TektronixMSO70000",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.tektronix",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "tektronix"
+    },
+    "import_path": "qcodes.instrument_drivers.tektronix.Tektronix_MSO70000.TektronixMSO70000",
+    "manufacturer": "Tektronix",
+    "model": "MSO70000",
+    "name": "TektronixMSO70000",
+    "simulated": false,
+    "summary": "QCoDeS driver for Tektronix MSO70000  Digital Oscilloscopes",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN9030B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N9030B.KeysightN9030B",
+    "manufacturer": "Keysight",
+    "model": "N9030B",
+    "name": "KeysightN9030B",
+    "simulated": false,
+    "summary": "Driver for Keysight N9030B PXA signal analyzer",
+    "tier": ""
+   },
+   {
+    "category": "spectrum",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "signal_hound-SignalHoundUSBSA124B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.signal_hound",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "signal_hound"
+    },
+    "import_path": "qcodes.instrument_drivers.signal_hound.SignalHound_USB_SA124B.SignalHoundUSBSA124B",
+    "manufacturer": "Signal Hound",
+    "model": "USBSA124B",
+    "name": "SignalHoundUSBSA124B",
+    "simulated": false,
+    "summary": "QCoDeS driver for the SignalHound USB SA124B",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Lakeshore-LakeshoreModel325",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Lakeshore",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Lakeshore"
+    },
+    "import_path": "qcodes.instrument_drivers.Lakeshore.Lakeshore_model_325.LakeshoreModel325",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "Model325",
+    "name": "LakeshoreModel325",
+    "simulated": false,
+    "summary": "QCoDeS driver for Lakeshore Model 325 Temperature Controller",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Lakeshore-LakeshoreModel336",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Lakeshore",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Lakeshore"
+    },
+    "import_path": "qcodes.instrument_drivers.Lakeshore.Lakeshore_model_336.LakeshoreModel336",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "Model336",
+    "name": "LakeshoreModel336",
+    "simulated": false,
+    "summary": "QCoDeS driver for Lakeshore Model 336 Temperature Controller",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Lakeshore-LakeshoreModel372",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Lakeshore",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Lakeshore"
+    },
+    "import_path": "qcodes.instrument_drivers.Lakeshore.Lakeshore_model_372.LakeshoreModel372",
+    "manufacturer": "Lake Shore Cryotronics",
+    "model": "Model372",
+    "name": "LakeshoreModel372",
+    "simulated": false,
+    "summary": "QCoDeS driver for Lakeshore Model 372 Temperature Controller",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "QuantumDesign-DynaCool",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.QuantumDesign",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "QuantumDesign"
+    },
+    "import_path": "qcodes.instrument_drivers.QuantumDesign.DynaCoolPPMS.DynaCool.DynaCool",
+    "manufacturer": "Quantum Design",
+    "model": "DynaCool",
+    "name": "DynaCool",
+    "simulated": false,
+    "summary": "Class to represent the DynaCoolPPMS",
+    "tier": ""
+   },
+   {
+    "category": "temperature",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "oxford-OxfordTriton",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.oxford",
+     "required_params": [
+      "name"
+     ],
+     "vendor_package": "oxford"
+    },
+    "import_path": "qcodes.instrument_drivers.oxford.triton.OxfordTriton",
+    "manufacturer": "Oxford Instruments",
+    "model": "Triton",
+    "name": "OxfordTriton",
+    "simulated": false,
+    "summary": "Triton Driver",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "HP-HP8753D",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.HP",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "HP"
+    },
+    "import_path": "qcodes.instrument_drivers.HP.HP_8753D.HP8753D",
+    "manufacturer": "HP",
+    "model": "8753D",
+    "name": "HP8753D",
+    "simulated": false,
+    "summary": "QCoDeS driver for the Hewlett Packard 8753D Network Analyzer",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN5222B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N5222B.KeysightN5222B",
+    "manufacturer": "Keysight",
+    "model": "N5222B",
+    "name": "KeysightN5222B",
+    "simulated": false,
+    "summary": "Base class for qcodes drivers for Agilent/Keysight series PNAs",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN5230C",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N5230C.KeysightN5230C",
+    "manufacturer": "Keysight",
+    "model": "N5230C",
+    "name": "KeysightN5230C",
+    "simulated": false,
+    "summary": "Base class for qcodes drivers for Agilent/Keysight series PNAs",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightN5245A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_N5245A.KeysightN5245A",
+    "manufacturer": "Keysight",
+    "model": "N5245A",
+    "name": "KeysightN5245A",
+    "simulated": false,
+    "summary": "Base class for qcodes drivers for Agilent/Keysight series PNAs",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightP5002B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_P5002B.KeysightP5002B",
+    "manufacturer": "Keysight",
+    "model": "P5002B",
+    "name": "KeysightP5002B",
+    "simulated": false,
+    "summary": "Driver for the Keysight P5002B Vector Network Analyzer. (see…",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightP5004B",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_P5004B.KeysightP5004B",
+    "manufacturer": "Keysight",
+    "model": "P5004B",
+    "name": "KeysightP5004B",
+    "simulated": false,
+    "summary": "Driver for the Keysight P5004B Vector Network Analyzer. (see…",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "Keysight-KeysightP9374A",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.Keysight",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "Keysight"
+    },
+    "import_path": "qcodes.instrument_drivers.Keysight.Keysight_P9374A.KeysightP9374A",
+    "manufacturer": "Keysight",
+    "model": "P9374A",
+    "name": "KeysightP9374A",
+    "simulated": false,
+    "summary": "Base class for qcodes drivers for Agilent/Keysight series PNAs",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rohde_schwarz-RohdeSchwarzZNB20",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rohde_schwarz",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rohde_schwarz"
+    },
+    "import_path": "qcodes.instrument_drivers.rohde_schwarz.Rohde_Schwarz_ZNB20.RohdeSchwarzZNB20",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "RohdeSchwarzZNB20",
+    "name": "RohdeSchwarzZNB20",
+    "simulated": false,
+    "summary": "QCoDeS driver for Rohde & Schwarz ZNB20",
+    "tier": ""
+   },
+   {
+    "category": "vna",
+    "driver_type": "qcodes",
+    "extra": {
+     "id": "rohde_schwarz-RohdeSchwarzZNB8",
+     "library_version": "0.63.0",
+     "package_import": "qcodes.instrument_drivers.rohde_schwarz",
+     "required_params": [
+      "name",
+      "address"
+     ],
+     "vendor_package": "rohde_schwarz"
+    },
+    "import_path": "qcodes.instrument_drivers.rohde_schwarz.Rohde_Schwarz_ZNB8.RohdeSchwarzZNB8",
+    "manufacturer": "Rohde & Schwarz",
+    "model": "RohdeSchwarzZNB8",
+    "name": "RohdeSchwarzZNB8",
+    "simulated": false,
+    "summary": "QCoDeS driver for Rohde & Schwarz ZNB8",
+    "tier": ""
+   }
   ]
  }
 }

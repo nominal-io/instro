@@ -9,7 +9,14 @@ sys.path.insert(0, str(Path(__file__).parents[2] / "docs" / "_ext"))
 import instrument_db  # noqa: E402
 from instrument_db.records import InstrumentRecord  # noqa: E402
 from instrument_db.render import home_page, rel_url, stub_page  # noqa: E402
-from instrument_db.sources import InstroSource, _base_category, _first_line, pymeasure_category  # noqa: E402
+from instrument_db.sources import (  # noqa: E402
+    InstroSource,
+    QcodesSource,
+    _base_category,
+    _first_line,
+    pymeasure_category,
+    qcodes_category,
+)
 
 
 def _scope() -> InstrumentRecord:
@@ -240,4 +247,48 @@ def test_vendor_sdk_driver_packages_are_found_without_being_installed():
         assert found[name].manufacturer != "Other"
     # a driver the importable walk also finds is listed once
     paths = [r.import_path for r in InstroSource().discover()]
+    assert len(paths) == len(set(paths))
+
+
+def _dac() -> InstrumentRecord:
+    return InstrumentRecord(
+        driver_type="qcodes",
+        category="dmm",
+        manufacturer="Keithley",
+        model="2450",
+        name="Keithley2450",
+        import_path="qcodes.instrument_drivers.Keithley.Keithley_2450.Keithley2450",
+        extra={
+            "id": "Keithley-Keithley2450",
+            "vendor_package": "Keithley",
+            "package_import": "qcodes.instrument_drivers.Keithley",
+            "required_params": ["name", "address"],
+        },
+    )
+
+
+def test_qcodes_stub_shows_both_instro_forms(tmp_path):
+    page = stub_page(_dac(), tmp_path)
+
+    assert "from qcodes.instrument_drivers.Keithley import Keithley2450" in page
+    assert 'instrument=Keithley2450("keithley2450_driver", "<address>")' in page
+    assert "QcodesInstrument(" in page
+    assert 'recorder = attach(keithley2450, "keithley2450"' in page
+    assert "PymeasureInstrument" not in page
+
+
+def test_qcodes_category_uses_the_shared_rules_and_overrides():
+    assert qcodes_category("Foo", "A digital oscilloscope") == "scope"
+    assert qcodes_category("Foo", "A digital oscilloscope", {"Foo": "rf"}) == "rf"
+
+
+def test_qcodes_source_lists_drivers_not_base_classes_or_channels():
+    found = {r.name: r for r in QcodesSource().discover()}
+
+    assert found["Keithley2450"].manufacturer == "Keithley"
+    assert found["Keithley2450"].extra["required_params"] == ["name", "address"]
+    assert found["DummyInstrument"].simulated
+    assert "KeysightPNABase" not in found  # building block, not an instrument
+    assert "DummyChannel" not in found  # a channel, not an instrument
+    paths = [r.import_path for r in found.values()]
     assert len(paths) == len(set(paths))

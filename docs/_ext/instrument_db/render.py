@@ -23,6 +23,7 @@ IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp", ".svg")
 DRIVER_TYPES: dict[str, tuple[str, str]] = {
     "instro": ("instro", ""),
     "pymeasure": ("pymeasure", "https://pymeasure.readthedocs.io"),
+    "qcodes": ("QCoDeS", "https://microsoft.github.io/Qcodes/"),
 }
 
 CATEGORY_NOUN = {
@@ -129,9 +130,31 @@ def _pymeasure_example(r: InstrumentRecord) -> list[tuple[str, str]]:
     return [("python", "\n".join(direct) + "\n"), ("python", "\n".join(publish) + "\n")]
 
 
+def _qcodes_example(r: InstrumentRecord) -> list[tuple[str, str]]:
+    x = r.extra
+    package = x["package_import"]
+    var = slug(r.name).replace("-", "_")
+    args = ", ".join([f'"{var}_driver"', *[_placeholder(p) for p in (x.get("required_params") or ["name"])[1:]]])
+    direct = [f"from {package} import {r.name}", "", f"{var} = {r.name}({args})"]
+    publish = [
+        f"from {package} import {r.name}",
+        "",
+        "from instro.qcodes import QcodesInstrument",
+        "",
+        "with QcodesInstrument(",
+        f'    name="{var}",',
+        f"    instrument={r.name}({args}),",
+        '    dataset_rid="<dataset rid>",',
+        ") as instrument:",
+        "    instrument.start()  # publishes every get and set on instrument.device",
+    ]
+    return [("python", "\n".join(direct) + "\n"), ("python", "\n".join(publish) + "\n")]
+
+
 EXAMPLES: dict[str, Callable[[InstrumentRecord], list[tuple[str, str]]]] = {
     "instro": _instro_example,
     "pymeasure": _pymeasure_example,
+    "qcodes": _qcodes_example,
 }
 
 
@@ -305,6 +328,41 @@ def _body(r: InstrumentRecord, srcdir: Path) -> str:
                 "and `recorder.close()` are all that instro adds.\n",
                 block(attach_form),
                 closing,
+            ]
+        )
+    if r.driver_type == "qcodes":
+        direct, publish = _qcodes_example(r)
+        var = slug(r.name).replace("-", "_")
+        lines = direct[1].splitlines()
+        at = next(i for i, ln in enumerate(lines) if ln.startswith(f"{var} = "))
+        lines.insert(at + 1, f'recorder = attach({var}, "{var}", [NominalCorePublisher(dataset_rid="<dataset rid>")])')
+        attach_form = "\n".join(
+            [
+                "from instro.lib import NominalCorePublisher",
+                "from instro.qcodes import attach",
+                *lines,
+                "recorder.close()  # flush and close the publishers",
+            ]
+        )
+        return "\n".join(
+            [
+                "## Publishing through instro\n",
+                f"instro publishes the commands you send to a {r.name} and the values you read from it, through "
+                "any [publisher](/library/publishers.md). It takes two forms, both described in the "
+                "[QCoDeS guide](/library/qcodes.md). Install with `uv add \"instro[qcodes]\"`.\n",
+                "### With a QcodesInstrument\n",
+                "[`QcodesInstrument`](/library/qcodes.md#write-new-instro-code) wraps the driver in an "
+                "instro instrument, with tags and background polling. The instrument is created inside the "
+                "`with` block, and `.device` is the QCoDeS instrument.\n",
+                _fence(publish[1]),
+                "### With existing QCoDeS code (`attach()`)\n",
+                "[`attach()`](/library/qcodes.md#publish-from-existing-code) adds publishing to QCoDeS "
+                "code you already have. The imports, the `attach()` call after the instrument is created, "
+                "and `recorder.close()` are all that instro adds.\n",
+                _fence(attach_form + "\n"),
+                f"QCoDeS drivers register their parameters when they connect, so this page can't list them. "
+                f"See the [QCoDeS documentation](https://microsoft.github.io/Qcodes/) for `{r.name}`, or run "
+                f"`instro qcodes describe` against the instrument ([CLI](/cli.md#instro-qcodes)).\n",
             ]
         )
     return "\n".join(["## Usage\n", f"```python\nfrom {r.import_path.rsplit('.', 1)[0]} import {r.name}\n```\n"])
