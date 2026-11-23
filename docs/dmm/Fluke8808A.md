@@ -2,9 +2,6 @@
 orphan: true
 card: Fluke 8808A
 image: Fluke8808A.png
-myst:
-  html_meta:
-    description: "A driver for InstroDMM"
 ---
 
 # Fluke8808A

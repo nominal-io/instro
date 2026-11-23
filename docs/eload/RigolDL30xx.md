@@ -2,9 +2,6 @@
 orphan: true
 card: Rigol DL3000
 image: RigolDL30xx.png
-myst:
-  html_meta:
-    description: "A driver for InstroELoad"
 ---
 
 # RigolDL30xx
