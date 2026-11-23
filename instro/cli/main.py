@@ -10,6 +10,7 @@ _WORKSPACE_PACKAGES = (
     ("instro-contrib", "contrib"),
     ("instro-unstable", "unstable"),
     ("instro-pymeasure", "pymeasure"),
+    ("instro-qcodes", "qcodes"),
     ("instro-ethernetip", "ethernetip"),
     ("instro-daq-ni", "nidaq"),
     ("instro-daq-labjack", "labjack"),
@@ -71,6 +72,24 @@ def _add_pymeasure_commands() -> None:
 
 
 _add_pymeasure_commands()
+
+
+def _add_qcodes_commands() -> None:
+    # instro-qcodes is optional; without it, `instro qcodes` explains how to install it.
+    if importlib.util.find_spec("instro.qcodes") is not None:
+        from instro.qcodes.cli import app as qcodes_app
+
+        app.add_typer(qcodes_app, name="qcodes")
+        return
+
+    @app.command("qcodes", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+    def qcodes_missing() -> None:
+        """Publish QCoDeS instruments (needs the qcodes extra)."""
+        typer.echo('instro-qcodes is not installed: pip install "instro[qcodes]"', err=True)
+        raise typer.Exit(1)
+
+
+_add_qcodes_commands()
 
 
 if __name__ == "__main__":

@@ -114,6 +114,7 @@ By manufacturer <instruments/manufacturer/index>
 :caption: Ext Instruments
 
 library/pymeasure
+library/qcodes
 ```
 
 ```{toctree}
@@ -198,6 +199,7 @@ ref/library/publishers
 ref/library/display
 ref/library/discover
 ref/library/pymeasure
+ref/library/qcodes
 ref/library/transports
 ```
 

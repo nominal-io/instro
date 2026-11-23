@@ -90,6 +90,11 @@
       "component": "instro-pymeasure",
       "initial-version": "0.1.0"
     },
+    "packages/instro-qcodes": {
+      "release-type": "python",
+      "component": "instro-qcodes",
+      "initial-version": "0.1.0"
+    },
     "crates/instro-ethernetip": {
       "release-type": "rust",
       "component": "instro-ethernetip-rs",

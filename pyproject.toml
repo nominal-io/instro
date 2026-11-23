@@ -57,6 +57,7 @@ ethernetip = ["instro-ethernetip"]
 contrib = ["instro-contrib"]
 unstable = ["instro-unstable"]
 pymeasure = ["instro-pymeasure"]
+qcodes = ["instro-qcodes"]
 # Plotly publisher; anywidget backs go.FigureWidget for live notebook plots
 plot = ["plotly>=6.0", "anywidget>=0.11"]
 all = [
@@ -68,6 +69,7 @@ all = [
     "instro-contrib",
     "instro-unstable",
     "instro-pymeasure",
+    "instro-qcodes",
     "plotly>=6.0",
     "anywidget>=0.11",
 ]
@@ -100,6 +102,7 @@ dev = [
     "instro-unstable",
     "instro-contrib",
     "instro-pymeasure",
+    "instro-qcodes",
 ]
 test = [
     "anywidget>=0.11",
@@ -140,6 +143,7 @@ instro-ethernetip = { workspace = true }
 instro-unstable = { workspace = true }
 instro-contrib = { workspace = true }
 instro-pymeasure = { workspace = true }
+instro-qcodes = { workspace = true }
 
 [tool.uv.workspace]
 members = [
@@ -152,6 +156,7 @@ members = [
     "packages/instro-unstable",
     "packages/instro-contrib",
     "packages/instro-pymeasure",
+    "packages/instro-qcodes",
 ]
 
 [tool.ruff]
@@ -178,8 +183,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.isort]
-# instro.pymeasure shares pymeasure's name; keep the real package in the third-party block.
-known-third-party = ["pymeasure"]
+# instro.pymeasure and instro.qcodes share their libraries' names; keep the real packages in the third-party block.
+known-third-party = ["pymeasure", "qcodes"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -203,8 +208,9 @@ mypy_path = [
     "packages/instro-unstable",
     "packages/instro-contrib",
     "packages/instro-pymeasure",
+    "packages/instro-qcodes",
 ]
-packages = ["instro", "instro.ethernetip", "instro.pymeasure"]
+packages = ["instro", "instro.ethernetip", "instro.pymeasure", "instro.qcodes"]
 
 [[tool.mypy.overrides]]
 # pymeasure ships no type information
