@@ -2,9 +2,6 @@
 orphan: true
 card: Keysight 3000T X
 image: Keysight3000TX.png
-myst:
-  html_meta:
-    description: "A driver for InstroScope"
 ---
 
 # Keysight3000TX
