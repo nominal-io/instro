@@ -13,7 +13,8 @@ from instro.lib.publishers import Publisher
 from instro.lib.transports.visa import VisaConfig, VisaDriver
 from instro.lib.types import Command, Measurement
 
-_COMMAND_ERROR = "COMAND ERROR"  # sic, as the firmware spells it
+# The manual spells it "COMAND ERROR"; DSP7011 firmware sends "COMMAND ERROR".
+_COMMAND_ERROR = re.compile(r"COMM?AND ERROR")
 # Speed is space-padded ("S 1725T22.60R") and the torque decimal point moves with the dyno range.
 _OD_PATTERN = re.compile(r"S\s*(\d+(?:\.\d*)?)\s*T\s*(-?\s*(?:\d+\.?\d*|\.\d+))\s*([LRA])")
 _MAX_RPM = 999_999.0
@@ -125,8 +126,9 @@ class MagtrolDSP7010(Instrument):
 
     def _query(self, command: str) -> str:
         reply = self._visa.query(command).strip()
-        if _COMMAND_ERROR in reply:
-            raise InstroError(f"Magtrol DSP7010 rejected {command!r}: {reply}")
+        if _COMMAND_ERROR.search(reply):
+            # Rejected writes also answer with this line, so it can be a preceding write's error.
+            raise InstroError(f"Magtrol DSP7010 rejected {command!r} or an earlier write: {reply}")
         return reply
 
     def _write(self, command: str) -> None:

@@ -68,9 +68,10 @@ def test_identify(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
     visa.query.assert_called_once_with("*IDN?")
 
 
-def test_command_error_raises(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
-    visa.query.return_value = "COMAND ERROR"
-    with pytest.raises(InstroError, match="COMAND ERROR"):
+@pytest.mark.parametrize("reply", ["COMAND ERROR", "COMMAND ERROR"])
+def test_command_error_raises(dyno: MagtrolDSP7010, visa: MagicMock, reply: str) -> None:
+    visa.query.return_value = reply
+    with pytest.raises(InstroError, match="rejected 'OD1'"):
         dyno.read_data(1)
 
 
