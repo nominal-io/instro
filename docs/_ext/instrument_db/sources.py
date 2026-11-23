@@ -522,7 +522,106 @@ class PymeasureSource:
                 )
 
 
-SOURCES: dict[str, type] = {"instro": InstroSource, "pymeasure": PymeasureSource}
+# --------------------------------------------------------------------------------- QCoDeS
+
+_QCODES_VENDORS: dict[str, str] = {
+    "AimTTi": "Aim-TTi",
+    "AlazarTech": "AlazarTech",
+    "CopperMountain": "Copper Mountain",
+    "HP": "HP",
+    "Lakeshore": "Lake Shore Cryotronics",
+    "QuantumDesign": "Quantum Design",
+    "agilent": "Agilent",
+    "american_magnetics": "American Magnetics",
+    "basel": "Basel Precision Instruments",
+    "mock_instruments": "QCoDeS",
+    "oxford": "Oxford Instruments",
+    "rohde_schwarz": "Rohde & Schwarz",
+    "signal_hound": "Signal Hound",
+    "stahl": "Stahl Electronics",
+    "stanford_research": "Stanford Research Systems",
+    "zurich_instruments": "Zurich Instruments",
+    "Minicircuits": "Mini-Circuits",
+}
+
+
+def qcodes_category(class_name: str, doc: str, overrides: dict[str, str] | None = None) -> str:
+    """The category key for a QCoDeS class. QCoDeS has no categories either, so this uses pymeasure's rules."""
+    return pymeasure_category(class_name, doc, overrides)
+
+
+def _is_qcodes_base(name: str, cls: type) -> bool:
+    """Abstract classes, ``*Base`` classes and classes in private modules are building blocks, not instruments."""
+    return inspect.isabstract(cls) or "Base" in name or cls.__module__.rsplit(".", 1)[-1].startswith("_")
+
+
+class QcodesSource:
+    """Every QCoDeS instrument class in ``qcodes.instrument_drivers``.
+
+    A QCoDeS driver registers its parameters when it connects, so the records carry no parameter lists.
+    Category has no field in QCoDeS, so it comes from the same keyword rules as pymeasure;
+    ``category_overrides`` (class name to category) corrects the rest. Drivers that need an uninstalled
+    vendor library are skipped.
+    """
+
+    name = "qcodes"
+
+    def __init__(self, category_overrides: dict[str, str] | None = None) -> None:
+        self.category_overrides = category_overrides or {}
+
+    def discover(self) -> Iterator[InstrumentRecord]:
+        try:
+            import qcodes.instrument_drivers as root
+            from qcodes.instrument import InstrumentBase, InstrumentChannel
+        except ImportError:
+            logger.warning("instrument_db: qcodes is not installed, skipping its instruments")
+            return
+        version = getattr(importlib.import_module("qcodes"), "__version__", "")
+        for vendor in sorted(pkgutil.iter_modules(root.__path__), key=lambda m: m.name):
+            if not vendor.ispkg:
+                continue
+            try:
+                package = importlib.import_module(f"qcodes.instrument_drivers.{vendor.name}")
+            except Exception as exc:
+                logger.warning("instrument_db: skipping qcodes.%s (%s)", vendor.name, type(exc).__name__)
+                continue
+            for name, cls in sorted(vars(package).items()):
+                if not (
+                    inspect.isclass(cls)
+                    and issubclass(cls, InstrumentBase)
+                    and not issubclass(cls, InstrumentChannel)
+                    and cls.__module__.startswith(package.__name__)
+                    and not name.startswith("_")
+                    and not _is_qcodes_base(name, cls)
+                ):
+                    continue
+                doc = _first_line(inspect.getdoc(cls))
+                manufacturer = _QCODES_VENDORS.get(vendor.name) or vendor.name.replace("_", " ").title()
+                params = [
+                    (p.name, p.default is p.empty)
+                    for p in list(inspect.signature(cls.__init__).parameters.values())[1:]
+                    if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+                ]
+                yield InstrumentRecord(
+                    driver_type="qcodes",
+                    category=qcodes_category(name, doc, self.category_overrides),
+                    manufacturer=manufacturer,
+                    model=_pymeasure_model(name, vendor.name, manufacturer),
+                    name=name,
+                    import_path=f"{cls.__module__}.{name}",
+                    summary=doc,
+                    simulated=vendor.name == "mock_instruments",
+                    extra={
+                        "id": f"{vendor.name}-{name}",
+                        "vendor_package": vendor.name,
+                        "package_import": package.__name__,
+                        "required_params": _required_params(params),
+                        "library_version": version,
+                    },
+                )
+
+
+SOURCES: dict[str, type] = {"instro": InstroSource, "pymeasure": PymeasureSource, "qcodes": QcodesSource}
 
 
 def make_source(name: str, **options: Any) -> DriverSource:
