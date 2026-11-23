@@ -224,7 +224,10 @@ class MagtrolDSP7010(Instrument):
     @publish_command
     def set_torque(self, channel: int, torque: float) -> Command:
         ch = self._channel(channel)
-        self._write(f"Q{ch},{self._in_range('torque', torque, 0.0, 10_000.0):.3f}")
+        # The manual gives no range for Q#,X.
+        if not math.isfinite(torque):
+            raise ValueError(f"torque must be finite, got {torque}")
+        self._write(f"Q{ch},{torque:.3f}")
         return self._package_commands({f"ch{ch}.torque_setpoint.cmd": torque, f"ch{ch}.brake.cmd": 1.0})
 
     @publish_command
@@ -232,7 +235,8 @@ class MagtrolDSP7010(Instrument):
         """Open-loop brake drive; 99.99 % is 1 A."""
         ch = self._channel(channel)
         self._write(f"I{ch},{self._in_range('percent', percent, 0.0, 99.99):.2f}")
-        return self._package_commands({f"ch{ch}.open_loop_output.cmd": percent, f"ch{ch}.brake.cmd": 1.0})
+        # Unlike N# and Q#, the manual doesn't say I# turns the brake on, so no brake.cmd here.
+        return self._package_command(f"ch{ch}.open_loop_output.cmd", percent, time.time_ns())
 
     @publish_command
     def brake_off(self, channel: int) -> Command:
