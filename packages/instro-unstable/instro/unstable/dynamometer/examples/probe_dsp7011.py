@@ -1,4 +1,4 @@
-"""Find which commands a Magtrol DSP7011 rejects. Run with the motor stopped.
+"""Find which commands a Magtrol DSP7011 rejects, showing every raw reply byte. Run with the motor stopped.
 
 ./.venv/Scripts/python.exe packages/instro-unstable/instro/unstable/dynamometer/examples/probe_dsp7011.py ASRL3::INSTR
 """
@@ -6,6 +6,8 @@
 import sys
 
 import pyvisa
+
+from instro.lib.transports.visa import VisaDriver
 
 RESOURCE = sys.argv[1] if len(sys.argv) > 1 else "ASRL3::INSTR"
 COMMANDS = [
@@ -24,30 +26,34 @@ COMMANDS = [
     "ALL0",
     "Q1,0.000",
     "Q0.000",
-    "I1",
+    "I1",  # brake off, both forms
     "N1",
     "Q1",
     "I",
     "N",
-    "Q",  # brake off, both forms
+    "Q",
 ]
 
-rm = pyvisa.ResourceManager()
-inst = rm.open_resource(RESOURCE)
-inst.baud_rate = 9600
-inst.write_termination = "\r\n"
-inst.read_termination = "\n"
-inst.timeout = 500
-inst.clear()
 
-for command in COMMANDS:
-    inst.write(command)
+def drain(visa: VisaDriver) -> list[bytes]:
     replies = []
-    try:
+    with visa.temporary_timeout(700):
         while True:
-            replies.append(inst.read().strip())
-    except pyvisa.errors.VisaIOError:
-        pass
-    print(f"{command:<14} -> {replies or '(silent)'}")
+            try:
+                replies.append(visa.read_raw())
+            except pyvisa.errors.VisaIOError:
+                return replies
 
-inst.close()
+
+visa = VisaDriver(RESOURCE)
+visa.open()
+try:
+    print(f"{'(stale)':<14} -> {drain(visa) or '(none)'}")
+    for command in COMMANDS:
+        try:
+            visa.write(command)
+            print(f"{command:<14} -> {drain(visa) or '(silent)'}")
+        except pyvisa.errors.VisaIOError as exc:
+            print(f"{command:<14} -> VISA error: {exc}")
+finally:
+    visa.close()
