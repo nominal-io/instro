@@ -11,14 +11,14 @@ from instro.unstable.mavstream import InstroMavStream
 
 from instro.lib.publishers import NominalCorePublisher
 
-ADDRESS = "<ADD TCP OR UDP ADDRESS>"
-DATASET_RID = "<ADD DATASET RID>"
+ADDRESS = "<UDP OR TCP ADDRESS>"
+DATASET_RID = "<DATASET RID>"
 
 
 def main() -> None:
     mav = InstroMavStream("sitl", address=ADDRESS, publishers=[NominalCorePublisher(DATASET_RID)])
 
-    # No add_channel call, so the instrument streams every channel
+    # No stream_channel call, so the instrument streams every channel
     mav.start()
     try:
         while True:

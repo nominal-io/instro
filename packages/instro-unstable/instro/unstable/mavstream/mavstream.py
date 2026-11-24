@@ -45,13 +45,13 @@ class InstroMavStream(Instrument):
                 ``tcp:<host>:<port>`` connects to a TCP server::
 
                     mav = InstroMavStream("drone", address="udp:0.0.0.0:14550", dataset_rid="<rid>")
-                    mav.add_channel("ATTITUDE")  # every field of one message
-                    mav.add_channel("GPS_RAW_INT.lat")  # one field
+                    mav.stream_channel("ATTITUDE")  # every field of one message
+                    mav.stream_channel("GPS_RAW_INT.lat")  # one field
                     mav.start()
                     ...
                     mav.close()
 
-                With no ``add_channel`` call, the instrument streams every channel.
+                With no ``stream_channel`` call, the instrument streams every channel.
             publishers: Publishers that receive emitted Measurement data.
                 Combined with any publishers declared in ``config``.
             config: A ``MavStreamConfig``, a dict, or a path to a JSON config file.
@@ -100,7 +100,7 @@ class InstroMavStream(Instrument):
                     publisher.close()
                 raise
 
-    def add_channel(self, channel: str) -> None:
+    def stream_channel(self, channel: str) -> None:
         """Add a channel to stream. The first call narrows the stream from every channel to the added ones.
 
         Args:
