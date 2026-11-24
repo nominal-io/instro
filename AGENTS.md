@@ -76,6 +76,8 @@ The contrib bar is in [CONTRIBUTING.md](./CONTRIBUTING.md#instro-contrib--commun
 Add the driver to the "Available drivers" section of [`docs/library/contrib.md`](./docs/library/contrib.md) in the same PR. That section is documented as the complete set of contrib drivers for the current release — a merged driver missing from it makes the doc wrong.
 
 ## Documentation
+Use the [nominal-docs skill](https://github.com/nominal-io/nominal-sphinx-theme/blob/main/skills/nominal-docs/SKILL.md) when writing or editing docs pages, READMEs, or docstrings.
+
 Docs live in this repo and ship in the same PR as the code change.
 
 ### Overview
