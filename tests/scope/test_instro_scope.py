@@ -914,3 +914,47 @@ def test_instro_scope_get_coupling_publishes_a_measurement_and_is_readable_from_
         assert scope.get_single_channel_value("ch1.coupling") == "DC"
     finally:
         scope.stop()
+
+
+def test_single_shot_fetch_waveform_polls_without_calling_digitize(stub_driver: _StubScopeDriver) -> None:
+    scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
+    scope.single()
+    wf = scope.fetch_waveform(channel=1)
+
+    assert ("single",) in stub_driver.calls
+    assert not any(call[0] == "digitize" for call in stub_driver.calls)
+    assert wf.channel_data == {"ut.ch1.waveform": [0.1, 0.2, 0.3]}
+
+
+def test_single_shot_measure_polls_without_calling_digitize(stub_driver: _StubScopeDriver) -> None:
+    scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
+    scope.single()
+    val = scope.measure(ScopeMeasurementType.VPP, channel=1)
+
+    assert ("single",) in stub_driver.calls
+    assert not any(call[0] == "digitize" for call in stub_driver.calls)
+    assert val.latest == 1.23
+
+
+def test_single_shot_waits_for_running_to_stopped_transition(stub_driver: _StubScopeDriver) -> None:
+    states = [AcquisitionState.RUNNING, AcquisitionState.RUNNING, AcquisitionState.STOPPED]
+    stub_driver.get_acquisition_state = lambda: states.pop(0) if states else AcquisitionState.STOPPED
+
+    scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
+    scope.single()
+    wf = scope.fetch_waveform(channel=1, timeout=1.0)
+
+    assert not any(call[0] == "digitize" for call in stub_driver.calls)
+    assert wf.channel_data == {"ut.ch1.waveform": [0.1, 0.2, 0.3]}
+
+
+def test_single_shot_times_out_when_acquisition_never_stops(stub_driver: _StubScopeDriver) -> None:
+    stub_driver.get_acquisition_state = lambda: AcquisitionState.RUNNING
+
+    scope = InstroScope(name="ut", driver=stub_driver, num_channels=2)
+    scope.single()
+
+    with pytest.raises(TimeoutError, match="Acquisition did not complete within 0.02s"):
+        scope.fetch_waveform(channel=1, timeout=0.02)
+
+    assert not any(call[0] == "digitize" for call in stub_driver.calls)

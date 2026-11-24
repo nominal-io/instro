@@ -189,8 +189,6 @@ class VirtualScope(ScopeDriverBase):
         self._trigger_slope = TriggerSlope.RISING
         self._state = AcquisitionState.RUNNING
         self._captures: dict[int, _Capture] = {}
-        # works around InstroScope calling digitize() on the first read after single() (#716)
-        self._single_pending = False
 
     def set_signal(self, signal: Signal, channel: int) -> None:
         """Set the signal ``channel`` sees; a stopped scope keeps showing its last capture.
@@ -279,30 +277,20 @@ class VirtualScope(ScopeDriverBase):
     def run(self) -> None:
         """Free-run: every fetch and measurement reads a fresh capture."""
         self._captures.clear()
-        self._single_pending = False
         self._state = AcquisitionState.RUNNING
 
     def stop(self) -> None:
         """Freeze every channel's capture for later fetches and measurements; a stopped scope keeps its own."""
-        self._single_pending = False
         if self._state == AcquisitionState.RUNNING:
             self._acquire()
 
     def single(self) -> None:
         """Capture every channel at once and stop; the simulated signal always triggers."""
         self._acquire()
-        self._single_pending = True
 
     def digitize(self, timeout: float) -> None:
-        """Take one capture and stop; never times out, since the simulated signal always triggers.
-
-        Right after `single`, keeps that shot instead of taking another, to work around an
-        `InstroScope` bug (#716).
-        """
-        if self._single_pending:
-            self._single_pending = False
-        else:
-            self._acquire()
+        """Take one capture and stop; never times out, since the simulated signal always triggers."""
+        self._acquire()
 
     def get_acquisition_state(self) -> AcquisitionState:
         return self._state

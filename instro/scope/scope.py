@@ -773,7 +773,7 @@ class InstroScope(Instrument):
         return self._package_measurement("acquisition_state", val.value, timestamp, **kwargs)
 
     def _wait_for_acquisition(self, timeout: float) -> None:
-        """If armed, block via the driver's ``digitize()`` until the acquisition completes or ``TimeoutError``.
+        """If armed, poll the driver's acquisition state until STOPPED or ``TimeoutError``.
 
         Acquisition is global — all enabled channels capture simultaneously.
         Must be called while holding ``_resource_lock``.
@@ -781,11 +781,19 @@ class InstroScope(Instrument):
         if not self._acquisition_armed:
             return
 
-        # digitize() arms, waits for trigger, and acquires — blocking.
-        # It raises TimeoutError if the trigger doesn't fire in time.
-        self._driver.digitize(timeout)
-        self._last_acquisition_ts = time.time_ns()
-        self._acquisition_armed = False
+        deadline = time.monotonic() + timeout
+        while True:
+            if self._driver.get_acquisition_state() == AcquisitionState.STOPPED:
+                self._last_acquisition_ts = time.time_ns()
+                self._acquisition_armed = False
+                return
+            if time.monotonic() >= deadline:
+                break
+            time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+
+        raise TimeoutError(
+            f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
+        )
 
     # --- Waveform data ---
 
