@@ -247,6 +247,8 @@ Bug fixes should add regression coverage. Opening a PR with a title like `fix(..
 
 ### Documentation
 
+Follow [Nominal’s documentation style guide](https://github.com/nominal-io/nominal-sphinx-theme/blob/main/skills/nominal-docs/SKILL.md) when writing or editing docs pages, READMEs, or docstrings.
+
 Docs live in this repo, so they ship in the same PR as the code change. If your change is user-visible or alters how contributors work, update the relevant files on the same branch:
 
 | Change type | Files to update |
