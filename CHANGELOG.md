@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.25.0](https://github.com/nominal-io/instro/compare/instro-v1.24.0...instro-v1.25.0) (2026-11-24)
+
+
+### Features
+
+* **dmm:** add Fluke 8808A RS-232 DMM driver (unstable) ([#629](https://github.com/nominal-io/instro/issues/629)) ([4aaaf15](https://github.com/nominal-io/instro/commit/4aaaf15118c52b53fc1eb0f4d3010422d4821909))
+* **docs:** add a searchable instrument database tab ([#763](https://github.com/nominal-io/instro/issues/763)) ([58d4013](https://github.com/nominal-io/instro/commit/58d401345533b3cf91cad101ae5218b9ac64e780))
+
 ## [1.24.0](https://github.com/nominal-io/instro/compare/instro-v1.23.0...instro-v1.24.0) (2026-11-17)
 
 
