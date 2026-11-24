@@ -33,6 +33,7 @@ dependencies = [
     "libusb-package>=1.0.26",
     "pyserial>=3.5",
     "pywin32>=306; sys_platform == 'win32'",
+    "pymavlink>=2.4.42",
 ]
 
 [project.urls]

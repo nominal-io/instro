@@ -1,0 +1,27 @@
+{
+    "version": 1,
+    "instrument": "InstroMavStream",
+    "device": {
+        "name": "sitl",
+        "description": "Local ArduPilot SITL instance",
+        "manufacturer": "ArduPilot",
+        "model": "SITL"
+    },
+    "connection": {
+        "address": "udp:127.0.0.1:14551"
+    },
+    "channels": [
+        "ATTITUDE.pitch",
+        "ATTITUDE.roll",
+        "ATTITUDE.yaw",
+        "GLOBAL_POSITION_INT.lat",
+        "GLOBAL_POSITION_INT.lon",
+        "BATTERY_STATUS.battery_remaining"
+    ],
+    "publishers": [
+        {
+            "type": "NominalCorePublisher",
+            "dataset_rid": "<dataset_rid>"
+        }
+    ]
+}

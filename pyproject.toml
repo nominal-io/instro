@@ -211,6 +211,11 @@ packages = ["instro", "instro.ethernetip", "instro.pymeasure"]
 module = ["pymeasure", "pymeasure.*"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# pymavlink ships no type information
+module = ["pymavlink", "pymavlink.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # --ignore=tests/daq/mcc: mccdaq tests depend on the optional `mccdaq` extra
