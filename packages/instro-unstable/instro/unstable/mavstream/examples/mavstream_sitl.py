@@ -7,11 +7,12 @@ Run:
 
 import time
 
-from instro.lib.publishers import NominalCorePublisher
 from instro.unstable.mavstream import InstroMavStream
 
-ADDRESS = "udp:127.0.0.1:14551"
-DATASET_RID = "ri.catalog.cerulean-staging.dataset.90315db1-049a-49e8-9e02-38c3be36b802"
+from instro.lib.publishers import NominalCorePublisher
+
+ADDRESS = "<ADD TCP OR UDP ADDRESS>"
+DATASET_RID = "<ADD DATASET RID>"
 
 
 def main() -> None:

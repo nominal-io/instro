@@ -8,7 +8,7 @@
         "model": "SITL"
     },
     "connection": {
-        "address": "udp:127.0.0.1:14551"
+        "address": "<address>"
     },
     "channels": [
         "ATTITUDE.pitch",
