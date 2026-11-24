@@ -61,6 +61,16 @@ def test_stub_code_follows_the_driver_type(tmp_path):
     assert "InstroScope" not in pymeasure_page
 
 
+def test_stub_links_the_reference_api(tmp_path):
+    scope = _scope()
+    assert f"**Reference API:** {{py:obj}}`{scope.name} <{scope.import_path}>`" in stub_page(scope, tmp_path)
+    smu = _smu()
+    assert (
+        "**Reference API:** [`Keithley2400`](https://pymeasure.readthedocs.io/en/latest/api/instruments/keithley/"
+        "keithley2400.html#pymeasure.instruments.keithley.keithley2400.Keithley2400)"
+    ) in stub_page(smu, tmp_path)
+
+
 def test_stub_shows_the_picture_found_by_convention(tmp_path):
     (tmp_path / "instruments/images/pymeasure").mkdir(parents=True)
     (tmp_path / "instruments/images/pymeasure/keithley-keithley2400.png").write_bytes(b"")
