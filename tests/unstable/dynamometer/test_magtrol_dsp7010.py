@@ -16,6 +16,8 @@ _STATUS_WORD = (1 << 5) | (1 << 24) | (1 << 20)
 @pytest.fixture
 def visa_cls() -> Iterator[MagicMock]:
     with patch("instro.unstable.dynamometer.drivers.magtrol_dsp7010.VisaDriver", autospec=True) as cls:
+        # Set commands answer with an empty line.
+        cls.return_value.query.return_value = "\r"
         yield cls
 
 
@@ -29,8 +31,8 @@ def dyno(visa_cls: MagicMock) -> MagtrolDSP7010:
     return MagtrolDSP7010("ASRL3::INSTR", name="dyno")
 
 
-def _writes(visa: MagicMock) -> list[str]:
-    return [c.args[0] for c in visa.write.call_args_list]
+def _sent(visa: MagicMock) -> list[str]:
+    return [c.args[0] for c in visa.query.call_args_list]
 
 
 def test_init_accepts_str_or_config(visa_cls: MagicMock) -> None:
@@ -108,12 +110,12 @@ def test_read_data_alarm_has_no_direction(dyno: MagtrolDSP7010, visa: MagicMock)
 
 
 def test_read_data_power_needs_units(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
-    visa.query.return_value = "S 3000T2.000R"
+    visa.query.side_effect = ["S 3000T2.000R", "\r", "S 3000T2.000R"]
     assert "dyno.ch1.power" not in dyno.read_data(1).channel_data
 
     dyno.set_torque_units(1, TorqueUnit.N_M)
 
-    assert _writes(visa) == ["UR1,8"]
+    assert _sent(visa) == ["OD1", "UR1,8"]
     assert dyno.read_data(1).channel_data["dyno.ch1.power"] == [pytest.approx(2.0 * 3000 * 2 * 3.141592653589793 / 60)]
 
 
@@ -133,9 +135,8 @@ def test_reopen_forgets_torque_units(dyno: MagtrolDSP7010, visa: MagicMock) -> N
     assert "dyno.ch1.power" not in dyno.read_data(1).channel_data
 
 
-@pytest.mark.parametrize("reply", [f"{_STATUS_WORD:032b}", str(_STATUS_WORD)])
-def test_get_status(dyno: MagtrolDSP7010, visa: MagicMock, reply: str) -> None:
-    visa.query.return_value = reply
+def test_get_status(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
+    visa.query.return_value = f"{_STATUS_WORD:08x}"
 
     status = dyno.get_status().channel_data
 
@@ -149,12 +150,14 @@ def test_get_status(dyno: MagtrolDSP7010, visa: MagicMock, reply: str) -> None:
 
 
 def test_get_status_dsp7011_has_no_ch2(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
-    visa.query.return_value = "0" * 32
+    visa.query.return_value = "8000cc5f\r"  # captured from a DSP7011
 
     status = dyno.get_status().channel_data
 
     assert status["dyno.status.dsp7012"] == [0.0]
-    assert "dyno.ch1.alarm.external" in status
+    assert status["dyno.ch1.alarm.external"] == [1.0]
+    assert status["dyno.ch1.alarm.water"] == [1.0]
+    assert status["dyno.ch1.alarm.speed"] == [0.0]
     assert not any(key.startswith("dyno.ch2.") for key in status)
 
 
@@ -181,8 +184,7 @@ def test_get_status_bad_reply(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
 def test_set_commands(dyno: MagtrolDSP7010, visa: MagicMock, call, wire: list[str]) -> None:
     call(dyno)
 
-    assert _writes(visa) == wire
-    visa.query.assert_not_called()
+    assert _sent(visa) == wire
 
 
 def test_publishes_numbers_only(visa_cls: MagicMock) -> None:
@@ -196,7 +198,7 @@ def test_publishes_numbers_only(visa_cls: MagicMock) -> None:
     dyno.brake_off(1)
     visa.query.return_value = "S 300T0.50A"
     dyno.read_data(1)
-    visa.query.return_value = str(_STATUS_WORD)
+    visa.query.return_value = f"{_STATUS_WORD:08x}"
     dyno.get_status()
 
     published = [c.args[0] for c in publisher.publish.call_args_list]
@@ -221,4 +223,16 @@ def test_bad_args_rejected_before_write(dyno: MagtrolDSP7010, visa: MagicMock) -
         dyno.set_torque(1, float("nan"))
     with pytest.raises(ValueError, match="max_power_kw"):
         dyno.set_alarm_limits(1, 4000, 5, -1)
-    visa.write.assert_not_called()
+    visa.query.assert_not_called()
+
+
+def test_rejected_write_raises_for_that_command(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
+    visa.query.return_value = "COMMAND ERROR\r"
+    with pytest.raises(InstroError, match="rejected 'UR1,8'"):
+        dyno.set_torque_units(1, TorqueUnit.N_M)
+
+
+def test_unexpected_write_reply_raises(dyno: MagtrolDSP7010, visa: MagicMock) -> None:
+    visa.query.return_value = "S     0T0.016R\r"
+    with pytest.raises(InstroError, match="unexpected reply"):
+        dyno.tare(1)

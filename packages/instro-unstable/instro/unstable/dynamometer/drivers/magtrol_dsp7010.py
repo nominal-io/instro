@@ -69,11 +69,9 @@ _NEWTON_METRES = {
 
 
 def _parse_status_word(reply: str) -> int:
-    # The manual only says "ASCII status bits"; accept a 32-char bit string (MSB first) or a decimal.
-    if re.fullmatch(r"[01]{32}", reply):
-        return int(reply, 2)
-    if reply.isdigit():
-        return int(reply)
+    # The manual only says "ASCII status bits"; a DSP7011 sends 8 hex digits, e.g. "8000cc5f".
+    if re.fullmatch(r"[0-9A-Fa-f]{8}", reply):
+        return int(reply, 16)
     raise InstroError(f"Magtrol DSP7010: unparseable STAT1 reply {reply!r}")
 
 
@@ -127,12 +125,14 @@ class MagtrolDSP7010(Instrument):
     def _query(self, command: str) -> str:
         reply = self._visa.query(command).strip()
         if _COMMAND_ERROR.search(reply):
-            # Rejected writes also answer with this line, so it can be a preceding write's error.
-            raise InstroError(f"Magtrol DSP7010 rejected {command!r} or an earlier write: {reply}")
+            raise InstroError(f"Magtrol DSP7010 rejected {command!r}: {reply}")
         return reply
 
     def _write(self, command: str) -> None:
-        self._visa.write(command)
+        # Set commands answer with an empty line (not in the manual); read it so the next query doesn't.
+        reply = self._query(command)
+        if reply:
+            raise InstroError(f"Magtrol DSP7010: unexpected reply {reply!r} to {command!r}")
 
     @staticmethod
     def _channel(channel: int) -> int:
