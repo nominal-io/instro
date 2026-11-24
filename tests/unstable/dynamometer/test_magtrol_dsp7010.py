@@ -155,8 +155,8 @@ def test_get_status_dsp7011_has_no_ch2(dyno: MagtrolDSP7010, visa: MagicMock) ->
     status = dyno.get_status().channel_data
 
     assert status["dyno.status.dsp7012"] == [0.0]
-    assert status["dyno.ch1.alarm.external"] == [1.0]
-    assert status["dyno.ch1.alarm.water"] == [1.0]
+    assert status["dyno.ch1.input.external"] == [1.0]
+    assert status["dyno.ch1.input.water_flow"] == [1.0]
     assert status["dyno.ch1.alarm.speed"] == [0.0]
     assert not any(key.startswith("dyno.ch2.") for key in status)
 

@@ -27,13 +27,14 @@ _GLOBAL_BITS = {
     "alarm.global_power": 29,
     "alarm.global_torque": 30,
 }
-# (ch1, ch2)
+# (ch1, ch2). The manual labels the input.* bits "Alarm", but they track the input wires (they're the
+# "Digital Inputs" of manual p.70): on a DSP7011 they were set while the front panel showed no such alarm.
 _CHANNEL_BITS = {
-    "alarm.external": (4, 31),
-    "alarm.electrical": (8, 9),
-    "alarm.water": (10, 11),
-    "alarm.temperature": (12, 13),
-    "alarm.airflow": (14, 15),  # ch2 doubles as the clutch alarm in tandem setups
+    "input.external": (4, 31),
+    "input.electrical": (8, 9),
+    "input.water_flow": (10, 11),
+    "input.temperature": (12, 13),
+    "input.air_flow": (14, 15),  # ch2 doubles as the clutch input in tandem setups
     "alarm.contact": (16, 17),
     "ramp_down_complete": (18, 19),
     "ramp_up_complete": (20, 21),
@@ -160,7 +161,9 @@ class MagtrolDSP7010(Instrument):
     def read_data(self, channel: int) -> Measurement:
         """Speed (rpm), torque (readout units), alarm, direction (+1 CW / -1 CCW), and power (W) if units are set.
 
-        An alarm replaces the direction letter in the reply, so ``direction`` is omitted while ``alarm`` is 1.
+        ``alarm`` is 1 when the controller is in an alarm condition (manual p.65). The manual says "the unit",
+        so on a DSP7012 it may reflect either channel. The alarm replaces the direction letter in the reply,
+        so ``direction`` is omitted while ``alarm`` is 1.
         """
         ch = self._channel(channel)
         with self._visa.lock():
@@ -188,7 +191,11 @@ class MagtrolDSP7010(Instrument):
 
     @publish_measurement
     def get_status(self) -> Measurement:
-        """Raw status word plus each alarm/ramp flag as 0/1. Channel 2 flags only on a DSP7012."""
+        """Raw status word plus each flag as 0/1. Channel 2 flags only on a DSP7012.
+
+        ``input.*`` flags report the external, water-flow, air-flow, electrical, and temperature input
+        wires, not whether that alarm is enabled or tripped. Use ``alarm`` from ``read_data`` for that.
+        """
         word = _parse_status_word(self._query("STAT1"))
         timestamp = time.time_ns()
         bits = dict(_GLOBAL_BITS)
