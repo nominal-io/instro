@@ -533,7 +533,8 @@ fn get_endpoints(
 ) -> PyResult<Vec<EndpointDescription>> {
     let mut builder = ClientBuilder::new()
         .application_name(config::APPLICATION_NAME)
-        .application_uri(config::APPLICATION_URI);
+        .application_uri(config::APPLICATION_URI)
+        .session_retry_limit(0);
 
     if let Some(path) = pki_dir.or_else(config::pki_dir) {
         builder = builder.pki_dir(path);
