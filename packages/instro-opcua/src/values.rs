@@ -1,6 +1,7 @@
 pub(crate) mod attributes;
 mod payload;
 mod wrappers;
+pub(crate) mod write;
 
 pub(crate) use attributes::PyAttributeValue;
 use pyo3::prelude::*;

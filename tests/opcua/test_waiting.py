@@ -8,8 +8,10 @@ from asyncua.common.utils import ServiceError
 from asyncua.server.internal_session import InternalSession
 from asyncua.server.server import Server
 from asyncua.server.uaprocessor import UaProcessor
+from asyncua.ua.object_ids import ObjectIds
+from asyncua.ua.status_codes import StatusCodes
 from asyncua.ua.ua_binary import struct_from_binary
-from typing_extensions import Any, Awaitable, Callable, Generator, TypeAlias
+from typing_extensions import Any, Awaitable, Callable, Generator, Protocol, TypeAlias
 
 from instro.unstable.opcua import Node, OpcUaClient, OpcUaError
 from tests.opcua.conftest import AsyncRunner, DefaultConnectionOptions
@@ -19,7 +21,11 @@ class SignalObserved(Exception):
     pass
 
 
-StalledReply: TypeAlias = tuple[Callable[[str, float], None], asyncio.Event, list[int], int, Callable[[], None]]
+class Arm(Protocol):
+    def __call__(self, method: str, release_after: float = 5) -> None: ...
+
+
+StalledReply: TypeAlias = tuple[Arm, asyncio.Event, list[int], int, Callable[[], None]]
 
 
 @pytest.fixture
@@ -163,7 +169,7 @@ def test_interrupted_browse_finishes_the_held_page_and_releases_on_error(
         return results
 
     async def browse_next(processor, typeid, header, sequence, body):
-        if typeid != ua.NodeId(ua.Int32(ua.ObjectIds.BrowseNextRequest_Encoding_DefaultBinary)):
+        if typeid != ua.NodeId(ua.Int32(ObjectIds.BrowseNextRequest_Encoding_DefaultBinary)):
             return await process(processor, typeid, header, sequence, body)
 
         params = struct_from_binary(ua.BrowseNextParameters, body)
@@ -173,7 +179,7 @@ def test_interrupted_browse_finishes_the_held_page_and_releases_on_error(
         if params.ReleaseContinuationPoints:
             released_point.set()
         else:
-            status = ua.StatusCode(ua.UInt32(ua.StatusCodes.BadTimeout))
+            status = ua.StatusCode(ua.UInt32(StatusCodes.BadTimeout))
             response.Parameters.Results = [ua.BrowseResult(StatusCode=status)]
 
         processor.send_response(header.RequestHandle, sequence, response)
@@ -244,7 +250,7 @@ def test_explicit_cleanup_waits_through_a_signal(
         released.set()
 
     close = client.disconnect
-    request = ua.ObjectIds.CloseSessionRequest_Encoding_DefaultBinary
+    request = ObjectIds.CloseSessionRequest_Encoding_DefaultBinary
     subscriptions = server.iserver.subscription_service.subscriptions
     target = None
     if operation != "disconnect":
@@ -254,7 +260,7 @@ def test_explicit_cleanup_waits_through_a_signal(
         (target,) = subscriptions.keys() - existing
         if operation == "close-subscription":
             close = samples.close
-            request = ua.ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary
+            request = ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary
 
     on_request(request, stall)
     previous = signal.signal(signal.SIGINT, lambda *_: observed.append((get_ident(), released.is_set())))
@@ -272,13 +278,13 @@ def test_disconnect_reports_a_rejected_close_session_after_shutdown(closing_clie
     client, on_request = closing_client
 
     async def reject():
-        raise ServiceError(ua.UInt32(ua.StatusCodes.BadUserAccessDenied))
+        raise ServiceError(ua.UInt32(StatusCodes.BadUserAccessDenied))
 
-    on_request(ua.ObjectIds.CloseSessionRequest_Encoding_DefaultBinary, reject)
+    on_request(ObjectIds.CloseSessionRequest_Encoding_DefaultBinary, reject)
     with pytest.raises(OpcUaError) as rejected:
         client.disconnect()
 
-    assert rejected.value.status_code.code == ua.StatusCodes.BadUserAccessDenied
+    assert rejected.value.status_code.code == StatusCodes.BadUserAccessDenied
     client.disconnect()
 
 

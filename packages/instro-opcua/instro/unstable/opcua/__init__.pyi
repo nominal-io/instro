@@ -2,7 +2,8 @@ from collections.abc import Iterable
 from datetime import timedelta
 from os import PathLike
 from types import TracebackType
-from typing import Never, Self, final
+from typing import Never, Self, TypeAlias, TypeVar, final
+from uuid import UUID
 
 from .types import (
     AccessLevelExType,
@@ -13,10 +14,13 @@ from .types import (
     AttributeValue,
     AttributeWriteMask,
     BrowsePath,
+    DataType,
     Duration,
     EndpointDescription,
     EnumDefinition,
+    EnumField,
     EventNotifierType,
+    ExpandedNodeId,
     LocalizedText,
     MessageSecurityMode,
     NodeClass,
@@ -28,6 +32,25 @@ from .types import (
     StatusCode,
     StructureDefinition,
     Value,
+    XmlElement,
+)
+
+_T = TypeVar("_T")
+_ScalarOrArray: TypeAlias = _T | list[_T] | tuple[_T, ...]
+_WriteableValue: TypeAlias = (
+    _ScalarOrArray[bool]
+    | _ScalarOrArray[int]
+    | _ScalarOrArray[float]
+    | _ScalarOrArray[str]
+    | _ScalarOrArray[bytes]
+    | _ScalarOrArray[UUID]
+    | _ScalarOrArray[NodeId]
+    | _ScalarOrArray[ExpandedNodeId]
+    | _ScalarOrArray[StatusCode]
+    | _ScalarOrArray[QualifiedName]
+    | _ScalarOrArray[LocalizedText]
+    | _ScalarOrArray[XmlElement]
+    | _ScalarOrArray[EnumField]
 )
 
 class OpcUaError(Exception):
@@ -137,12 +160,17 @@ class Node:
     @property
     def children(self) -> list[Node]: ...
     def get_attribute(self, attr: AttributeId | int | str) -> AttributeValue[AttributePayload]: ...
+    def set_attribute(
+        self, attr: AttributeId | str | int, value: _WriteableValue, *, dtype: DataType | None = None
+    ) -> None: ...
     @property
     def node_class(self) -> AttributeValue[NodeClass]: ...
     @property
     def browse_name(self) -> AttributeValue[QualifiedName]: ...
     @property
     def display_name(self) -> AttributeValue[LocalizedText]: ...
+    @display_name.setter
+    def display_name(self, value: LocalizedText) -> None: ...
     @property
     def description(self) -> AttributeValue[LocalizedText]: ...
     @property
@@ -161,6 +189,8 @@ class Node:
     def event_notifier(self) -> AttributeValue[EventNotifierType]: ...
     @property
     def value(self) -> AttributeValue[Value]: ...
+    @value.setter
+    def value(self, value: _WriteableValue) -> None: ...
     @property
     def data_type(self) -> AttributeValue[NodeId]: ...
     @property
