@@ -33,9 +33,10 @@ psu = InstroPSU(
 - **Virtual**: no hardware or server; outputs simulated in-process (`VirtualPSU`, see [Virtual instruments](/library/simulated-instruments.md#virtual-instruments))
 - **Simulated**: no hardware required; pairs with the bundled [PSU simulator](/library/simulated-instruments.md#psu-simulator) (`SimulatedPSU`)
 
-The following vendor is available as a community-contributed driver in `instro-contrib` (install with `instro[contrib]`; see [Contrib drivers](/library/contrib.md)):
+The following vendors are available as community-contributed drivers in `instro-contrib` (install with `instro[contrib]`; see [Contrib drivers](/library/contrib.md)):
 
 - **Matrix**: WPS300S-series single-channel via SCPI/RS-232 (`MatrixWPS300S`)
+- **Siglent**: SPS5042X single-output wide-range via SCPI (`SiglentSPS5042X`)
 
 If your vendor or model is not listed, see [Custom Driver Development](/library/custom-instruments.md#power-supply-psu), or open a [Driver Request](https://github.com/nominal-io/instro/issues) issue on GitHub.
 
