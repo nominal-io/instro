@@ -354,9 +354,6 @@ impl Node {
     /// list[Node]: All immediate local hierarchical children, across every page.
     ///
     /// Out-of-server references are omitted with one aggregated ``RuntimeWarning``.
-    /// Each page is bounded by the client decoder and any usable server array limit.
-    /// Enumeration failure returns no partial list and retains the original error.
-    /// If Python interrupts the wait, browsing continues in the background.
     #[getter]
     fn children(&self, py: Python<'_>) -> PyResult<Vec<Self>> {
         let node = self.clone();
@@ -393,9 +390,7 @@ impl Node {
     ///         canonical or snake-case attribute name.
     ///
     /// Returns:
-    ///     AttributeValue: Result whose payload is already converted. Access
-    ///         ``.value`` to retrieve it. A failed conversion raises then.
-    ///         Bad or Uncertain sample quality alone does not raise.
+    ///     AttributeValue: The value, status, and timestamps from the server.
     fn get_attribute(&self, py: Python<'_>, attr: &Bound<'_, PyAny>) -> PyResult<PyAttributeValue> {
         let attribute = attribute_id(attr)?;
         self.read_attribute(py, attribute)
@@ -407,8 +402,6 @@ impl Node {
     ///     attr (AttributeId | str | int): Attribute ID or attribute name.
     ///     value (object): Payload to write. DisplayName expects LocalizedText.
     ///     dtype (DataType | None): Wire type to use instead of the default for the Python value.
-    ///
-    /// Ctrl-C can interrupt the wait after submission. The write may still take effect.
     #[pyo3(signature = (attr, value, *, dtype=None))]
     fn set_attribute(
         &self,

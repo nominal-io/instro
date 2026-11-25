@@ -1,6 +1,7 @@
 # instro-opcua
 
-OPC UA protocol primitives in `instro.unstable.opcua.types`.
+Synchronous OPC UA client primitives for [instro](https://github.com/nominal-io/instro).
+Python 3.11 through 3.14 are supported. The API lives under `instro.unstable.opcua`.
 
 Use `instro.unstable.opcua` to discover endpoints and connect to a server.
 Connections use anonymous authentication by default. Pass an `IdentityToken`
@@ -12,19 +13,27 @@ On macOS it is `~/Library/Application Support`, and on Windows it is `%LOCALAPPD
 If the operating system provides no local data directory, the client uses `./pki`.
 Pass `pki_dir` to `get_endpoints()` to use a different certificate store for discovery.
 
-Use Nodes for navigation, attribute access, and ordered batch reads.
+```bash
+pip install instro-opcua
+```
 
-Assign to `node.value` or `node.display_name` to write the corresponding
-attribute. A Value write selects its wire type from the Python value and sends
-one Write request. A Python `int` selects Int64, an `IntEnum` selects Int32,
-and a `float` selects Double. A list or tuple takes its wire type from its first element.
-Supply `dtype` for an empty list or tuple, or when the server expects a specific type,
-for example `node.set_attribute("Value", 42, dtype=DataType.INT16)`.
-Import `DataType` from `instro.unstable.opcua.types`.
-Write an `EnumField` returned by a read with `node.set_attribute("Value", field, dtype=DataType.ENUM_FIELD)`.
-Use `UUID` for Guid values, `XmlElement("<mode>on</mode>")` for XML values,
-and `dtype=DataType.DATE_TIME` with integer Unix nanoseconds in multiples of 100 for DateTime values.
-XML reads return `XmlElement` objects. Use `str(value)` to retrieve the XML text.
-Ctrl-C can stop Python waiting. A submitted write may still take effect.
+```python
+from instro.unstable.opcua import OpcUaClient
 
-Subscriptions retain notifications and support optional fallback polling.
+with OpcUaClient.connect("opc.tcp://localhost:4840") as client:
+    clock = client.objects.get_child("/Server/ServerStatus/CurrentTime")
+    sample = clock.value
+    if sample.status.is_good:
+        print(sample.value, sample.source_unix_timestamp)
+    else:
+        print(sample.status.name())
+```
+
+The [client guide](https://instro.nominal.io/library/protocols/opcua/) covers
+authentication, navigation, reads, writes, and subscriptions. See the
+[API reference](https://instro.nominal.io/ref/protocols/opcua/) for supported
+types and connection settings. If your server recreates subscriptions during
+reconnect, see the [known cleanup defect](https://instro.nominal.io/library/protocols/opcua/#recovery-and-shutdown).
+
+Development setup and checks are documented in
+[CONTRIBUTING.md](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md).

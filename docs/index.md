@@ -208,6 +208,8 @@ ref/library/transports
 ref/protocols/index
 ref/protocols/modbus
 ref/protocols/ethernetip
+ref/protocols/opcua
+ref/protocols/opcua-device
 ```
 
 ```{toctree}

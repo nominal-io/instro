@@ -59,13 +59,11 @@ attributes! {
     AccessLevelEx => AccessLevelExType::read,
 }
 
-/// An attribute-aware result with its semantic payload and original quality metadata.
+/// An attribute sample with its value, status, and timestamps.
 ///
-/// Returned by Node reads and subscriptions; it is not a DataValue subclass and
-/// provides no raw DataValue accessor. Missing payloads become ``None``. Bad or
-/// Uncertain quality alone does not raise. The payload is converted before this
-/// object is returned. Access ``value`` to retrieve it; a failed conversion
-/// raises then and leaves the metadata intact.
+/// A missing or Null value yields ``None``. Check ``status`` to interpret a
+/// sample's quality. If accessing ``value`` raises a conversion error, the
+/// status and timestamps are still available.
 #[pyclass(
     name = "AttributeValue",
     frozen,
