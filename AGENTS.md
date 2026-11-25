@@ -13,6 +13,7 @@ just test                        # all tests: python + Rust; no hardware require
 just check-python / check-rust   # single-language lints (check-rust uses nightly fmt + locked clippy)
 just check-stubs                 # OPC UA type contracts and native stub agreement (included in check-types)
 just test-python / test-rust     # single-language tests
+just test-opcua                  # native OPC UA tests, then pytest with rebuilt bindings
 just build-docs / serve-docs     # docs site (docs/, Sphinx): strict build / live preview; needs the `docs` group, Python >=3.12
 just notebook / test-notebooks   # example notebooks (examples/notebooks/*.md, Jupytext MyST): open in JupyterLab / run all top to bottom
 uv build --wheel --package <name> # build a wheel for a workspace package
@@ -45,6 +46,7 @@ The `instro` repository is a shared `uv`/`cargo` workspace. The top-level Python
 - **No comments unless the *why* is non-obvious.** Don't restate what the code does.
 - **Type hints required** on all public methods. `mypy` is enforced.
 - **Type contract checks belong in static analysis recipes.** `check-types` and `check-types-all` include `check-stubs` for OPC UA. Use `assert_type` examples and error-code-specific `type: ignore[...]` annotations checked with `--warn-unused-ignores`; run `stubtest` directly against the built native extension. Do not wrap these CLI checks in pytest subprocess tests.
+- **OPC UA test boundaries.** Call private Rust subjects directly in inline unit tests. Initialize the interpreter when PyO3 requires it. Test Python conversion, properties, operators, errors, warnings, signals, and public workflows with pytest against an extension built from the current checkout. Keep peer controls at service or transport boundaries.
 - **`ruff format` and `ruff check` are enforced.** Run `just check` before pushing.
 - **Targeted unit tests.** Cover the invariant or edge case under test with the least necessary complexity. Prefer a few high-signal tests over redundant matrices, test-only abstractions, or rewrites that manufacture shared behavior. Don't add tests just to increase coverage numbers or case counts; every test needs a real reason to exist. Bug-fix PRs (`fix(...): ...`) need to add regression coverage or explain why no new test is needed.
 - **Scope discipline.** Keep PRs focused on the work at hand. If you find something unrelated, open a separate GitHub issue rather than expanding the PR.

@@ -11,3 +11,5 @@ On Linux the base directory is `$XDG_DATA_HOME` or `~/.local/share`.
 On macOS it is `~/Library/Application Support`, and on Windows it is `%LOCALAPPDATA%`.
 If the operating system provides no local data directory, the client uses `./pki`.
 Pass `pki_dir` to `get_endpoints()` to use a different certificate store for discovery.
+
+Use Nodes for navigation, attribute access, and ordered batch reads.

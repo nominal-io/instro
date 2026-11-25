@@ -1,12 +1,9 @@
 mod client;
 mod config;
 mod error;
+mod node;
 mod time;
 mod util;
-#[expect(
-    dead_code,
-    reason = "native decoding is consumed by the Node API upstack"
-)]
 mod values;
 
 use pyo3::prelude::*;
@@ -19,6 +16,8 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_class::<time::DateTime>()?;
     values::register(module)?;
     config::register(module)?;
+
+    module.add_class::<node::Node>()?;
 
     client::register(module)
 }
