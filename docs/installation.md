@@ -71,6 +71,7 @@ Here is a table of available packages:
 | **Other** | `contrib` | Community-contributed drivers |
 |  | `unstable` | Experimental unstable modules |
 |  | `pymeasure` | Publish [pymeasure](https://pymeasure.readthedocs.io) instruments through instro |
+|  | `qcodes` | Publish [QCoDeS](https://microsoft.github.io/Qcodes/) instruments through instro |
 
 ## Using Nominal Connect
 

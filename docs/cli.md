@@ -129,3 +129,16 @@ instro pymeasure describe keithley.Keithley2400
 ```
 
 The class is a dotted path, either full (`pymeasure.instruments.keithley.Keithley2400`) or relative to `pymeasure.instruments`. Some drivers add channels in `__init__` rather than at class level. For those, add `--resource <VISA resource>` to connect and inspect the live instance.
+
+### instro qcodes
+
+Needs the `qcodes` extra (`uv add "instro[qcodes]"`). See [QCoDeS Instruments](/library/qcodes.md).
+
+`instro qcodes map` writes an editable JSON channel map for a QCoDeS instrument. Edit each entry's `channel`, then pass the file as `channel_map=` to `attach()` or `QcodesInstrument`. `instro qcodes describe` prints the same information as a table.
+
+```bash
+instro qcodes map Keithley.Keithley2450 --resource "USB0::0x05E6::0x2450::04567890::INSTR" -o smu_map.json
+instro qcodes describe qcodes.instrument_drivers.mock_instruments.DummyInstrument --arg "gates=['g1','g2']"
+```
+
+The class is a dotted path, either full (`qcodes.instrument_drivers.Keithley.Keithley2450`) or relative to `qcodes.instrument_drivers`. QCoDeS drivers register their parameters when constructed, so both commands connect to the instrument. `--resource` is the driver's address argument. `--arg NAME=VALUE` passes any other constructor argument and can be repeated.
