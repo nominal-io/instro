@@ -150,10 +150,6 @@ impl OpcUaClient {
         Arc::ptr_eq(&self.session, &other.session)
     }
 
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "subscription state is consumed upstack")
-    )]
     pub(crate) fn native_state(&self) -> watch::Receiver<ClientState> {
         self.state.clone()
     }

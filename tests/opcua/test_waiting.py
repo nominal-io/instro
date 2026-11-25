@@ -199,7 +199,7 @@ def test_interrupted_browse_finishes_the_held_page_and_releases_on_error(
         assert requests == [(False, [point]), (True, [point])]
 
 
-CloseHook: TypeAlias = Callable[[Callable[[], Awaitable[None]]], None]
+CloseHook: TypeAlias = Callable[[int, Callable[[], Awaitable[None]]], None]
 
 
 @pytest.fixture
@@ -216,21 +216,25 @@ def closing_client(
             if peer not in existing and peer.processor is not None and peer.processor.session is not None
         )
         process = processor._process_message
-        close_request = ua.NodeId(ua.Int32(ua.ObjectIds.CloseSessionRequest_Encoding_DefaultBinary))
 
-        def on_close(hook):
+        def on_request(encoding_id, hook):
+            request = ua.NodeId(ua.Int32(encoding_id))
+
             async def intercept(typeid, header, sequence, body):
-                if typeid == close_request:
+                if typeid == request:
                     await hook()
                 return await process(typeid, header, sequence, body)
 
             monkeypatch.setattr(processor, "_process_message", intercept)
 
-        yield client, on_close
+        yield client, on_request
 
 
-def test_disconnect_waits_through_a_signal(closing_client: tuple[OpcUaClient, CloseHook]):
-    client, on_close = closing_client
+@pytest.mark.parametrize("operation", ["disconnect", "disconnect-with-subscription", "close-subscription"])
+def test_explicit_cleanup_waits_through_a_signal(
+    closing_client: tuple[OpcUaClient, CloseHook], server: Server, operation: str
+):
+    client, on_request = closing_client
     released = asyncio.Event()
     observed = []
 
@@ -239,25 +243,81 @@ def test_disconnect_waits_through_a_signal(closing_client: tuple[OpcUaClient, Cl
         await asyncio.sleep(0.2)
         released.set()
 
-    on_close(stall)
+    close = client.disconnect
+    request = ua.ObjectIds.CloseSessionRequest_Encoding_DefaultBinary
+    subscriptions = server.iserver.subscription_service.subscriptions
+    target = None
+    if operation != "disconnect":
+        existing = set(subscriptions)
+        samples = client.subscribe(["/Objects/2:Rig/2:Temperature"])
+        next(samples)
+        (target,) = subscriptions.keys() - existing
+        if operation == "close-subscription":
+            close = samples.close
+            request = ua.ObjectIds.DeleteSubscriptionsRequest_Encoding_DefaultBinary
+
+    on_request(request, stall)
     previous = signal.signal(signal.SIGINT, lambda *_: observed.append((get_ident(), released.is_set())))
     try:
-        client.disconnect()
+        close()
     finally:
         signal.signal(signal.SIGINT, previous)
 
     assert observed == [(get_ident(), True)]
+    if target is not None:
+        assert target not in subscriptions
 
 
 def test_disconnect_reports_a_rejected_close_session_after_shutdown(closing_client: tuple[OpcUaClient, CloseHook]):
-    client, on_close = closing_client
+    client, on_request = closing_client
 
     async def reject():
         raise ServiceError(ua.UInt32(ua.StatusCodes.BadUserAccessDenied))
 
-    on_close(reject)
+    on_request(ua.ObjectIds.CloseSessionRequest_Encoding_DefaultBinary, reject)
     with pytest.raises(OpcUaError) as rejected:
         client.disconnect()
 
     assert rejected.value.status_code.code == ua.StatusCodes.BadUserAccessDenied
     client.disconnect()
+
+
+def test_interrupted_subscription_setup_finishes_and_rolls_back(
+    endpoint: str,
+    connection_options: DefaultConnectionOptions,
+    server: Server,
+    run: AsyncRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    stalled_reply: StalledReply,
+):
+    arm, released, handled_on, main_thread, finish = stalled_reply
+    deleted = asyncio.Event()
+    service = server.iserver.subscription_service
+    delete = service.delete_subscriptions
+    existing = set(service.subscriptions)
+    target = None
+
+    async def observe_deletion(ids):
+        result = await delete(ids)
+        if target in ids:
+            deleted.set()
+        return result
+
+    monkeypatch.setattr(service, "delete_subscriptions", observe_deletion)
+    connection_options["request_timeout"] = 10
+    with OpcUaClient.connect(endpoint, **connection_options) as client:
+        node = client.get_node("/Objects/2:Rig/2:Temperature")
+        arm("create_monitored_items", 5)
+
+        try:
+            with pytest.raises(SignalObserved):
+                client.subscribe([node])
+
+            assert not released.is_set()
+            assert handled_on == [main_thread]
+            (target,) = service.subscriptions.keys() - existing
+        finally:
+            finish()
+
+        run(asyncio.wait_for(deleted.wait(), 2))
+        assert target not in service.subscriptions

@@ -102,6 +102,22 @@ class OpcUaClient:
         nodes: Iterable[Node | RelativePath | str],
         attr: AttributeId | int | str | None = None,
     ) -> list[AttributeValue[AttributePayload]]: ...
+    def subscribe(
+        self,
+        nodes: Iterable[Node | RelativePath | str],
+        *,
+        attribute: AttributeId | int | str | None = None,
+        publishing_interval: Duration | timedelta | int | float = ...,
+        lifetime_count: int = ...,
+        max_keep_alive_count: int = ...,
+        max_notifications_per_publish: int = ...,
+        priority: int = ...,
+        publishing_enabled: bool = True,
+        sampling_interval: float = 0.0,
+        queue_size: int = ...,
+        discard_oldest: bool = False,
+        poll_interval: Duration | timedelta | int | float | None = None,
+    ) -> Subscription: ...
     def __enter__(self) -> OpcUaClient: ...
     def __exit__(
         self,
@@ -174,6 +190,20 @@ class Node:
     @property
     def access_level_ex(self) -> AttributeValue[AccessLevelExType]: ...
 
+@final
+class Subscription:
+    def __new__(cls, _unavailable: Never) -> Self: ...
+    def __iter__(self) -> Subscription: ...
+    def __next__(self) -> tuple[Node, AttributeValue[AttributePayload]]: ...
+    def close(self) -> None: ...
+    def __enter__(self) -> Subscription: ...
+    def __exit__(
+        self,
+        _kind: type[BaseException] | None,
+        value: BaseException | None,
+        _traceback: TracebackType | None,
+    ) -> None: ...
+
 def get_endpoints(endpoint_url: str, *, pki_dir: str | PathLike[str] | None = None) -> list[EndpointDescription]: ...
 
-__all__ = ["OpcUaError", "OpcUaClient", "get_endpoints", "IdentityToken", "Node"]
+__all__ = ["IdentityToken", "Node", "OpcUaClient", "OpcUaError", "Subscription", "get_endpoints"]
