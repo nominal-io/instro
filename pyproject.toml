@@ -103,6 +103,7 @@ dev = [
     "instro-pymeasure",
 ]
 test = [
+    "asyncua>=2,<3",
     "anywidget>=0.11",
     "cpppo>=4.0.0",
     "plotly>=6.0",
