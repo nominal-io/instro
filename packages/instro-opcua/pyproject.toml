@@ -19,7 +19,7 @@ classifiers = [
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11,<3.15"
-dependencies = ["instro"]
+dependencies = ["instro>=1.10.0", "pydantic>=2.0"]
 
 [project.urls]
 Homepage = "https://github.com/nominal-io/instro"
