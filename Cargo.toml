@@ -12,7 +12,8 @@ edition = "2024"
 rust-version = "1.93.1"
 
 [workspace.dependencies]
-base64 = "0.22"
+async-opcua = { version = "0.19", features = ["client"] }
+pyo3 = { version = "0.29.0", default-features = false, features = ["abi3-py310", "macros", "multiple-pymethods", "uuid"] }
 uuid = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
@@ -20,7 +21,6 @@ anyhow = "1"
 thiserror = "2"
 tracing = "0.1"
 tokio = { version = "1", default-features = false }
-itertools = "0.13"
 # TODO(cartercanedy): change this back to upstream published version if/when changes merge
 open62541 = { git = "https://github.com/cartercanedy/open62541-rs", rev = "98da2de72ff1bb12e953790a505d8812424b5a7d", version = "0.12", features = ["mbedtls", "x509"] }
 open62541-sys = { version = "0.6", features = ["mbedtls"] }
