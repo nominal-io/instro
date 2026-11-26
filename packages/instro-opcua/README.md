@@ -13,3 +13,5 @@ If the operating system provides no local data directory, the client uses `./pki
 Pass `pki_dir` to `get_endpoints()` to use a different certificate store for discovery.
 
 Use Nodes for navigation, attribute access, and ordered batch reads.
+
+Subscriptions retain notifications and support optional fallback polling.

@@ -11,6 +11,7 @@ name = "_opcua"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+async-channel = "2.5"
 async-opcua.workspace = true
 instro-opcua-macros = { path = "../../crates/instro-opcua-macros" }
 pyo3.workspace = true

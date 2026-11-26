@@ -2,6 +2,7 @@ mod client;
 mod config;
 mod error;
 mod node;
+mod subscription;
 mod time;
 mod util;
 mod values;
@@ -18,6 +19,6 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     config::register(module)?;
 
     module.add_class::<node::Node>()?;
-
+    module.add_class::<subscription::Subscription>()?;
     client::register(module)
 }
