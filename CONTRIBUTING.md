@@ -8,7 +8,7 @@ Thanks for your interest in contributing. This guide covers the development work
 
 ### Prerequisites
 
-The default development environment needs **Rust and a C/C++ toolchain**, even for `just check-python` and `just test-python`. The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local `instro-ethernetip` package, whose [build backend](./packages/instro-ethernetip/pyproject.toml) is maturin. Both `uv sync` and the recipes' `uv run` commands can build this native extension on a fresh checkout.
+The default development environment needs **Rust and a C/C++ toolchain**, even for `just check-python` and `just test-python`. The default `dev` group in [pyproject.toml](./pyproject.toml) includes the local `instro-ethernetip` and `instro-opcua` packages, both built with maturin. Both `uv sync` and the recipes' `uv run` commands can build these native extensions on a fresh checkout.
 
 **`just check` and `just test` also need CMake and LLVM/libclang**: their [Rust recipes](./justfile) cover the whole [Cargo workspace](./Cargo.toml), including OPC UA and its C dependencies (`open62541-sys` and `mbedtls`). Python-only recipes skip those workspace-wide Rust checks, but still use the default development environment.
 
@@ -126,6 +126,7 @@ Common dev tasks (via [just](https://github.com/casey/just)):
 just check           # all static analysis: python (ruff format, mypy, ruff lint) + Rust (rustfmt, clippy)
 just test            # all tests: python + Rust workspace + EtherNet/IP wheel checks (no hardware required)
 just check-python    # python static analysis in the default development environment
+just check-stubs     # OPC UA type contracts and agreement with the native extension
 just test-python     # python unit tests only
 just check-rust      # nightly rustfmt + clippy with the committed Cargo.lock
 just test-rust       # Rust library/integration/doc tests only
@@ -134,7 +135,8 @@ just test-rust       # Rust library/integration/doc tests only
 Notes:
 
 - The **first `just test` is slow**: it compiles `open62541` and `mbedtls` from C source. Subsequent runs are cached (CI caches this with `Swatinem/rust-cache`).
-- `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
+- `uv sync` installs the default `dev` and `test` groups, including the EtherNet/IP, OPC UA, unstable, and contrib workspace packages. `just install` runs the same command. `uv run` also syncs this environment automatically.
+- `just check-types` and `just check-types-all` include `check-stubs`. OPC UA type examples use `assert_type` for inferred types and error-code-specific `type: ignore[...]` annotations with `--warn-unused-ignores` for rejected calls. These checks run during static analysis rather than pytest; `stubtest` imports the installed native extension, so it must be built for the current checkout.
 - Add vendor extras only when needed, for example `uv sync --extra nidaq`. `uv sync --extra all` selects the extras listed in [pyproject.toml](./pyproject.toml); it does not install proprietary system SDKs or every workspace member.
 - The vendor extras (`daq`, `labjack`, `mccdaq`, `i2c`/`aardvark`) are **not** required for `just test` — those test directories are deselected by default (see `[tool.pytest.ini_options]` in `pyproject.toml`) and need proprietary vendor SDKs plus hardware.
 
