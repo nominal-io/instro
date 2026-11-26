@@ -9,6 +9,7 @@ use opcua::client::SessionDropGuard;
 use opcua::client::SessionEventLoop;
 use opcua::client::SessionPollResult;
 use opcua::client::transport::TcpConnector;
+use opcua::crypto::SecurityPolicy;
 use opcua::types as ua;
 use pyo3::exceptions::PyBaseException;
 use pyo3::exceptions::PyRuntimeError;
@@ -265,50 +266,172 @@ async fn wait_for_completion(state: &mut watch::Receiver<ClientState>) -> PyResu
 
 #[pymethods]
 impl OpcUaClient {
-    /// Connect anonymously with the native default connection settings.
+    /// Connect to an endpoint using native OPC UA connection and retry settings.
+    ///
+    /// Duration parameters accept ``Duration``, ``datetime.timedelta``, or finite
+    /// nonnegative numeric seconds. Integer millisecond parameters retain their
+    /// native units. All settings after ``endpoint_url`` are keyword-only.
+    /// Waiting releases the GIL and checks Python signals. An interrupted setup
+    /// initiates cleanup without waiting for it to finish.
     ///
     /// Args:
     ///     endpoint_url (str): OPC UA server endpoint URL.
+    ///     identity (IdentityToken | None): User identity; ``None`` is anonymous.
+    ///     security_policy (SecurityPolicy | str): Policy value, canonical name,
+    ///         supported AES alias, or full policy URI. Defaults to ``None`` policy.
+    ///     security_mode (MessageSecurityMode | str): ``None``, ``Sign``, or
+    ///         ``SignAndEncrypt``; names are case-insensitive. Defaults to ``None`` mode.
+    ///     application_name (str): Application display name. Defaults to
+    ///         ``Nominal OPC UA Client``.
+    ///     application_uri (str): Application URI. Defaults to ``urn:nominal:opcua-client``.
+    ///     product_uri (str): Product URI. Defaults to an empty string.
+    ///     create_sample_keypair (bool): Generate a sample application key pair
+    ///         when native provisioning requires it. Defaults to ``False``.
+    ///     certificate_path (str | os.PathLike[str] | None): Application certificate
+    ///         path relative to the PKI directory; supply with ``private_key_path``. Defaults to ``None``.
+    ///     private_key_path (str | os.PathLike[str] | None): Application private key
+    ///         path relative to the PKI directory; supply with ``certificate_path``. Defaults to ``None``.
+    ///     trust_server_certs (bool): Automatically place server certificates in the
+    ///         native trusted store. Defaults to ``False``.
+    ///     verify_server_certs (bool): Verify hostname, application URI, and validity dates.
+    ///         Trust and key-length checks still apply when false. Defaults to ``True``.
+    ///     pki_dir (str | os.PathLike[str] | None): Native PKI directory.
+    ///         Defaults to the native PKI location when omitted.
+    ///     preferred_locales (list[str]): Preferred locale IDs, in order. Defaults to ``[]``.
+    ///     channel_lifetime (int): Requested secure channel lifetime in milliseconds.
+    ///         Defaults to ``60000``.
+    ///     session_retry_limit (int): Native retry limit: ``-1`` for unlimited,
+    ///         ``0`` for none, or a positive count. Defaults to ``10``.
+    ///     session_retry_initial (Duration | datetime.timedelta | int | float):
+    ///         Initial native reconnect backoff. Defaults to 1 second.
+    ///     session_retry_max (Duration | datetime.timedelta | int | float):
+    ///         Maximum native reconnect backoff. Defaults to 30 seconds.
+    ///     keep_alive_interval (Duration | datetime.timedelta | int | float):
+    ///         Positive session keep-alive interval. Defaults to 10 seconds.
+    ///     max_array_length (int): Maximum decoded array length; zero permits no
+    ///         array elements. Defaults to ``1000``.
+    ///     max_byte_string_length (int): Maximum decoded byte-string bytes; zero
+    ///         permits no bytes. Defaults to ``65535``.
+    ///     max_chunk_count (int): Maximum chunks per message; zero means unlimited.
+    ///         Defaults to ``5``.
+    ///     max_chunk_size (int): Maximum outgoing chunk bytes. Defaults to ``65535``.
+    ///     max_incoming_chunk_size (int): Maximum incoming chunk bytes. Defaults to ``65535``.
+    ///     max_message_size (int): Maximum outgoing message bytes; zero means
+    ///         unlimited. Defaults to ``327675``.
+    ///     max_string_length (int): Maximum decoded string bytes; zero permits no
+    ///         string content. Defaults to ``65535``.
+    ///     max_failed_keep_alive_count (int): Failed keep-alive limit before native
+    ///         closure; zero disables this limit. Defaults to ``0``.
+    ///     request_timeout (Duration | datetime.timedelta | int | float): Ordinary
+    ///         native request timeout. Defaults to 60 seconds.
+    ///     publish_timeout (Duration | datetime.timedelta | int | float): Native
+    ///         publish request timeout. Defaults to 60 seconds.
+    ///     min_publish_interval (Duration | datetime.timedelta | int | float):
+    ///         Client minimum publish interval. Defaults to 0.1 seconds.
+    ///     ignore_clock_skew (bool): Ignore clock skew in native transport handling.
+    ///         Defaults to ``False``.
+    ///     recreate_monitored_items_chunk (int): Maximum monitored items per
+    ///         restoration request. Defaults to ``1000``.
+    ///     recreate_subscriptions (bool): Let native recovery transfer or recreate
+    ///         subscriptions. Defaults to ``True``.
+    ///     session_name (str): Requested session name. Defaults to ``Rust OPC UA Client``.
+    ///     session_timeout (int): Requested session timeout in milliseconds.
+    ///         Defaults to ``60000``.
+    ///     session_nonce_length (int): CreateSession nonce length in bytes. Defaults to ``32``.
     ///
     /// Returns:
     ///     OpcUaClient: An activated shared client.
+    ///
+    /// Raises:
+    ///     TypeError: A keyword or argument type is unsupported.
+    ///     ValueError: A setting is invalid.
+    ///     OverflowError: An integer is outside the range of its connection setting.
+    ///     OpcUaError: Native connection or activation fails.
+    ///     KeyboardInterrupt: Python interrupts the connection wait.
     #[staticmethod]
-    #[pyo3(signature = (endpoint_url))]
-    fn connect(py: Python<'_>, endpoint_url: String) -> PyResult<Self> {
-        let identity: Option<IdentityToken> = None;
-        let application_name: &str = config::APPLICATION_NAME;
-        let application_uri: &str = config::APPLICATION_URI;
-        let product_uri: &str = "";
-        let create_sample_keypair: bool = false;
-        let certificate_path: Option<PathBuf> = None;
-        let private_key_path: Option<PathBuf> = None;
-        let trust_server_certs: bool = false;
-        let verify_server_certs: bool = true;
-        let pki_dir: Option<PathBuf> = None;
-        let preferred_locales: Vec<String> = Vec::new();
-        let channel_lifetime: u32 = 60_000;
-        let session_retry_limit: i32 = 10;
-        let session_retry_initial: DurationInput = DurationInput::from_secs(1);
-        let session_retry_max: DurationInput = DurationInput::from_secs(30);
-        let keep_alive_interval: DurationInput = DurationInput::from_secs(10);
-        let max_array_length: usize = 1000;
-        let max_byte_string_length: usize = 65535;
-        let max_chunk_count: usize = 5;
-        let max_chunk_size: usize = 65535;
-        let max_incoming_chunk_size: usize = 65535;
-        let max_message_size: usize = 327675;
-        let max_string_length: usize = 65535;
-        let max_failed_keep_alive_count: u64 = 0;
-        let request_timeout: DurationInput = DurationInput::from_secs(60);
-        let publish_timeout: DurationInput = DurationInput::from_secs(60);
-        let min_publish_interval: DurationInput = DurationInput::from_millis(100);
-        let ignore_clock_skew: bool = false;
-        let recreate_monitored_items_chunk: usize = 1000;
-        let recreate_subscriptions: bool = true;
-        let session_name: &str = "Rust OPC UA Client";
-        let session_timeout: u32 = 60_000;
-        let session_nonce_length: usize = 32;
-
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Python exposes each connection setting as a named argument"
+    )]
+    #[pyo3(signature =  (
+        endpoint_url,
+        *,
+        identity = None,
+        security_policy = SecurityPolicy::None,
+        security_mode = ua::MessageSecurityMode::None,
+        application_name = config::APPLICATION_NAME,
+        application_uri = config::APPLICATION_URI,
+        product_uri = "",
+        create_sample_keypair = false,
+        certificate_path = None,
+        private_key_path = None,
+        trust_server_certs = false,
+        verify_server_certs = true,
+        pki_dir = None,
+        preferred_locales = Vec::new(),
+        channel_lifetime = 60_000,
+        session_retry_limit = 10,
+        session_retry_initial = DurationInput::from_secs(1),
+        session_retry_max = DurationInput::from_secs(30),
+        keep_alive_interval = DurationInput::from_secs(10),
+        max_array_length = 1000,
+        max_byte_string_length = 65535,
+        max_chunk_count = 5,
+        max_chunk_size = 65535,
+        max_incoming_chunk_size = 65535,
+        max_message_size = 327675,
+        max_string_length = 65535,
+        max_failed_keep_alive_count = 0,
+        request_timeout = DurationInput::from_secs(60),
+        publish_timeout = DurationInput::from_secs(60),
+        min_publish_interval = DurationInput::from_millis(100),
+        ignore_clock_skew = false,
+        recreate_monitored_items_chunk = 1000,
+        recreate_subscriptions = true,
+        session_name = "Rust OPC UA Client",
+        session_timeout = 60_000,
+        session_nonce_length = 32
+    ))]
+    fn connect(
+        py: Python<'_>,
+        endpoint_url: String,
+        identity: Option<IdentityToken>,
+        #[pyo3(from_py_with = config::extract_security_policy)] security_policy: SecurityPolicy,
+        #[pyo3(from_py_with = config::extract_security_mode)]
+        security_mode: ua::MessageSecurityMode,
+        application_name: &str,
+        application_uri: &str,
+        product_uri: &str,
+        create_sample_keypair: bool,
+        certificate_path: Option<PathBuf>,
+        private_key_path: Option<PathBuf>,
+        trust_server_certs: bool,
+        verify_server_certs: bool,
+        pki_dir: Option<PathBuf>,
+        preferred_locales: Vec<String>,
+        #[pyo3(from_py_with = config::extract_integer)] channel_lifetime: u32,
+        #[pyo3(from_py_with = config::extract_integer)] session_retry_limit: i32,
+        session_retry_initial: DurationInput,
+        session_retry_max: DurationInput,
+        keep_alive_interval: DurationInput,
+        #[pyo3(from_py_with = config::extract_integer)] max_array_length: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_byte_string_length: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_chunk_count: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_chunk_size: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_incoming_chunk_size: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_message_size: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_string_length: usize,
+        #[pyo3(from_py_with = config::extract_integer)] max_failed_keep_alive_count: u64,
+        request_timeout: DurationInput,
+        publish_timeout: DurationInput,
+        min_publish_interval: DurationInput,
+        ignore_clock_skew: bool,
+        #[pyo3(from_py_with = config::extract_integer)] recreate_monitored_items_chunk: usize,
+        recreate_subscriptions: bool,
+        session_name: &str,
+        #[pyo3(from_py_with = config::extract_integer)] session_timeout: u32,
+        #[pyo3(from_py_with = config::extract_integer)] session_nonce_length: usize,
+    ) -> PyResult<Self> {
         config::validate_certificate_paths(
             certificate_path.as_deref(),
             private_key_path.as_deref(),
@@ -402,8 +525,8 @@ impl OpcUaClient {
 
         let endpoint = ua::EndpointDescription {
             endpoint_url: endpoint_url.into(),
-            security_policy_uri: opcua::crypto::SecurityPolicy::None.to_uri().into(),
-            security_mode: ua::MessageSecurityMode::None,
+            security_policy_uri: security_policy.to_uri().into(),
+            security_mode,
             ..Default::default()
         };
 

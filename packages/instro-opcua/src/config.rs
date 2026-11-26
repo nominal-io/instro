@@ -7,6 +7,7 @@ use std::time::Duration as StdDuration;
 
 use opcua::client::IdentityToken as UaIdentityToken;
 use opcua::crypto::SecurityPolicy as UaSecurityPolicy;
+use opcua::types as ua;
 use pyo3::exceptions::PyTypeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -14,8 +15,10 @@ use pyo3::types::PyBool;
 use pyo3::types::PyDelta;
 use pyo3::types::PyFloat;
 use pyo3::types::PyInt;
+use pyo3::types::PyString;
 
 use crate::time::Duration;
+use crate::values::MessageSecurityMode;
 
 pub(crate) const APPLICATION_NAME: &str = "Nominal OPC UA Client";
 pub(crate) const APPLICATION_URI: &str = "urn:nominal:opcua-client";
@@ -226,6 +229,41 @@ fn parse_security_policy(name: &str) -> PyResult<UaSecurityPolicy> {
     }
 }
 
+pub(crate) fn extract_security_policy(value: &Bound<'_, PyAny>) -> PyResult<UaSecurityPolicy> {
+    if let Ok(policy) = value.extract::<SecurityPolicy>() {
+        return checked_security_policy(*policy.as_ref());
+    }
+
+    let name = value
+        .cast::<PyString>()
+        .map_err(|_| PyTypeError::new_err("security_policy must be a SecurityPolicy or str"))?;
+    parse_security_policy(name.to_str()?)
+}
+
+pub(crate) fn extract_security_mode(value: &Bound<'_, PyAny>) -> PyResult<ua::MessageSecurityMode> {
+    use ua::MessageSecurityMode as Mode;
+
+    if let Ok(mode) = value.extract::<MessageSecurityMode>() {
+        return match mode.as_ref() {
+            Mode::Invalid => Err(PyValueError::new_err("invalid security mode")),
+            mode => Ok(*mode),
+        };
+    }
+
+    let name = value
+        .cast::<PyString>()
+        .map_err(|_| PyTypeError::new_err("security_mode must be a MessageSecurityMode or str"))?;
+    let name = name.to_str()?;
+    match name.to_ascii_lowercase().as_str() {
+        "none" => Ok(Mode::None),
+        "sign" => Ok(Mode::Sign),
+        "signandencrypt" => Ok(Mode::SignAndEncrypt),
+        _ => Err(PyValueError::new_err(format!(
+            "unknown security mode: {name:?}"
+        ))),
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct DurationInput(StdDuration);
 
@@ -279,6 +317,17 @@ impl FromPyObject<'_, '_> for DurationInput {
     }
 }
 
+pub(crate) fn extract_integer<'a, 'py, T>(value: &'a Bound<'py, PyAny>) -> PyResult<T>
+where
+    T: FromPyObject<'a, 'py>,
+{
+    if value.is_instance_of::<PyBool>() {
+        return Err(PyTypeError::new_err("expected an integer"));
+    }
+
+    value.extract().map_err(Into::into)
+}
+
 pub(crate) fn validate_retry_limit(limit: i32) -> PyResult<i32> {
     if limit < -1 {
         Err(PyValueError::new_err(
@@ -303,5 +352,6 @@ pub(crate) fn validate_certificate_paths(
 }
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<IdentityToken>()?;
     module.add_class::<SecurityPolicy>()
 }
