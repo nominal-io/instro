@@ -1,6 +1,8 @@
+mod client;
 mod config;
 mod error;
 mod time;
+mod util;
 #[expect(
     dead_code,
     reason = "native decoding is consumed by the Node API upstack"
@@ -18,5 +20,5 @@ fn _opcua(module: &Bound<'_, PyModule>) -> PyResult<()> {
     values::register(module)?;
     config::register(module)?;
 
-    Ok(())
+    client::register(module)
 }

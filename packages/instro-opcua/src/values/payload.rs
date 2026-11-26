@@ -267,7 +267,7 @@ mod decoding_boundary_tests {
     use ua::StatusCode as Code;
 
     use super::*;
-    use crate::error::failure_status;
+    use crate::client::lifecycle_tests::failure_status;
     use crate::values::PyAttributeValue;
 
     fn array(
