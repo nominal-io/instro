@@ -35,23 +35,13 @@ pyo3::import_exception!(builtins, ExceptionGroup);
 
 type Sample = (usize, ua::DataValue);
 
-/// An iterator retaining its Nodes, client, and every accepted sample.
+/// Iterate over ``(Node, AttributeValue)`` pairs from a subscription.
 ///
-/// Create this with ``client.subscribe(nodes, ...)``. Native processing continues
-/// while Python is idle. Optional fallback reads cover Nodes that did not notify
-/// during the current interval, using the group's selected attribute.
-///
-/// Poll results wait until the next interval or a matching notification. A poll
-/// strictly older on either comparable timestamp is delivered before that
-/// notification; otherwise the notification replaces it. Unmatched polls survive.
-///
-/// Explicit ``close()`` seals notification admission, finishes any admitted read,
-/// drains accepted notifications, flushes polls, and attempts native deletion.
-/// Retained samples remain iterable afterward. A terminal native error follows
-/// them once. Deletion errors belong to ``close()``, not iteration.
+/// Set ``poll_interval`` to read nodes that sent no notification during the
+/// interval. Samples accumulate until you consume them.
 ///
 /// Examples:
-///     >>> with client.subscribe([client.objects.get_child("2:Temperature")]) as samples:
+///     >>> with client.subscribe(["/Objects/Server/ServerStatus/CurrentTime"]) as samples:
 ///     ...     node, value = next(samples)
 ///     ...     print(node.node_id, value.value)
 #[pyclass(frozen, module = "instro.unstable._opcua")]
@@ -74,10 +64,6 @@ impl Subscription {
     }
 
     /// Return the next retained Node and selected attribute value.
-    ///
-    /// Native waiting releases the GIL. A quiet wait checks Python signals every
-    /// 50 milliseconds. Interruption cancels this wait alone, leaving subscription
-    /// production and all unconsumed samples available for a later ``next()``.
     fn __next__(&self, py: Python<'_>) -> PyResult<Option<(Node, PyAttributeValue)>> {
         let received = util::wait_cancellable(py, async { Ok(self.samples.recv().await) })?;
 
@@ -96,13 +82,12 @@ impl Subscription {
         Ok(Some((node.clone(), value)))
     }
 
-    /// Stop production and wait for this caller's native cleanup to finish.
+    /// Stop monitoring the nodes. Previously queued samples remain available.
     ///
-    /// The caller taking the task owns cleanup completion. Later callers return
-    /// without a universal completion barrier. Waiting releases the GIL and is
-    /// not cancelled midway by Python signals. A disconnected session needs no
-    /// deletion. Cleanup also succeeds if the server reports the subscription
-    /// is already absent. Other deletion failures raise ``OpcUaError``.
+    /// Cleanup succeeds if the server reports that the subscription is already absent.
+    ///
+    /// Raises:
+    ///     OpcUaError: The client could not delete the subscription on the server.
     fn close(&self, py: Python<'_>) -> PyResult<()> {
         util::wait(py, async {
             self.ingress.close();
@@ -152,10 +137,7 @@ impl Drop for Subscription {
 
 #[pymethods]
 impl OpcUaClient {
-    /// Monitor a group of Nodes, with optional quiet-Node fallback reads.
-    ///
-    /// If Python interrupts setup after allocation starts, native setup runs to
-    /// completion and any resulting subscription is closed in the background.
+    /// Monitor one attribute across a group of nodes.
     ///
     /// Args:
     ///     nodes (Iterable[Node | RelativePath | str]): Consumed once before native

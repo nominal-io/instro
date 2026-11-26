@@ -131,7 +131,8 @@ git clone https://github.com/nominal-io/instro.git
 cd instro
 uv sync
 ```
-See [Contributing](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for more info.
+The development environment includes the native EtherNet/IP and OPC UA packages and needs a Rust and C/C++ toolchain.
+See [Contributing](https://github.com/nominal-io/instro/blob/main/CONTRIBUTING.md) for prerequisites and checks.
 
 ## License
 

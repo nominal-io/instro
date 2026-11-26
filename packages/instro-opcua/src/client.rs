@@ -255,8 +255,6 @@ impl OpcUaClient {
     /// Duration parameters accept ``Duration``, ``datetime.timedelta``, or finite
     /// nonnegative numeric seconds. Integer millisecond parameters retain their
     /// native units. All settings after ``endpoint_url`` are keyword-only.
-    /// Waiting releases the GIL and checks Python signals. An interrupted setup
-    /// initiates cleanup without waiting for it to finish.
     ///
     /// Args:
     ///     endpoint_url (str): OPC UA server endpoint URL.
@@ -331,7 +329,6 @@ impl OpcUaClient {
     ///     ValueError: A setting is invalid.
     ///     OverflowError: An integer is outside the range of its connection setting.
     ///     OpcUaError: Native connection or activation fails.
-    ///     KeyboardInterrupt: Python interrupts the connection wait.
     #[staticmethod]
     #[expect(
         clippy::too_many_arguments,
@@ -532,12 +529,7 @@ impl OpcUaClient {
         })
     }
 
-    /// Disconnect the shared session and wait for owned cleanup with the GIL released.
-    ///
-    /// Admitted operations finish before the session is removed. This caller waits
-    /// if it takes cleanup ownership; repeated callers return without a shared
-    /// completion barrier. During recovery, native termination may skip graceful
-    /// protocol shutdown. This wait is not cancelled by Python signals.
+    /// Disconnect the client and end the session shared by its nodes and subscriptions.
     ///
     /// Raises:
     ///     OpcUaError: Native shutdown reports a failure.
@@ -606,8 +598,6 @@ impl OpcUaClient {
 }
 
 /// Discover endpoint security, identity, and application metadata.
-///
-/// Waiting releases the GIL and checks Python signals.
 ///
 /// Args:
 ///     endpoint_url (str): OPC UA discovery endpoint URL.
