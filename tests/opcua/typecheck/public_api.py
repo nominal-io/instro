@@ -6,9 +6,11 @@ from instro.unstable.opcua.types import (
     AccessLevelExType,
     AttributePayload,
     AttributeValue,
+    DataType,
     DateTime,
     EnumDefinition,
     EnumField,
+    LocalizedText,
     NodeClass,
     NodeId,
     PermissionType,
@@ -17,6 +19,7 @@ from instro.unstable.opcua.types import (
     StructureDefinition,
     StructureField,
     Value,
+    XmlElement,
 )
 
 
@@ -70,3 +73,21 @@ def rejected_calls(node: Node, client: OpcUaClient) -> None:
 
 def subscription_results(subscription: Subscription) -> None:
     assert_type(next(subscription), tuple[Node, AttributeValue[AttributePayload]])
+
+
+def attribute_writes(node: Node, field: EnumField) -> None:
+    node.value = 42
+    node.value = XmlElement("<mode>on</mode>")
+    node.value = NodeId("i=84")
+    node.value = field
+    node.value = (field,)
+    node.display_name = LocalizedText("Pump")
+    node.set_attribute("Value", 42, dtype=DataType.INT16)
+    node.set_attribute("DisplayName", LocalizedText("Pump"))
+    node.set_attribute("Value", [1, 2], dtype=DataType.INT16)
+    node.set_attribute("Value", (1, 2), dtype=DataType.UINT16)
+    node.set_attribute("Value", [field], dtype=DataType.ENUM_FIELD)
+    node.display_name = "Pump"  # type: ignore[assignment]
+    node.set_attribute("Value", (1, "two"))  # type: ignore[arg-type]
+    node.set_attribute("Value", object())  # type: ignore[arg-type]
+    node.set_attribute("Value", 42, dtype=4)  # type: ignore[arg-type]

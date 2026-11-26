@@ -92,8 +92,8 @@ fn expand_struct(args: TokenStream, item: ItemStruct) -> Result<Tokens> {
 }
 
 fn wire_struct(name: &Ident, mode: &Ident) -> Result<Tokens> {
-    match mode.to_string().as_str() {
-        "scalar" => Ok(quote! {
+    let read = match mode.to_string().as_str() {
+        "scalar" => quote! {
             impl crate::values::payload::ReadValue for #name {
                 const KIND: ::opcua::types::VariantScalarTypeId =
                     ::opcua::types::VariantScalarTypeId::#name;
@@ -109,9 +109,9 @@ fn wire_struct(name: &Ident, mode: &Ident) -> Result<Tokens> {
                     Self(ua::#name::clone(inner)).into_py_any(py)
                 }
             }
-        }),
+        },
 
-        "structure" => Ok(quote! {
+        "structure" => quote! {
             impl TryFrom<&ua::ExtensionObject> for #name {
                 type Error = PyErr;
 
@@ -138,10 +138,20 @@ fn wire_struct(name: &Ident, mode: &Ident) -> Result<Tokens> {
                     Self::try_from(inner)?.into_py_any(py)
                 }
             }
-        }),
+        },
 
-        _ => Err(Error::new_spanned(mode, "expected scalar or structure")),
-    }
+        _ => return Err(Error::new_spanned(mode, "expected scalar or structure")),
+    };
+
+    Ok(quote! {
+        #read
+
+        impl ua::IntoVariant for #name {
+            fn into_variant(self) -> ua::Variant {
+                self.0.into()
+            }
+        }
+    })
 }
 
 #[proc_macro_attribute]

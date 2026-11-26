@@ -13,10 +13,12 @@ use crate::error;
 use crate::util;
 use crate::values::AttributeId;
 use crate::values::BrowsePath;
+use crate::values::LocalizedText;
 use crate::values::NodeId;
 use crate::values::PyAttributeValue;
 use crate::values::RelativePath;
 use crate::values::attributes::{self};
+use crate::values::write;
 
 pyo3::import_exception!(builtins, ExceptionGroup);
 
@@ -132,6 +134,53 @@ impl Node {
         let value = util::wait_cancellable(py, self.read_native(attribute))?;
 
         Ok(PyAttributeValue::from_native(py, attribute, value))
+    }
+
+    fn write_value(
+        &self,
+        py: Python<'_>,
+        value: &Bound<'_, PyAny>,
+        dtype: Option<ua::DataTypeId>,
+    ) -> PyResult<()> {
+        let variant = write::encode(value, dtype)?;
+        self.write_attribute(py, ua::AttributeId::Value, variant)
+    }
+
+    fn write_attribute(
+        &self,
+        py: Python<'_>,
+        attribute: ua::AttributeId,
+        variant: ua::Variant,
+    ) -> PyResult<()> {
+        let request = ua::WriteValue {
+            node_id: self.node_id().clone(),
+            attribute_id: attribute as u32,
+            index_range: ua::NumericRange::None,
+            value: ua::DataValue::value_only(variant),
+        };
+
+        let client = self.client.clone();
+        util::wait_detached(py, async move {
+            client
+                .with_session(async |session| {
+                    let results = session.write(&[request]).await.map_err(error::native)?;
+                    let [status] = <[ua::StatusCode; 1]>::try_from(results).map_err(|results| {
+                        error::status(
+                            ua::StatusCode::BadUnexpectedError,
+                            format!(
+                                "attribute write returned {} results; expected one",
+                                results.len()
+                            ),
+                        )
+                    })?;
+
+                    if !status.is_good() {
+                        return Err(error::status(status, "writing the node attribute"));
+                    }
+                    Ok(())
+                })
+                .await
+        })
     }
 
     async fn collect_children(&self, remote: &mut Vec<ua::ExpandedNodeId>) -> PyResult<Vec<Node>> {
@@ -350,6 +399,56 @@ impl Node {
     fn get_attribute(&self, py: Python<'_>, attr: &Bound<'_, PyAny>) -> PyResult<PyAttributeValue> {
         let attribute = attribute_id(attr)?;
         self.read_attribute(py, attribute)
+    }
+
+    /// Write the Value or DisplayName attribute.
+    ///
+    /// Args:
+    ///     attr (AttributeId | str | int): Attribute ID or attribute name.
+    ///     value (object): Payload to write. DisplayName expects LocalizedText.
+    ///     dtype (DataType | None): Wire type to use instead of the default for the Python value.
+    ///
+    /// Ctrl-C can interrupt the wait after submission. The write may still take effect.
+    #[pyo3(signature = (attr, value, *, dtype=None))]
+    fn set_attribute(
+        &self,
+        py: Python<'_>,
+        attr: &Bound<'_, PyAny>,
+        value: &Bound<'_, PyAny>,
+        dtype: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let attribute = attribute_id(attr)?;
+        let dtype = dtype.map(write::data_type).transpose()?;
+
+        match attribute {
+            ua::AttributeId::Value => self.write_value(py, value, dtype),
+
+            ua::AttributeId::DisplayName => {
+                if let Some(dtype) = dtype
+                    && dtype != ua::DataTypeId::LocalizedText
+                {
+                    return Err(PyValueError::new_err(
+                        "DisplayName requires DataType.LOCALIZED_TEXT",
+                    ));
+                }
+
+                self.set_display_name_py(py, value.extract()?)
+            }
+
+            _ => Err(PyValueError::new_err(
+                "only Value and DisplayName writes are supported",
+            )),
+        }
+    }
+
+    #[setter(value)]
+    fn set_value_py(&self, py: Python<'_>, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.write_value(py, value, None)
+    }
+
+    #[setter(display_name)]
+    fn set_display_name_py(&self, py: Python<'_>, value: LocalizedText) -> PyResult<()> {
+        self.write_attribute(py, ua::AttributeId::DisplayName, value.into())
     }
 
     fn __repr__(&self) -> String {
