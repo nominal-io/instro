@@ -189,6 +189,43 @@ class ScopeDriverBase(abc.ABC):
     def get_acquisition_state(self) -> AcquisitionState:
         """Read back the acquisition run state (RUNNING / STOPPED)."""
 
+    def wait_for_acquisition(self, timeout: float) -> None:
+        """Poll until acquisition stops or ``timeout`` seconds elapse.
+
+        Default polls ``get_acquisition_state()`` every 50 ms. Drivers whose
+        status query uses a transport with its own I/O timeout should override
+        ``_get_acquisition_state_within()`` (or this method) so each query is
+        bounded by the remaining ``timeout``.
+
+        Args:
+            timeout: Maximum seconds to wait for the acquisition to stop.
+
+        Raises:
+            TimeoutError: Acquisition did not stop within ``timeout``.
+        """
+        deadline = time.monotonic() + timeout
+        while True:
+            remaining = max(0.0, deadline - time.monotonic())
+            try:
+                if self._get_acquisition_state_within(remaining) == AcquisitionState.STOPPED:
+                    return
+            except TimeoutError as exc:
+                raise TimeoutError(
+                    f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
+                ) from exc
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            time.sleep(min(0.05, remaining))
+
+        raise TimeoutError(
+            f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
+        )
+
+    def _get_acquisition_state_within(self, timeout: float) -> AcquisitionState:
+        """Read acquisition state bounded to ``timeout`` seconds (override to bound transport I/O)."""
+        return self.get_acquisition_state()
+
     # --- Waveform data ---
 
     @abc.abstractmethod
@@ -773,7 +810,7 @@ class InstroScope(Instrument):
         return self._package_measurement("acquisition_state", val.value, timestamp, **kwargs)
 
     def _wait_for_acquisition(self, timeout: float) -> None:
-        """If armed, block via the driver's ``digitize()`` until the acquisition completes or ``TimeoutError``.
+        """If armed, wait via the driver until STOPPED or ``TimeoutError``.
 
         Acquisition is global — all enabled channels capture simultaneously.
         Must be called while holding ``_resource_lock``.
@@ -781,9 +818,7 @@ class InstroScope(Instrument):
         if not self._acquisition_armed:
             return
 
-        # digitize() arms, waits for trigger, and acquires — blocking.
-        # It raises TimeoutError if the trigger doesn't fire in time.
-        self._driver.digitize(timeout)
+        self._driver.wait_for_acquisition(timeout)
         self._last_acquisition_ts = time.time_ns()
         self._acquisition_armed = False
 

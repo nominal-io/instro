@@ -32,7 +32,7 @@ def visa_cls() -> Iterator[MagicMock]:
 def visa(visa_cls: MagicMock) -> MagicMock:
     inst = visa_cls.return_value
     inst.query.return_value = '+0,"No error"'
-    inst.temporary_timeout.return_value = _temp_timeout_cm()
+    inst.temporary_timeout.side_effect = lambda *_args, **_kwargs: _temp_timeout_cm()
     return inst
 
 
@@ -173,6 +173,41 @@ def test_digitize_propagates_non_timeout_errors_after_clear(scope: Keysight3000T
     with pytest.raises(pyvisa.errors.VisaIOError):
         scope.digitize(timeout=0.1)
     visa.clear.assert_called_once()
+
+
+def test_wait_for_acquisition_bounds_poll_with_temporary_timeout(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.side_effect = ["8", "0"]
+
+    scope.wait_for_acquisition(timeout=0.5)
+
+    assert visa.temporary_timeout.call_count == 2
+    for call in visa.temporary_timeout.call_args_list:
+        (timeout_ms,) = call.args
+        assert 1 <= timeout_ms <= 500
+
+
+@pytest.mark.parametrize(
+    "exc", [TimeoutError("VI_ERROR_TMO"), pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)]
+)
+def test_wait_for_acquisition_raises_timeout_and_clears_on_visa_timeout(
+    scope: Keysight3000TX, visa: MagicMock, exc: Exception
+) -> None:
+    visa.query.side_effect = exc
+
+    with pytest.raises(TimeoutError, match="Acquisition did not complete within 0.1s"):
+        scope.wait_for_acquisition(timeout=0.1)
+
+    visa.temporary_timeout.assert_called_once()
+    (timeout_ms,) = visa.temporary_timeout.call_args.args
+    assert 1 <= timeout_ms <= 100
+    visa.clear.assert_called_once()
+
+
+def test_wait_for_acquisition_propagates_non_timeout_errors(scope: Keysight3000TX, visa: MagicMock) -> None:
+    visa.query.side_effect = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_connection_lost)
+    with pytest.raises(pyvisa.errors.VisaIOError):
+        scope.wait_for_acquisition(timeout=0.1)
+    visa.clear.assert_not_called()
 
 
 def test_fetch_waveform_sets_unsigned_word_and_scales_points(scope: Keysight3000TX, visa: MagicMock) -> None:

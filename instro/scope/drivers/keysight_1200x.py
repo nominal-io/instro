@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from instro.lib.transports.visa import VisaConfig, VisaDriver
+from instro.lib.transports.visa import VisaConfig, VisaDriver, is_visa_timeout
 from instro.scope import ScopeDriverBase
 from instro.scope.types import (
     AcquisitionMode,
@@ -195,6 +195,19 @@ class Keysight1200X(ScopeDriverBase):
         if resp & 0x08:
             return AcquisitionState.RUNNING
         return AcquisitionState.STOPPED
+
+    def _get_acquisition_state_within(self, timeout: float) -> AcquisitionState:
+        timeout_ms = max(1, math.ceil(timeout * 1000))
+        try:
+            with self._visa.temporary_timeout(timeout_ms):
+                return self.get_acquisition_state()
+        except Exception as exc:
+            if is_visa_timeout(exc):
+                self._visa.clear()
+                raise TimeoutError(
+                    f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
+                ) from exc
+            raise
 
     # --- Waveform data ---
 

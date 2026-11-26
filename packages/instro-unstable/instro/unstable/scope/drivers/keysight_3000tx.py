@@ -229,6 +229,19 @@ class Keysight3000TX(ScopeDriverBase):
             return AcquisitionState.RUNNING
         return AcquisitionState.STOPPED
 
+    def _get_acquisition_state_within(self, timeout: float) -> AcquisitionState:
+        timeout_ms = max(1, math.ceil(timeout * 1000))
+        try:
+            with self._visa.temporary_timeout(timeout_ms):
+                return self.get_acquisition_state()
+        except Exception as exc:
+            if _is_visa_timeout(exc):
+                self._visa.clear()
+                raise TimeoutError(
+                    f"Acquisition did not complete within {timeout}s. The trigger condition may not have been met."
+                ) from exc
+            raise
+
     # --- Waveform data ---
 
     def fetch_waveform(self, channel: int) -> WaveformData:
