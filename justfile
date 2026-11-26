@@ -46,6 +46,11 @@ test-rust:
     cargo nextest run --workspace --all-features --all-targets
     cargo test --workspace --all-features --doc
 
+# run OPC UA native tests and Python tests against the current extension
+test-opcua:
+    cargo nextest run --locked -p instro-opcua-py -p instro-opcua-test --all-targets
+    uv run --reinstall-package instro-opcua pytest tests/opcua
+
 # run all python and Rust tests plus EtherNet/IP packaging checks
 test: test-rust test-python eip-test
 

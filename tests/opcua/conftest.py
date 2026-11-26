@@ -4,11 +4,15 @@ from threading import Thread
 from typing import TypedDict
 
 import pytest
+from asyncua import ua
+from asyncua.server.address_space import AttributeValue, NodeData
 from asyncua.server.server import Server
-from pytest import FixtureRequest, TempPathFactory
+from asyncua.ua.attribute_ids import AttributeIds
+from pytest import FixtureRequest, MonkeyPatch, TempPathFactory
 from typing_extensions import Any, Coroutine, Generator, Protocol, TypeVar
 
-from instro.unstable.opcua import OpcUaClient
+from instro.unstable.opcua import IdentityToken, Node, OpcUaClient
+from instro.unstable.opcua.types import MessageSecurityMode, SecurityPolicy
 
 from .server import CERT_DIR, start_server
 
@@ -91,3 +95,33 @@ def connection_options(tmp_path: Path, request: FixtureRequest) -> DefaultConnec
 def client(endpoint: str, tmp_path_factory: TempPathFactory) -> Generator[OpcUaClient, None, None]:
     with OpcUaClient.connect(endpoint, pki_dir=tmp_path_factory.mktemp("opcua"), session_retry_limit=0) as connected:
         yield connected
+
+
+@pytest.fixture(scope="session")
+def test_nodes(server_node: NodeData, client_node: Node) -> tuple[NodeData, Node]:
+    return server_node, client_node
+
+
+@pytest.fixture
+def client_node(client: OpcUaClient) -> Node:
+    return client.get_node("/Objects/2:Rig/2:Temperature")
+
+
+class ServerNode(Protocol):
+    """MonkeyPath-ing adapter for setting test-case-scoped attribute values on the test server node."""
+
+    def set_attr(self, attribute_id: AttributeIds, value: ua.DataValue) -> None: ...
+
+
+@pytest.fixture
+def server_node(server: Server, monkeypatch: MonkeyPatch) -> ServerNode:
+    class _ServerNode(ServerNode):
+        def __init__(self, server_node: NodeData):
+            self.server_node = server_node
+
+        def set_attr(self, attribute_id: AttributeIds, value: ua.DataValue) -> None:
+            monkeypatch.setitem(self.server_node.attributes, attribute_id, AttributeValue(value))
+
+    node_id = ua.NodeId(ua.String("Temperature"), ua.Int16(2))
+
+    return _ServerNode(server.iserver.aspace[node_id])
