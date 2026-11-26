@@ -269,6 +269,13 @@ class VisaDriver(TransportBase):
         return self._inst
 
 
+def is_visa_timeout(exc: BaseException) -> bool:
+    """True for a VISA read timeout (``VI_ERROR_TMO``) or a plain ``TimeoutError``."""
+    if isinstance(exc, pyvisa.errors.VisaIOError):
+        return exc.error_code == pyvisa.constants.StatusCode.error_timeout
+    return isinstance(exc, TimeoutError)
+
+
 def _open_resource_manager(backend: str | None) -> tuple[pyvisa.ResourceManager, str, bool]:
     """Open a ResourceManager, returning (rm, active_backend, used_py_fallback). Unset backend uses ``@ivi`` and falls back to ``@py``; an explicit backend is used as-is."""
     # gpib_ctypes warns at @py construction when the GPIB C library is missing;

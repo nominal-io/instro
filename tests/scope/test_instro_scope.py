@@ -9,6 +9,8 @@ from collections.abc import Iterator
 from unittest.mock import MagicMock, patch
 
 import pytest
+import pyvisa.constants
+import pyvisa.errors
 
 from instro.lib.transports.visa import SerialConfig, VisaConfig
 from instro.lib.types import BackgroundDaemonConfig, Measurement
@@ -958,3 +960,84 @@ def test_single_shot_times_out_when_acquisition_never_stops(stub_driver: _StubSc
         scope.fetch_waveform(channel=1, timeout=0.02)
 
     assert not any(call[0] == "digitize" for call in stub_driver.calls)
+
+
+def test_keysight_wait_for_acquisition_bounds_poll_with_temporary_timeout(
+    keysight: Keysight1200X, keysight_visa: MagicMock
+) -> None:
+    keysight_visa.query.side_effect = ["8", "0"]
+
+    keysight.wait_for_acquisition(timeout=0.5)
+
+    assert keysight_visa.temporary_timeout.call_count == 2
+    for call in keysight_visa.temporary_timeout.call_args_list:
+        (timeout_ms,) = call.args
+        assert 1 <= timeout_ms <= 500
+
+
+@pytest.mark.parametrize(
+    "exc", [TimeoutError("VI_ERROR_TMO"), pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)]
+)
+def test_keysight_single_shot_fetch_bounds_visa_timeout_and_clears_on_timeout(
+    keysight: Keysight1200X, keysight_visa: MagicMock, exc: Exception
+) -> None:
+    scope = InstroScope(name="ut", driver=keysight, num_channels=2)
+    scope.single()
+    keysight_visa.query.side_effect = exc
+
+    with pytest.raises(TimeoutError, match="Acquisition did not complete within 0.1s"):
+        scope.fetch_waveform(channel=1, timeout=0.1)
+
+    keysight_visa.temporary_timeout.assert_called_once()
+    (timeout_ms,) = keysight_visa.temporary_timeout.call_args.args
+    assert 1 <= timeout_ms <= 100
+    keysight_visa.clear.assert_called_once()
+
+
+def test_keysight_wait_for_acquisition_propagates_non_timeout_error(
+    keysight: Keysight1200X, keysight_visa: MagicMock
+) -> None:
+    keysight_visa.query.side_effect = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_connection_lost)
+    with pytest.raises(pyvisa.errors.VisaIOError):
+        keysight.wait_for_acquisition(timeout=0.1)
+    keysight_visa.clear.assert_not_called()
+
+
+def test_tektronix_wait_for_acquisition_bounds_poll_and_clears_on_timeout(
+    tektronix: Tektronix2SeriesMSO, tektronix_visa: MagicMock
+) -> None:
+    tektronix_visa.query.side_effect = ["1", "0"]
+    tektronix.wait_for_acquisition(timeout=0.5)
+    assert tektronix_visa.temporary_timeout.call_count == 2
+    for call in tektronix_visa.temporary_timeout.call_args_list:
+        (timeout_ms,) = call.args
+        assert 1 <= timeout_ms <= 500
+
+    tektronix_visa.reset_mock()
+    tektronix_visa.query.side_effect = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)
+    with pytest.raises(TimeoutError, match="Acquisition did not complete within 0.1s"):
+        tektronix.wait_for_acquisition(timeout=0.1)
+    tektronix_visa.temporary_timeout.assert_called_once()
+    (timeout_ms,) = tektronix_visa.temporary_timeout.call_args.args
+    assert 1 <= timeout_ms <= 100
+    tektronix_visa.clear.assert_called_once()
+
+
+def test_siglent_wait_for_acquisition_bounds_poll_and_clears_on_timeout(
+    siglent: SiglentSDS1000XE, siglent_visa: MagicMock
+) -> None:
+    siglent_visa.query.side_effect = ["ARM", "STOP"]
+    siglent.wait_for_acquisition(timeout=0.5)
+    assert siglent_visa.temporary_timeout.call_count == 2
+    for call in siglent_visa.temporary_timeout.call_args_list:
+        (timeout_ms,) = call.args
+        assert 1 <= timeout_ms <= 500
+
+    siglent_visa.reset_mock()
+    siglent_visa.query.side_effect = pyvisa.errors.VisaIOError(pyvisa.constants.StatusCode.error_timeout)
+    with pytest.raises(TimeoutError, match="Acquisition did not complete within 0.1s"):
+        siglent.wait_for_acquisition(timeout=0.1)
+    siglent_visa.temporary_timeout.assert_called_once()
+    (timeout_ms,) = siglent_visa.temporary_timeout.call_args.args
+    assert 1 <= timeout_ms <= 100
+    siglent_visa.clear.assert_called_once()
