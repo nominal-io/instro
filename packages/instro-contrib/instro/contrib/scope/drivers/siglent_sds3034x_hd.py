@@ -158,6 +158,9 @@ class SiglentSDS3034XHD(ScopeDriverBase):
                 self.check_errors()
                 self._pending_averages = None
             else:
+                # This firmware requires an explicit bit count on entry. Keep a front-panel choice on reentry.
+                if mode is AcquisitionMode.HIGH_RESOLUTION and self.get_acquisition_mode() is mode:
+                    return
                 command = {
                     AcquisitionMode.NORMAL: "NORM",
                     AcquisitionMode.PEAK_DETECT: "PEAK",
@@ -282,6 +285,12 @@ class SiglentSDS3034XHD(ScopeDriverBase):
             gain, offset, codes_per_div = struct.unpack_from("<fff", desc, 156)
             interval, delay = struct.unpack_from("<fd", desc, 176)
             probe = struct.unpack_from("<f", desc, 328)[0]
+            if (
+                not all(math.isfinite(value) for value in (gain, offset, codes_per_div, interval, delay, probe))
+                or gain == 0
+                or min(codes_per_div, interval, probe) <= 0
+            ):
+                raise ValueError("Invalid Siglent WAVEDESC voltage or time scaling")
             step_volts = gain * probe / codes_per_div
             offset_volts = offset * probe
             timebase_index = struct.unpack_from("<h", desc, 324)[0]
@@ -330,6 +339,13 @@ class SiglentSDS3034XHD(ScopeDriverBase):
 
     def set_trigger_type(self, trigger_type: TriggerType) -> None:
         with self._visa.lock():
+            if self._trigger_source is not None:
+                # Each trigger type has its own source. A front-panel edit supersedes our last selection.
+                group = self._visa.query(":TRIG:TYPE?").strip().upper()
+                if group not in ("EDGE", "PULSE") or (
+                    self._visa.query(f":TRIG:{group}:SOUR?").strip().upper() != f"C{self._trigger_source}"
+                ):
+                    self._trigger_source = None
             self._visa.write(f":TRIG:TYPE {trigger_type.value}")
             if self._trigger_source is not None:
                 self._visa.write(f":TRIG:{trigger_type.value}:SOUR C{self._trigger_source}")

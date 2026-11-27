@@ -68,18 +68,20 @@ This is the complete set of `instro-contrib` drivers as of the current release.
 
 ### Siglent SDS3034X HD oscilloscope
 
-Use the four-channel `SiglentSDS3034XHD` driver with a VXI-11 Ethernet resource.
-The driver was tested on firmware `4.8.9.1.0.3.9`.
-With the compensation signal on channel 3, enable that input and set an edge trigger on it.
-Replace `scope.local` with your scope's hostname or IP address.
+**Class**: `SiglentSDS3034XHD`\
+**Import**: `from instro.contrib.drivers import SiglentSDS3034XHD`\
+**Tested against**: SDS3034X HD, firmware `4.8.9.1.0.3.9`\
+**Protocol**: SCPI over VXI-11 (Ethernet)
+
+To capture the compensation signal, connect it to channel 3 and enable that input.
+Replace `scope.local` with the scope's hostname or IP address.
 
 ```python
 from instro import InstroScope, TriggerSlope, TriggerType
 from instro.contrib.drivers import SiglentSDS3034XHD
 
-scope = InstroScope("bench", driver=SiglentSDS3034XHD("TCPIP0::scope.local::inst0::INSTR"), num_channels=4)
-scope.open()
-try:
+driver = SiglentSDS3034XHD("TCPIP0::scope.local::inst0::INSTR")
+with InstroScope("bench", driver=driver, num_channels=4) as scope:
     scope.set_trigger_type(TriggerType.EDGE)
     scope.set_trigger_source(3)
     scope.set_trigger_slope(TriggerSlope.RISING)
@@ -87,8 +89,6 @@ try:
     scope.single()
     trace = scope.fetch_waveform(channel=3, timeout=5)
     print(len(trace.values), max(trace.values) - min(trace.values))
-finally:
-    scope.close()
 ```
 
 Waveform reads use the scope's signed WORD transfer, the probe factor from the captured record,

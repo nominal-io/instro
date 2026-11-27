@@ -127,7 +127,8 @@ def test_controls(bench, tmp_path):
     assert scope.get_vertical_scale(channel=CHANNEL).latest == 1
 
 
-def test_compensation_waveform(bench):
+@pytest.mark.parametrize("delay", [0, 300e-6])
+def test_compensation_waveform(bench, delay):
     scope, wire = bench
     wire.write(f":CHAN{CHANNEL}:SWIT ON")
     idle = os.environ.get("INSTRO_SDS3034X_IDLE_CHANNEL")
@@ -136,13 +137,14 @@ def test_compensation_waveform(bench):
         wire.write(f":CHAN{int(idle)}:SWIT ON")
         scope.set_vertical_scale(1, channel=int(idle))
         scope.set_vertical_offset(0, channel=int(idle))
-    wire.write(":TIM:DEL 0")
     scope.set_acquisition_mode(AcquisitionMode.NORMAL)
     scope.set_coupling(Coupling.DC, channel=CHANNEL)
     scope.set_probe_attenuation(10, channel=CHANNEL)
     scope.set_vertical_scale(0.5, channel=CHANNEL)
     scope.set_vertical_offset(-1.5, channel=CHANNEL)
     scope.set_horizontal_scale(500e-6)
+    wire.write(f":TIM:DEL {delay:g}")
+    assert float(wire.query(":TIM:DEL?")) == pytest.approx(delay)
     scope.set_trigger_type(TriggerType.EDGE)
     scope.set_trigger_source(CHANNEL)
     scope.set_trigger_level(1.5)
@@ -164,6 +166,8 @@ def test_compensation_waveform(bench):
     assert amplitude == pytest.approx(readbacks[ScopeMeasurementType.VPP], abs=0.10)
     crossings = [times[i] for i in range(1, n) if samples[i - 1] < 1.5 <= samples[i]]
     assert len(crossings) >= 3
+    trigger_ns = int(trace.tags["t_acquisition"])
+    assert min(abs(t - trigger_ns) for t in crossings) <= max(2, 2e9 / sample_rate)
     freq = (len(crossings) - 1) * 1e9 / (crossings[-1] - crossings[0])
     duty = 100 * sum(v >= 1.5 for v in samples) / n
     assert freq == pytest.approx(1000, rel=0.02)
