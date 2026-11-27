@@ -66,6 +66,41 @@ This is the complete set of `instro-contrib` drivers as of the current release.
 **Tested against**: WPS300S-150-5 (0–150 V, 0–5 A, 300 W)  
 **Protocol**: SCPI over RS-232, 9600 baud 8-N-1
 
+### Siglent SDS3034X HD oscilloscope
+
+Use the four-channel `SiglentSDS3034XHD` driver with a VXI-11 Ethernet resource.
+The driver was tested on firmware `4.8.9.1.0.3.9`.
+With the compensation signal on channel 3, enable that input and set an edge trigger on it.
+Replace `scope.local` with your scope's hostname or IP address.
+
+```python
+from instro import InstroScope, TriggerSlope, TriggerType
+from instro.contrib.drivers import SiglentSDS3034XHD
+
+scope = InstroScope("bench", driver=SiglentSDS3034XHD("TCPIP0::scope.local::inst0::INSTR"), num_channels=4)
+scope.open()
+try:
+    scope.set_trigger_type(TriggerType.EDGE)
+    scope.set_trigger_source(3)
+    scope.set_trigger_slope(TriggerSlope.RISING)
+    scope.set_trigger_level(1.5)
+    scope.single()
+    trace = scope.fetch_waveform(channel=3, timeout=5)
+    print(len(trace.values), max(trace.values) - min(trace.values))
+finally:
+    scope.close()
+```
+
+Waveform reads use the scope's signed WORD transfer, the probe factor from the captured record,
+and timestamps rounded to integer nanoseconds. Fetch a single acquisition as above, or call
+`stop_acquisition()` before reading the current record. Segmented acquisitions are unsupported.
+The driver also supports built-in measurements, trigger and acquisition controls, PNG screenshots,
+and setup save and recall.
+Use AC or DC coupling on each channel when calling `sync_configuration()`, since the
+shared scope API only represents those two coupling modes.
+When this firmware recalls a setup with disabled inputs, it can reassign auxiliary sources
+and recalculate decoder thresholds. Check these settings if your workflow uses them.
+
 Drivers should be added to this list as part of the merge which brings them into the main branch. For pre-release drivers browse [`packages/instro-contrib/instro/contrib/`](https://github.com/nominal-io/instro/tree/main/packages/instro-contrib/instro/contrib) or [this file](https://github.com/nominal-io/instro/blob/main/docs/guides/library/contrib.mdx) in the source GitHub repository.
 
 ## Graduation to core
